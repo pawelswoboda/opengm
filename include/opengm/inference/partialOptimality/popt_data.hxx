@@ -9,6 +9,7 @@
 #include <opengm/opengm.hxx>
 #include <opengm/utilities/metaprogramming.hxx>
 #include <opengm/utilities/tribool.hxx>
+#include <opengm/functions/reduced_view.hxx>
 
 
 namespace opengm {
@@ -25,6 +26,9 @@ namespace opengm {
       typedef GM GraphicalModelType;
       typedef GM GmType;
       OPENGM_GM_TYPE_TYPEDEFS;
+
+      typedef ReducedViewFunction<GraphicalModelType>              ReducedView;
+      typedef GraphicalModel<ValueType, OperatorType, ReducedView> ViewGmType;
   
       POpt_Data(const GmType&);
       // Set
@@ -42,6 +46,7 @@ namespace opengm {
       void                                   get(std::vector<LabelType>&) const; 
 
       const GmType&                          graphicalModel() const {return gm_;}
+      const ViewGmType&                      reducedGraphicalModel(); // Anne: Bitte implementiere diese Funktion und die zugehoerige Funktion ReducedViewFunction
 
    private: 
       const GmType& gm_;
