@@ -22,11 +22,11 @@ namespace opengm {
    public:
       typedef ACC AccumulationType;
       typedef typename DATA::GmType GmType;
-      typedef GM GraphicalModelType;
+      typedef typename DATA::GmType GraphicalModelType;
       OPENGM_GM_TYPE_TYPEDEFS;
       typedef ValueType GraphValueType; 
 
-      POpt_Data(DATA&);
+      POpt_Kovtun(DATA&);
       ~POpt_Kovtun();
 
       void pOptPotts(const LabelType);
@@ -55,13 +55,13 @@ namespace opengm {
       qpbo_ = new kolmogorov::qpbo::QPBO<GraphValueType > (gm_.numberOfVariables(), numEdges);
    }
 
-   template<class DATAS, class ACC>
+   template<class DATA, class ACC>
    POpt_Kovtun<DATA,ACC>::~POpt_Kovtun(){
       delete qpbo_;
    }
 
-   template<class DATAS, class ACC>
-   void POpt_Kovtun<DATA,ACC>::pOptPotts(const LabelType)
+   template<class DATA, class ACC>
+   void POpt_Kovtun<DATA,ACC>::pOptPotts(const LabelType guess)
    {
       qpbo_->Reset();
       qpbo_->AddNode(gm_.numberOfVariables());
@@ -99,15 +99,15 @@ namespace opengm {
       qpbo_->Solve();
       for(IndexType var=0; var<gm_.numberOfVariables();++var){
          if(qpbo_->GetLabel(var)==0){
-            data_.setTrue(var,guess)
+            data_.setTrue(var,guess);
          }
       }
    }
 
-   template<class DATAS, class ACC>
+   template<class DATA, class ACC>
    void POpt_Kovtun<DATA,ACC>::pOptPotts()
    {
-      for(LabelType l=0 ; l<gm_[f].numberOfLabels(0); ++l){
+      for(LabelType l=0 ; l<gm_[0].numberOfLabels(0); ++l){
          pOptPotts(l);
       }
    }

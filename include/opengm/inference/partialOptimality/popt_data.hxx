@@ -22,6 +22,7 @@ namespace opengm {
    class POpt_Data
    {
    public:
+      typedef GM GraphicalModelType;
       typedef GM GmType;
       OPENGM_GM_TYPE_TYPEDEFS;
   
@@ -29,9 +30,10 @@ namespace opengm {
       // Set
       void                                   setTrue(const IndexType, const LabelType);
       void                                   setFalse(const IndexType, const LabelType);
+      void                                   setFalse(const IndexType factor, const std::vector<LabelType>& labeling);
       // Get Partial Optimality
       Tribool                                getPOpt(const IndexType, const LabelType) const;
-      const std::vector<opengm::Tribool>&    getPOpt(const IndexType) const;
+      std::vector<opengm::Tribool>           getPOpt(const IndexType) const;
       // Get Optimal Certificates
       bool                                   getOpt(const IndexType) const;
       const std::vector<bool>&               getOpt() const;
@@ -46,7 +48,11 @@ namespace opengm {
       std::vector<std::vector<opengm::Tribool> >   partialOptimality_;
       std::vector<bool>                            optimal_;
       std::vector<LabelType>                       labeling_;
-      std::vector<IndexCount>                      countFalse_;
+      std::vector<IndexType>                       countFalse_;
+      std::vector<std::vector<std::vector<LabelType> > >  excludedLabelings_; // for each factor the excluded labelings are pushed
+      std::vector<std::vector<std::vector<LabelType> > > excludedCount_; 
+                                                   // count for number of excluded labelings in which (variable,label) partakes
+                                                   // used for elimination of variables
    }; 
 //! [class popt_data]
 
@@ -61,10 +67,18 @@ namespace opengm {
       partialOptimality_(std::vector<std::vector<opengm::Tribool> >(gm.numberOfVariables()) ),
       optimal_(std::vector<bool>(gm.numberOfVariables(),false)),
       labeling_(std::vector<LabelType>(gm.numberOfVariables(),0)),
-      countFalse_(std::vector<IndexType>(gm.numberOfVariables(),0))  
+      countFalse_(std::vector<IndexType>(gm.numberOfVariables(),0)),
+      excludedLabelings_(gm.numberOfFactors()),
+      excludedCount_(gm.numberOfFactors())
    {
       for(IndexType var=0; var<gm_.numberOfVariables(); ++var){
         partialOptimality_[var].resize(gm_.numberOfLabels(var),opengm::Tribool::Maybe); 
+      }
+      for(size_t f=0; f<gm_.numberOfFactors(); f++) {
+         excludedCount_[f].resize(gm_[f].numberOfVariables());
+         for(size_t var=0; var<gm_[f].numberOfVariables(); var++) {
+            excludedCount_[f][var].resize( gm_.numberOfVariables( gm_.variableOfFactor(f,var) ), 0);
+         }
       }
    }
 
@@ -99,7 +113,7 @@ namespace opengm {
       OPENGM_ASSERT( label < gm_.numberOfLabels(var) );
 
       if( optimal_[var] ){
-         OPENGM_ASSERT(label_[var] == label);
+         OPENGM_ASSERT(labeling_[var] != label);
       }else{
          OPENGM_ASSERT(partialOptimality_[var][label] != true);
          partialOptimality_[var][label] = false;
@@ -116,41 +130,71 @@ namespace opengm {
       }
    }
 
+   template<class GM>
+   void POpt_Data<GM>::setFalse(IndexType f, const std::vector<LabelType>& labeling)
+   { 
+      OPENGM_ASSERT( f < gm_.numberOfFactors() );
+      OPENGM_ASSERT( labeling.size() == gm_[f].numberOfVariables() );
+      bool labelingTrue = true;
+      for(size_t var=0; var<gm_[f].numberOfVariables(); var++) {
+         OPENGM_ASSERT( labeling[var] < gm_.numberOfVariables( gm_.variableOfFactor(f,var) ) );
+         OPENGM_ASSERT( getPOpt(gm_.variableOfFactor(f,var), labeling[var]) != Tribool::False );
+         getPOpt( gm_.variableOfFactor(f,var), labeling[var] ) == Tribool::True ? labelingTrue= true : labelingTrue = false;
+      }
+      OPENGM_ASSERT( labelingTrue == false);
+      for(size_t e=0; e<excludedLabelings_[f].size(); e++) {
+         OPENGM_ASSERT( std::equal(labeling.begin(), labeling.end(), excludedLabelings_[f][e].begin()) );
+      }
+
+      excludedLabelings_[f].push(labeling);
+
+      // check for implications: e.g. if all labels (i,1), ... (i,n) are excluded, exclude label i for the first variables as well.
+      for(size_t var=0; var<gm_[f].numberOfVariables(); var++) {
+         excludedCount_[f][var][ labeling[var] ]++;
+      }
+      for(size_t var=0; var<gm_[f].numberOfVariables(); var++) {
+         if(excludedCount_[f][var][ labeling[var] ] == gm_[f].size()/gm_.numberOfLabels(gm_.variableOfFactor(f,var)) ) {
+            // label can be excluded
+            setFalse(gm_.variableOfFactor(f,var), labeling[var]);
+         }
+      }
+   }
+
    // Get Partial Optimality 
    template<class GM>
    Tribool POpt_Data<GM>::getPOpt(const IndexType var, const LabelType label) const{ 
       OPENGM_ASSERT( var   < gm_.numberOfVariables() );
       OPENGM_ASSERT( label < gm_.numberOfLabels(var) );
-      return partialOptimality_[var][label]
+      return partialOptimality_[var][label];
    }
 
    template<class GM>
-   const std::vector<opengm::Tribool>& POpt_Data<GM>::getPOpt::getPOpt(const IndexType var) const{
+   std::vector<opengm::Tribool> POpt_Data<GM>::getPOpt(const IndexType var) const{
       OPENGM_ASSERT( var<gm_.numberOfVariables() );
       return partialOptimality_[var];
    }
 
    // Get Optimality
    template<class GM>
-   bool POpt_Data<GM>::getPOpt::getOpt(const IndexType var) const{
+   bool POpt_Data<GM>::getOpt(const IndexType var) const{
       OPENGM_ASSERT( var<gm_.numberOfVariables() );
       return optimal_[var];
    }
 
    template<class GM>
-   const std::vector<bool>& POpt_Data<GM>::getPOpt::getOpt() const{
+   const std::vector<bool>& POpt_Data<GM>::getOpt() const{
       return optimal_;
    }
 
    // Get Optimal Labels  
    template<class GM>
-   LabelType POpt_Data<GM>::getPOpt::get(const IndexType var) const{
+   typename GM::LabelType POpt_Data<GM>::get(const IndexType var) const{
       OPENGM_ASSERT( var<gm_.numberOfVariables() );
       return labeling_[var];
    }
 
    template<class GM>   
-   void POpt_Data<GM>::getPOpt::get(std::vector<LabelType>& labeling) const{
+   void POpt_Data<GM>::get(std::vector<LabelType>& labeling) const{
       OPENGM_ASSERT(labeling.size() == gm_.numberOfVariables());
       for(IndexType var=0; var<gm_.numberOfVariables(); ++var){ 
          if( optimal_[var] )
