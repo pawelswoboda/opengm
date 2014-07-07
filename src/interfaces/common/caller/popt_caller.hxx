@@ -4,6 +4,7 @@
 
 #include <opengm/inference/partialOptimality/popt_data.hxx>
 #include <opengm/inference/partialOptimality/popt_kovtun.hxx>
+#include <opengm/inference/partialOptimality/popt_dee.hxx>
 
 #include "inference_caller_base.hxx"
 #include "../argument/argument.hxx"
@@ -17,15 +18,15 @@ namespace opengm {
       class POptCaller : public InferenceCallerBase<IO, GM, ACC, POptCaller<IO, GM, ACC> >
       {
          //enum POptMethod {Kovtun, DEE1, DEE2, DEE3, DEE4, MQPBO, IterativePruning, None}; // noch nicht alle implementiert
-	
-      protected: 
-         typedef InferenceCallerBase<IO, GM, ACC,  POptCaller<IO, GM, ACC> > BaseClass; 
+
+      protected:
+         typedef InferenceCallerBase<IO, GM, ACC,  POptCaller<IO, GM, ACC> > BaseClass;
          typedef typename BaseClass::OutputBase OutputBase;
 
          using BaseClass::addArgument;
          using BaseClass::io_;
          using BaseClass::infer;
-       
+
          virtual void runImpl(GM& model, OutputBase& output, const bool verbose);
 
       private:
@@ -42,9 +43,9 @@ namespace opengm {
       const std::string POptCaller<IO, GM, ACC>::name_ = "POPT";
 
       template <class IO, class GM, class ACC>
-      inline POptCaller<IO, GM, ACC>::POptCaller(IO& ioIn) 
+      inline POptCaller<IO, GM, ACC>::POptCaller(IO& ioIn)
          : BaseClass("POPT", "detailed description of POPT Parser...", ioIn)
-      { 
+      {
          POptMethods_.push_back("NONE");
          POptMethods_.push_back("Kovtun");
          POptMethods_.push_back("DEE1");
@@ -62,7 +63,7 @@ namespace opengm {
             std::stringstream ss;
             ss << i;
             argName.append(ss.str());
-            addArgument(StringArgument<>(POptSequence_[i], 
+            addArgument(StringArgument<>(POptSequence_[i],
                                       "", argName, "Algorithm used for partial optimality", POptMethods_[0], POptMethods_));
 
          }
@@ -74,8 +75,8 @@ namespace opengm {
       {
       }
 
-      template <class IO, class GM, class ACC> 
-      inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, const bool verbose) 
+      template <class IO, class GM, class ACC>
+      inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, const bool verbose)
       {
          std::cout << "running Partial Optimality caller" << std::endl;
          typedef typename GM::ValueType ValueType;
@@ -85,6 +86,20 @@ namespace opengm {
             } else if(POptSequence_[i].compare("Kovtun") == 0 ) {
                POpt_Kovtun<POpt_Data<GM>, opengm::Minimizer> p(D);
                p.pOptPotts();
+            } else if(POptSequence_[i].compare("DEE1") == 0 ) {
+               DEE<GM, opengm::Minimizer> d(D);
+               d.dee1();
+            }
+//            else if(POptSequence_[i].compare("DEE2") == 0 ) {
+//               DEE<GM, opengm::Minimizer> d(D);
+//               d.dee2();
+//            }
+            else if(POptSequence_[i].compare("DEE3") == 0 ) {
+               DEE<GM, opengm::Minimizer> d(D);
+               d.dee3();
+            } else if(POptSequence_[i].compare("DEE4") == 0 ) {
+               DEE<GM, opengm::Minimizer> d(D);
+               d.dee4();
             } else {
                throw; // no other methods implemented yet
             }

@@ -29,7 +29,7 @@ namespace opengm {
 
       typedef ReducedViewFunction<GraphicalModelType>                  ReducedViewType;
       typedef GraphicalModel<ValueType, OperatorType, ReducedViewType> ReducedGmType;
-  
+
       POpt_Data(const GmType&);
       // Set
       void                                   setTrue(const IndexType, const LabelType);
@@ -41,24 +41,46 @@ namespace opengm {
       // Get Optimal Certificates
       bool                                   getOpt(const IndexType) const;
       const std::vector<bool>&               getOpt() const;
-       // Get Optimal Labels 
+       // Get Optimal Labels
       LabelType                              get(const IndexType) const;
-      void                                   get(std::vector<LabelType>&) const; 
+      void                                   get(std::vector<LabelType>&) const;
 
       const GmType&                          graphicalModel() const {return gm_;}
-      const ReducedGmType&                   reducedGraphicalModel() {}; // Anne: Bitte implementiere diese Funktion und die zugehoerige Funktion ReducedViewFunction
+      const ReducedGmType&                   reducedGraphicalModel() {
 
-   private: 
+        ReducedGmType viewGM_(typename GM::SpaceType());
+
+        for (IndexType v = 0; v < gm_.numberOfVariables(); v++)
+        {
+            LabelType numLabels = 0;
+            for(IndexType i = 0; i < gm_.numberOfLabels(v); i++)
+            {
+                if(!(partialOptimality_[v][i] == opengm::Tribool::False))
+                    numLabels++;
+            }
+            viewGM_.addVariable(numLabels);
+        }
+
+        for (IndexType f = 0; f < gm_.numberOfFactors(); f++)
+        {
+                ReducedViewType g(gm_[f],partialOptimality_);
+                typename ReducedGmType::FunctionIdentifier id = viewGM_.addFunction(g);
+                viewGM_.addFactor(id, gm_[f].variableIndicesBegin(), gm_[f].variableIndicesEnd());
+        }
+        return viewGM_;
+      }
+
+   private:
       const GmType& gm_;
       std::vector<std::vector<opengm::Tribool> >   partialOptimality_;
       std::vector<bool>                            optimal_;
       std::vector<LabelType>                       labeling_;
       std::vector<IndexType>                       countFalse_;
       std::vector<std::vector<std::vector<LabelType> > >  excludedLabelings_; // for each factor the excluded labelings are pushed
-      std::vector<std::vector<std::vector<LabelType> > > excludedCount_; 
+      std::vector<std::vector<std::vector<LabelType> > > excludedCount_;
                                                    // count for number of excluded labelings in which (variable,label) partakes
                                                    // used for elimination of variables
-   }; 
+   };
 //! [class popt_data]
 
 //********************************************
@@ -68,7 +90,7 @@ namespace opengm {
    (
        const GmType& gm
    )
-   :  gm_(gm), 
+   :  gm_(gm),
       partialOptimality_(std::vector<std::vector<opengm::Tribool> >(gm.numberOfVariables()) ),
       optimal_(std::vector<bool>(gm.numberOfVariables(),false)),
       labeling_(std::vector<LabelType>(gm.numberOfVariables(),0)),
@@ -77,7 +99,7 @@ namespace opengm {
       excludedCount_(gm.numberOfFactors())
    {
       for(IndexType var=0; var<gm_.numberOfVariables(); ++var){
-        partialOptimality_[var].resize(gm_.numberOfLabels(var),opengm::Tribool::Maybe); 
+        partialOptimality_[var].resize(gm_.numberOfLabels(var),opengm::Tribool::Maybe);
       }
       for(size_t f=0; f<gm_.numberOfFactors(); f++) {
          excludedCount_[f].resize(gm_[f].numberOfVariables());
@@ -113,7 +135,7 @@ namespace opengm {
    }
 
    template<class GM>
-   void POpt_Data<GM>::setFalse(IndexType var, LabelType label){ 
+   void POpt_Data<GM>::setFalse(IndexType var, LabelType label){
       OPENGM_ASSERT( var   < gm_.numberOfVariables() );
       OPENGM_ASSERT( label < gm_.numberOfLabels(var) );
 
@@ -123,21 +145,21 @@ namespace opengm {
          OPENGM_ASSERT(partialOptimality_[var][label] != true);
          partialOptimality_[var][label] = false;
          if(++countFalse_[var] == partialOptimality_[var].size()-1){
-            for(size_t i=0; i<partialOptimality_[var].size(); ++i){ 
+            for(size_t i=0; i<partialOptimality_[var].size(); ++i){
                if( partialOptimality_[var][i] != false ){
-                  partialOptimality_[var][i] = true; 
+                  partialOptimality_[var][i] = true;
                   optimal_[var]              = true;
                   labeling_[var]             = i;
                   break;
                }
-            } 
+            }
          }
       }
    }
 
    template<class GM>
    void POpt_Data<GM>::setFalse(IndexType f, const std::vector<LabelType>& labeling)
-   { 
+   {
       OPENGM_ASSERT( f < gm_.numberOfFactors() );
       OPENGM_ASSERT( labeling.size() == gm_[f].numberOfVariables() );
       bool labelingTrue = true;
@@ -165,9 +187,9 @@ namespace opengm {
       }
    }
 
-   // Get Partial Optimality 
+   // Get Partial Optimality
    template<class GM>
-   Tribool POpt_Data<GM>::getPOpt(const IndexType var, const LabelType label) const{ 
+   Tribool POpt_Data<GM>::getPOpt(const IndexType var, const LabelType label) const{
       OPENGM_ASSERT( var   < gm_.numberOfVariables() );
       OPENGM_ASSERT( label < gm_.numberOfLabels(var) );
       return partialOptimality_[var][label];
@@ -191,20 +213,20 @@ namespace opengm {
       return optimal_;
    }
 
-   // Get Optimal Labels  
+   // Get Optimal Labels
    template<class GM>
    typename GM::LabelType POpt_Data<GM>::get(const IndexType var) const{
       OPENGM_ASSERT( var<gm_.numberOfVariables() );
       return labeling_[var];
    }
 
-   template<class GM>   
+   template<class GM>
    void POpt_Data<GM>::get(std::vector<LabelType>& labeling) const{
       OPENGM_ASSERT(labeling.size() == gm_.numberOfVariables());
-      for(IndexType var=0; var<gm_.numberOfVariables(); ++var){ 
+      for(IndexType var=0; var<gm_.numberOfVariables(); ++var){
          if( optimal_[var] )
             labeling[var] = labeling_[var];
-      } 
+      }
    }
 
 

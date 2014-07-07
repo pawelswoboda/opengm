@@ -11,7 +11,7 @@ namespace opengm {
 /// \ingroup functions
 template<class GM>
 class ReducedViewFunction
-: public FunctionBase<ReducedViewFunction<GM>, 
+: public FunctionBase<ReducedViewFunction<GM>,
     typename GM::ValueType,typename GM::IndexType, typename GM::LabelType>
 {
 public:
@@ -59,8 +59,22 @@ ReducedViewFunction<GM>::operator()
 (
    Iterator begin
 ) const {
-   throw; // Funktionalitaet implementieren
-   return factor_->operator()(begin);
+   LabelType label [begin.size()];
+
+   for (IndexType v = 0; v < factor_->numberOfVariables(); v++)
+   {
+       IndexType variable = factor_->variableIndex(v);
+       label[v] = 0;
+       for (size_t i = 0; i < begin[v]+1; i++)
+       {
+            while(partialOptimality_[variable][label[v]] == opengm::Tribool::False)
+                label[v]++;
+
+            label[v]++;
+       }
+       label[v]--;
+   }
+   return factor_->operator()(label);
 }
 
 template<class GM>
@@ -69,7 +83,13 @@ ReducedViewFunction<GM>::shape
 (
    const typename ReducedViewFunction<GM>::IndexType index
 ) const{
-   return factor_->numberOfLabels(index);
+    LabelType numLabels = 0;
+            for(IndexType i = 0; i < factor_->numberOfLabels(index); i++)
+            {
+                if(!(partialOptimality_[factor_->variableIndex(index)][i] == opengm::Tribool::False))
+                    numLabels++;
+            }
+   return numLabels;
 }
 
 template<class GM>
@@ -81,7 +101,12 @@ ReducedViewFunction<GM>::dimension() const {
 template<class GM>
 inline typename ReducedViewFunction<GM>::IndexType
 ReducedViewFunction<GM>::size() const {
-   return factor_->size( );
+    IndexType factorSize = 1;
+
+    for (IndexType i = 0; i < factor_->numberOfVariables(); i++ ){
+        factorSize *= this.shape(i);
+    }
+   return factorSize;
 }
 
 } // namespace opengm
