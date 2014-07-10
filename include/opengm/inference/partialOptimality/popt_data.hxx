@@ -48,7 +48,7 @@ namespace opengm {
       const GmType&                          graphicalModel() const {return gm_;}
       const ReducedGmType&                   reducedGraphicalModel() {
 
-        ReducedGmType viewGM_(typename GM::SpaceType());
+        DiscreteSpace<IndexType,LabelType> s;
 
         for (IndexType v = 0; v < gm_.numberOfVariables(); v++)
         {
@@ -58,8 +58,12 @@ namespace opengm {
                 if(!(partialOptimality_[v][i] == opengm::Tribool::False))
                     numLabels++;
             }
-            viewGM_.addVariable(numLabels);
+            // Hallo Anne: Kannst du bitte ein reduziertes Modell bauen ohne diejenigen Variablen, die nur 1 Label haben?
+            OPENGM_ASSERT(numLabels>1);
+            s.addVariable(numLabels);
         }
+
+        ReducedGmType viewGM_(s);
 
         for (IndexType f = 0; f < gm_.numberOfFactors(); f++)
         {

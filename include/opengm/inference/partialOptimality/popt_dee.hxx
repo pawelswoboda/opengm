@@ -11,6 +11,8 @@
 
 #include <vector>
 
+#include "popt_inference.hxx"
+
 /*
     DEE4, DEE3 and DEE1 can be found on the pages 27-29 of Alexander Shekhovtsov's PhD Thesis
     "Exact and Partial Energy Minimization in Computer Vision"
@@ -26,55 +28,73 @@ namespace opengm
 {
 
 // DEE
-template<class GM, class ACC>
-class DEE
+template<class DATA, class ACC>
+class DEE : public POpt_Inference<DATA, ACC>
 {
 public:
-    typedef GM GraphicalModelType;
+    typedef typename DATA::GraphicalModelType GraphicalModelType;
     OPENGM_GM_TYPE_TYPEDEFS;
-    typedef opengm::POpt_Data<GM> POpt_Data;
+    typedef ValueType GraphValueType; 
+    typedef opengm::POpt_Data<GraphicalModelType> POpt_Data;
+    enum MethodType {DEE1,DEE_Pairwise,DEE3,DEE4};
+
+    struct Parameter {
+       Parameter(MethodType m = DEE1) {
+          method_ = m;
+       }
+       MethodType method_;
+    };
 
     DEE(POpt_Data& gmD);
 
-    virtual std::string name() const
-    {
-        return "DEE";
-    }
+    std::string name() const { return "DEE"; };
+    const GraphicalModelType& graphicalModel() const { return gm_; };
 
-    const GraphicalModelType& graphicalModel() const
-    {
-        return gm_;
-    };
+    InferenceTermination infer();
 
-    void dee4();
-    void dee3();
-    void dee1();
-    void deePairwise();
+    InferenceTermination dee4();
+    InferenceTermination dee3();
+    InferenceTermination dee1();
+    InferenceTermination deePairwise();
 
 private:
     POpt_Data& gmD_;
-    const GM& gm_;
+    const GraphicalModelType& gm_;
+    Parameter param_;
 
     const static double eps_;
 };
 
-template<class GM,class ACC>
-const double DEE<GM,ACC>::eps_ = 1.0e-8;
+template<class DATA,class ACC>
+const double DEE<DATA,ACC>::eps_ = 1.0e-8;
 
-template<class GM,class ACC>
-DEE<GM,ACC>::DEE(POpt_Data& gmD) : gmD_(gmD), gm_(gmD.graphicalModel())
+template<class DATA,class ACC>
+DEE<DATA,ACC>::DEE(POpt_Data& gmD) : gmD_(gmD), gm_(gmD.graphicalModel())
 {
 }
 
+template<class DATA,class ACC>
+InferenceTermination
+DEE<DATA,ACC>::infer()
+{
+   switch( param_.method_ ) {
+      case DEE1: dee1(); break;
+      case DEE_Pairwise: deePairwise(); break;
+      case DEE3: dee3(); break;
+      case DEE4: dee4(); break;
+      default: throw;
+   }
+}
 
-template<class GM, class ACC>
-void
-DEE<GM,ACC>::dee4()
+
+template<class DATA, class ACC>
+InferenceTermination 
+DEE<DATA,ACC>::dee4()
 {
     if (!gm_.maxFactorOrder(2))
     {
         throw RuntimeError("This implementation of DEE4 supports only factors of order <= 2.");
-        return;
+        return INFERENCE_ERROR;
     }
 
     std::queue<IndexType> variables;
@@ -253,16 +273,17 @@ DEE<GM,ACC>::dee4()
             }
         }
     }
+    return CONVERGENCE;
 }
 
-template<class GM, class ACC>
-void
-DEE<GM,ACC>::dee3()
+template<class DATA, class ACC>
+InferenceTermination 
+DEE<DATA,ACC>::dee3()
 {
     if (!gm_.maxFactorOrder(2))
     {
         throw RuntimeError("This implementation of DEE3 supports only factors of order <= 2.");
-        return;
+        return INFERENCE_ERROR;
     }
 
     ///DEE3
@@ -390,17 +411,18 @@ DEE<GM,ACC>::dee3()
             }
         }
     }
+    return CONVERGENCE;
 }
 
-template<class GM, class ACC>
-void
-DEE<GM,ACC>::dee1()
+template<class DATA, class ACC>
+InferenceTermination 
+DEE<DATA,ACC>::dee1()
 {
 
     if (!gm_.maxFactorOrder(2))
     {
         throw RuntimeError("This implementation of DEE1 supports only factors of order <= 2.");
-        return;
+        return INFERENCE_ERROR;
     }
 
     //DEE1
@@ -567,13 +589,14 @@ DEE<GM,ACC>::dee1()
             }
         }
     }
+    return CONVERGENCE;
 }
 
-template<class GM, class ACC>
-void
-DEE<GM,ACC>::deePairwise()
+template<class DATA, class ACC>
+InferenceTermination 
+DEE<DATA,ACC>::deePairwise()
 {
-
+    return CONVERGENCE;
 }
 
 

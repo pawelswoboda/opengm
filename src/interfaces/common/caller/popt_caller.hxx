@@ -3,6 +3,7 @@
 #define POPT_CALLER_HXX_
 
 #include <opengm/inference/partialOptimality/popt_data.hxx>
+#include <opengm/inference/partialOptimality/popt_inference.hxx>
 #include <opengm/inference/partialOptimality/popt_kovtun.hxx>
 #include <opengm/inference/partialOptimality/popt_dee.hxx>
 
@@ -85,22 +86,23 @@ namespace opengm {
             if(POptSequence_[i].compare("NONE") == 0 ) {
             } else if(POptSequence_[i].compare("Kovtun") == 0 ) {
                POpt_Kovtun<POpt_Data<GM>, opengm::Minimizer> p(D);
-               p.pOptPotts();
+               p.infer();
             } else if(POptSequence_[i].compare("DEE1") == 0 ) {
-               DEE<GM, opengm::Minimizer> d(D);
+               DEE<POpt_Data<GM>, opengm::Minimizer> d(D);
                d.dee1();
             }
 //            else if(POptSequence_[i].compare("DEE2") == 0 ) {
-//               DEE<GM, opengm::Minimizer> d(D);
+//               DEE<POpt_Data<GM>, opengm::Minimizer> d(D);
 //               d.dee2();
 //            }
             else if(POptSequence_[i].compare("DEE3") == 0 ) {
-               DEE<GM, opengm::Minimizer> d(D);
+               DEE<POpt_Data<GM>, opengm::Minimizer> d(D);
                d.dee3();
             } else if(POptSequence_[i].compare("DEE4") == 0 ) {
-               DEE<GM, opengm::Minimizer> d(D);
+               DEE<POpt_Data<GM>, opengm::Minimizer> d(D);
                d.dee4();
             } else {
+               std::cout << "method not implemented yet" << std::endl;
                throw; // no other methods implemented yet
             }
          }

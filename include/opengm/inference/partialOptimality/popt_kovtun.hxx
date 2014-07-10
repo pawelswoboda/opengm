@@ -4,6 +4,7 @@
 
 #include <vector>
 #include "popt_data.hxx"
+#include "popt_inference.hxx"
 
 #include <opengm/inference/external/qpbo.hxx>
 
@@ -17,7 +18,7 @@ namespace opengm {
    ///
    ///\ingroup inference
    template<class DATA, class ACC>
-   class POpt_Kovtun
+   class POpt_Kovtun : public POpt_Inference<DATA, ACC>
    {
    public:
       typedef ACC AccumulationType;
@@ -26,11 +27,16 @@ namespace opengm {
       OPENGM_GM_TYPE_TYPEDEFS;
       typedef ValueType GraphValueType; 
 
+      struct Parameter{};
+
       POpt_Kovtun(DATA&);
       ~POpt_Kovtun();
 
-      void pOptPotts(const LabelType);
-      void pOptPotts();
+      std::string name() const { return "Kovtun"; };
+      const GraphicalModelType& graphicalModel() const { return gm_; };
+
+      InferenceTermination pOptPotts(const LabelType);
+      InferenceTermination infer();
 
    private: 
       DATA&   data_;
@@ -61,7 +67,7 @@ namespace opengm {
    }
 
    template<class DATA, class ACC>
-   void POpt_Kovtun<DATA,ACC>::pOptPotts(const LabelType guess)
+   InferenceTermination POpt_Kovtun<DATA,ACC>::pOptPotts(const LabelType guess)
    {
       qpbo_->Reset();
       qpbo_->AddNode(gm_.numberOfVariables());
@@ -102,14 +108,16 @@ namespace opengm {
             data_.setTrue(var,guess);
          }
       }
+      return NORMAL;
    }
 
    template<class DATA, class ACC>
-   void POpt_Kovtun<DATA,ACC>::pOptPotts()
+   InferenceTermination POpt_Kovtun<DATA,ACC>::infer()
    {
       for(LabelType l=0 ; l<gm_[0].numberOfLabels(0); ++l){
          pOptPotts(l);
       }
+      return CONVERGENCE;
    }
       
 } // namespace opengm

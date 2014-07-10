@@ -184,6 +184,10 @@ if(WITH_QPBO)
    add_executable(test-mqpbo test_mqpbo.cxx ${headers})
    target_link_libraries(test-mqpbo external-library-qpbo)
    add_test(test-mqpbo ${CMAKE_CURRENT_BINARY_DIR}/test-mqpbo)
+
+   add_executable(test-kovtun test_kovtun.cxx ${headers})
+   target_link_libraries(test-kovtun external-library-qpbo)
+   add_test(test-kovtun ${CMAKE_CURRENT_BINARY_DIR}/test-kovtun)
 endif()
 
 if(WITH_BOOST)
