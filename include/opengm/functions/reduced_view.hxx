@@ -33,6 +33,7 @@ public:
 private:
    FactorType const* factor_;
    std::vector<std::vector<opengm::Tribool> > partialOptimality_;
+   ///2.Fall benoetigt noch den Vektor optimal_ und labeling_
 };
 
 template<class GM>
@@ -49,7 +50,7 @@ ReducedViewFunction<GM>::ReducedViewFunction
    const std::vector<std::vector<opengm::Tribool> >& partialOptimality
 )
 :  factor_(&factor),
-   partialOptimality_(&partialOptimality)
+   partialOptimality_(partialOptimality)
 {}
 
 template<class GM>
@@ -59,8 +60,8 @@ ReducedViewFunction<GM>::operator()
 (
    Iterator begin
 ) const {
-   LabelType label [begin.size()];
-
+   LabelType label [factor_->numberOfVariables()];
+   ///2.Fall: Fallunterscheidung, wobei falls Variable optimal, das optimale Label gesetzt wird
    for (IndexType v = 0; v < factor_->numberOfVariables(); v++)
    {
        IndexType variable = factor_->variableIndex(v);
@@ -83,6 +84,7 @@ ReducedViewFunction<GM>::shape
 (
    const typename ReducedViewFunction<GM>::IndexType index
 ) const{
+    ///zusaetzlich für 2.Fall: Index des viewFaktors finden, der zu diesem index gehoert (da einige Variablen von vorher nicht mehr dazu gehoeren)
     LabelType numLabels = 0;
             for(IndexType i = 0; i < factor_->numberOfLabels(index); i++)
             {
@@ -95,6 +97,7 @@ ReducedViewFunction<GM>::shape
 template<class GM>
 inline typename ReducedViewFunction<GM>::IndexType
 ReducedViewFunction<GM>::dimension() const {
+  ///2.Fall: durchzaehlen wieviele der Variablen noch nicht optimal sind
    return factor_->numberOfVariables();
 }
 
@@ -104,6 +107,7 @@ ReducedViewFunction<GM>::size() const {
     IndexType factorSize = 1;
 
     for (IndexType i = 0; i < factor_->numberOfVariables(); i++ ){
+        ///2.Fall benoetigt hier eine Fallunterscheidung, ob Variable schon optimal oder nicht
         factorSize *= this.shape(i);
     }
    return factorSize;
