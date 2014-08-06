@@ -35,7 +35,7 @@ namespace opengm {
    //***************
    //IMPLEMENTATION
    //***************
-   
+
    /*
    template class<GM>
    bool PartialOptimalityTester<GM>::noOptimalLabelsEliminated(GM& gm, POpt_Data<GM>& p)
@@ -95,10 +95,10 @@ namespace opengm {
             // Run Algorithm
             bool exceptionFlag = false;
             std::vector<typename GM::LabelType> state;
-            try{      
+            try{
                POPT inf(D);
                InferenceTermination returnValue=inf.infer();
-               OPENGM_TEST((returnValue==opengm::NORMAL) || (returnValue==opengm::CONVERGENCE)); 
+               OPENGM_TEST((returnValue==opengm::NORMAL) || (returnValue==opengm::CONVERGENCE));
                if(typeid(AccType) == typeid(opengm::Minimizer) || typeid(AccType) == typeid(opengm::Maximizer)) {
                   if(behaviour == opengm::OPTIMAL) {
                      std::vector<typename GM::LabelType> optimalStateOrig;
@@ -111,7 +111,8 @@ namespace opengm {
                         OPENGM_TEST(D.getPOpt(i,optimalStateOrig[i]) != false);
                      }
 
-                     ReducedGmType gmRed = D.reducedGraphicalModel();
+                     ReducedGmType gmRed;
+                     D.reducedGraphicalModel(gmRed);
                      std::vector<typename GM::LabelType> optimalStateRed;
                      opengm::Bruteforce<ReducedGmType, AccType> bfRed(gmRed);
                      OPENGM_TEST(bfRed.infer()==opengm::NORMAL);

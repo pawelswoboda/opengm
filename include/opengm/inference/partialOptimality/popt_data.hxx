@@ -9,7 +9,8 @@
 #include <opengm/opengm.hxx>
 #include <opengm/utilities/metaprogramming.hxx>
 #include <opengm/utilities/tribool.hxx>
-#include <opengm/functions/reduced_view.hxx>
+//#include <opengm/functions/reduced_view.hxx>
+#include <opengm/functions/explicit_function.hxx>
 
 
 namespace opengm {
@@ -26,8 +27,9 @@ public:
     typedef GM GmType;
     OPENGM_GM_TYPE_TYPEDEFS;
 
-    typedef ReducedViewFunction<GraphicalModelType>                  ReducedViewType;
-    typedef GraphicalModel<ValueType, OperatorType, ReducedViewType> ReducedGmType;
+//    typedef ReducedViewFunction<GraphicalModelType>                  ReducedViewType;
+    typedef opengm::ExplicitFunction<ValueType, LabelType, IndexType> ExplicitFunction;
+    typedef GraphicalModel<ValueType, OperatorType, ExplicitFunction> ReducedGmType;
 
     POpt_Data(const GmType&);
     // Set
@@ -44,87 +46,8 @@ public:
     LabelType                              get(const IndexType) const;
     void                                   get(std::vector<LabelType>&) const;
 
-    const GmType&                          graphicalModel() const {
-        return gm_;
-    }
-    const ReducedGmType&                   reducedGraphicalModel() {
-
-        DiscreteSpace<IndexType,LabelType> s;
-        std::vector<IndexType> viewVariable(gm_.numberOfVariables(),0);
-        IndexType variable = 0;
-
-        for (IndexType v = 0; v < gm_.numberOfVariables(); v++) {
-          if(!optimal_[v]) {
-            viewVariable[v] = variable;
-            variable++;
-
-            LabelType numLabels = 0;
-
-            for(IndexType i = 0; i < gm_.numberOfLabels(v); i++) {
-              if(!(partialOptimality_[v][i] == opengm::Tribool::False))
-                numLabels++;
-            }
-              OPENGM_ASSERT(numLabels>1);
-              s.addVariable(numLabels);
-          }
-        }
-
-        ReducedGmType viewGM_(s);
-
-        ///1.Fall: Es werden nur solche Faktoren mit aufgenommen, die keine Variable enthalten, welche schon eindeutig bestimmt ist.
-        for (IndexType f = 0; f < gm_.numberOfFactors(); f++) {
-          bool insert_f = true;
-
-          for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
-            if(optimal_[gm_[f].variableIndex(v)])
-              insert_f = false;
-          }
-
-          if(insert_f){
-            ReducedViewType g(gm_[f],partialOptimality_);
-            typename ReducedGmType::FunctionIdentifier id = viewGM_.addFunction(g);
-
-            IndexType variableOfFactor [gm_[f].numberOfVariables()];
-            for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
-              variableOfFactor[v] = viewVariable[gm_[f].variableIndex(v)];
-            }
-
-            viewGM_.addFactor(id, variableOfFactor, variableOfFactor+gm_[f].numberOfVariables());
-          }
-        }
-
-        ///2.Fall: Hier werden die Faktoren mit aufgenommen, in denen es mindestens eine Variable gibt, die noch nicht eindeutig bestimmt ist
-//        for (IndexType f = 0; f < gm_.numberOfFactors(); f++) {
-//          bool insert_f = false;
-//          IndexType numVariables = 0;
-//
-//          for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
-//            if(!optimal_[gm_[f].variableIndex(v)]){
-//              insert_f = true;
-//              numVariables++;
-//            }
-//          }
-//
-//          if(insert_f){
-//            ReducedViewType g(gm_[f],partialOptimality_);
-//            typename ReducedGmType::FunctionIdentifier id = viewGM_.addFunction(g);
-//
-//            IndexType variableOfFactor [numVariables];
-//            IndexType index = 0;
-//
-//            for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
-//              if(!optimal_[gm_[f].variableIndex(v)]){
-//                variableOfFactor[index] = viewVariable[gm_[f].variableIndex(v)];
-//                index++;
-//              }
-//            }
-//
-//            viewGM_.addFactor(id, variableOfFactor, variableOfFactor + numVariables);
-//          }
-//        }
-
-        return viewGM_;
-    }
+    const GmType&                          graphicalModel() const {return gm_;}
+    void                                    reducedGraphicalModel(ReducedGmType&);
 
 private:
     const GmType& gm_;
@@ -283,6 +206,109 @@ void POpt_Data<GM>::get(std::vector<LabelType>& labeling) const {
             labeling[var] = labeling_[var];
     }
 }
+
+template<class GM>
+void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm){
+    {
+        //Variables and their labels are included in case they are not optimal yet.
+
+        IndexType newVariable[gm_.numberOfVariables()];
+        IndexType variable = 0;
+
+        for (IndexType v = 0; v < gm_.numberOfVariables(); v++) {
+          if(!optimal_[v]) {
+            newVariable[v] = variable;
+            variable++;
+
+            LabelType numLabels = 0;
+
+            for(IndexType i = 0; i < gm_.numberOfLabels(v); i++) {
+              if(!(partialOptimality_[v][i] == opengm::Tribool::False))
+                numLabels++;
+            }
+              OPENGM_ASSERT(numLabels>1);
+              reducedGm.addVariable(numLabels);
+          }
+        }
+
+
+        //factors will be included in case one of their variables is not optimal yet.
+        for (IndexType f = 0; f < gm_.numberOfFactors(); f++) {
+          bool insert_f = false;
+          size_t numVariables = 0;
+          std::vector<IndexType> variablesOfFactor;
+          std::vector<IndexType> numLabels;
+          IndexType numLabelComb = 1;
+
+          for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
+            if(!optimal_[gm_[f].variableIndex(v)]){
+              insert_f = true;
+              numVariables++;
+              variablesOfFactor.std::vector<IndexType>::push_back(newVariable[gm_[f].variableIndex(v)]);
+              numLabels.std::vector<IndexType>::push_back(reducedGm.numberOfLabels(newVariable[gm_[f].variableIndex(v)]));
+              numLabelComb *= numLabels.std::vector<IndexType>::back();
+            }
+          }
+
+          if(insert_f){
+            ExplicitFunction g(numLabels.std::vector<IndexType>::begin(), numLabels.std::vector<IndexType>::end());
+            LabelType reducedShape [numVariables];
+            LabelType shape [gm_[f].numberOfVariables()];
+
+            for(size_t v = 0; v < numVariables; v++){
+              reducedShape[v] = 0;
+            }
+
+            for(size_t v = 0; v < gm_[f].numberOfVariables(); v++){
+              if(optimal_[gm_[f].variableIndex(v)]){
+                shape[v] = labeling_[gm_[f].variableIndex(v)];
+              }else{
+                shape[v] = 0;
+              }
+            }
+            g(reducedShape) = gm_[f](shape);
+
+            for(size_t comb = 1; comb < numLabelComb; comb++){
+              //next label combination
+              IndexType nextStep = 0;
+              while(reducedShape[nextStep] = numLabels[nextStep] && nextStep < numVariables-1){
+                nextStep++;
+              }
+              reducedShape[nextStep]++;
+
+              size_t index = 0;
+              for(size_t v = 0; v < nextStep; v++){
+                reducedShape[v] = 0;
+
+                while(optimal_[gm_[f].variableIndex(index)])
+                  index++;
+
+                size_t label = 0;
+                while(partialOptimality_[gm_[f].variableIndex(index)][label] == opengm::Tribool::False)
+                  label++;
+
+                shape[index] = label;
+                index++;
+              }
+
+              while(optimal_[gm_[f].variableIndex(index)]){
+                index++;
+              }
+              shape[index]++;
+              while(partialOptimality_[gm_[f].variableIndex(index)][shape[index]] == opengm::Tribool::False)
+                shape[index]++;
+
+              g(reducedShape) = gm_[f](shape);
+            }
+
+            typename ReducedGmType::FunctionIdentifier id = reducedGm.addFunction(g);
+
+            reducedGm.addFactor(id, variablesOfFactor.std::vector<IndexType>::begin(), variablesOfFactor.std::vector<IndexType>::end());
+          }
+        }
+    }
+}
+
 
 
 } // namespace opengm
