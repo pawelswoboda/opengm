@@ -11,7 +11,7 @@
 
 #include <vector>
 
-#include "popt_inference.hxx"
+#include "popt_inference_base.hxx"
 
 /*
     DEE4, DEE3 and DEE1 can be found on the pages 27-29 of Alexander Shekhovtsov's PhD Thesis
@@ -35,7 +35,6 @@ public:
     typedef typename DATA::GraphicalModelType GraphicalModelType;
     OPENGM_GM_TYPE_TYPEDEFS;
     typedef ValueType GraphValueType; 
-    typedef opengm::POpt_Data<GraphicalModelType> POpt_Data;
     enum MethodType {DEE1,DEE_Pairwise,DEE3,DEE4};
 
     struct Parameter {
@@ -45,7 +44,7 @@ public:
        MethodType method_;
     };
 
-    DEE(POpt_Data& gmD);
+    DEE(DATA& gmD);
 
     std::string name() const { return "DEE"; };
     const GraphicalModelType& graphicalModel() const { return gm_; };
@@ -58,7 +57,7 @@ public:
     InferenceTermination deePairwise();
 
 private:
-    POpt_Data& gmD_;
+    DATA& gmD_;
     const GraphicalModelType& gm_;
     Parameter param_;
 
@@ -69,7 +68,7 @@ template<class DATA,class ACC>
 const double DEE<DATA,ACC>::eps_ = 1.0e-8;
 
 template<class DATA,class ACC>
-DEE<DATA,ACC>::DEE(POpt_Data& gmD) : gmD_(gmD), gm_(gmD.graphicalModel())
+DEE<DATA,ACC>::DEE(DATA& gmD) : gmD_(gmD), gm_(gmD.graphicalModel())
 {
 }
 
