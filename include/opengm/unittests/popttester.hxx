@@ -14,7 +14,7 @@
 #include <opengm/operations/integrator.hxx>
 
 #include <opengm/inference/partialOptimality/popt_data.hxx>
-#include <opengm/inference/partialOptimality/popt_inference.hxx>
+#include <opengm/inference/partialOptimality/popt_infer.hxx>
 
 /// \cond HIDDEN_SYMBOLS
 

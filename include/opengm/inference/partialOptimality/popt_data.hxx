@@ -39,6 +39,7 @@ public:
     // Get Partial Optimality
     Tribool                                getPOpt(const IndexType, const LabelType) const;
     std::vector<opengm::Tribool>           getPOpt(const IndexType) const;
+    ValueType                              getPOpt() const;
     // Get Optimal Certificates
     bool                                   getOpt(const IndexType) const;
     const std::vector<bool>&               getOpt() const;
@@ -47,7 +48,7 @@ public:
     void                                   get(std::vector<LabelType>&) const;
 
     const GmType&                          graphicalModel() const {return gm_;}
-    void                                    reducedGraphicalModel(ReducedGmType&);
+    void                                   reducedGraphicalModel(ReducedGmType&);
 
 private:
     const GmType& gm_;
@@ -177,6 +178,25 @@ template<class GM>
 std::vector<opengm::Tribool> POpt_Data<GM>::getPOpt(const IndexType var) const {
     OPENGM_ASSERT( var<gm_.numberOfVariables() );
     return partialOptimality_[var];
+}
+
+template<class GM>
+typename GM::ValueType POpt_Data<GM>::getPOpt() const {
+   size_t noExcludedLabels = 0;
+   size_t noLabels = 0;
+   for(size_t var=0; var<gm_.numberOfVariables(); var++) {
+      noLabels += gm_.numberOfLabels(var);
+      for(size_t i=0; i<gm_.numberOfLabels(var); i++) {
+         if(getPOpt(var,i) == false)
+            noExcludedLabels++;
+      }
+   }
+   OPENGM_ASSERT(noLabels > 0);
+   OPENGM_ASSERT(noExcludedLabels < noLabels);
+   ValueType p = ValueType(noExcludedLabels) / ValueType(noLabels - gm_.numberOfVariables());
+
+   OPENGM_ASSERT(p <= 1.0);
+   return p;
 }
 
 // Get Optimality

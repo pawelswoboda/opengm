@@ -4,7 +4,7 @@
 
 #include <vector>
 #include "popt_data.hxx"
-#include "popt_inference.hxx"
+#include "popt_inference_base.hxx"
 
 #include <opengm/inference/external/qpbo.hxx>
 
