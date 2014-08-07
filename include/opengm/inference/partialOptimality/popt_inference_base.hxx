@@ -1,6 +1,6 @@
 #pragma once
-#ifndef OPENGM_POPT_INFERENCE_HXX
-#define OPENGM_POPT_INFERENCE_HXX
+#ifndef OPENGM_POPT_INFERENCE_BASE_HXX
+#define OPENGM_POPT_INFERENCE_BASE_HXX
 
 #include <vector>
 #include <string>
@@ -10,7 +10,9 @@
 
 #include "opengm/opengm.hxx"
 #include "opengm/inference/inference.hxx"
+#include "popt_data.hxx"
 
+/*
 #define OPENGM_GM_TYPE_TYPEDEFS                                                      \
    typedef typename GraphicalModelType::LabelType LabelType;                         \
    typedef typename GraphicalModelType::IndexType IndexType;                         \
@@ -19,6 +21,7 @@
    typedef typename GraphicalModelType::FactorType FactorType;                       \
    typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType; \
    typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier        \
+*/
 
 namespace opengm {
 
@@ -46,5 +49,6 @@ public:
 
 } // namespace opengm
 
-#endif // #ifndef OPENGM_POPT_INFERENCE_HXX
+#endif // #ifndef OPENGM_POPT_INFERENCE_BASE_HXX
+
 
