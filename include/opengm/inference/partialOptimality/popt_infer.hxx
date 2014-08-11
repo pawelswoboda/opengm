@@ -7,6 +7,8 @@
 #include "popt_kovtun.hxx"
 #include "popt_dee.hxx"
 #include "popt_iterative_relaxed_inf.hxx"
+#include "popt_iri_trws.hxx"
+#include "popt_iri_cplex.hxx"
 
 namespace opengm {
 
@@ -77,11 +79,11 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
          infReturnValue = kovtun.infer();
 #endif
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_TRWS  ) {
-         IRI::IRI<POpt_Data<GM>,opengm::Minimizer> iri(d_);
+         IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> iri(d_);
          infReturnValue = iri.infer();
 #ifdef WITH_CPLEX
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_CPLEX) {
-         IRI::IRI<POpt_Data<GM>,opengm::Minimizer> iri(d_);
+         IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_CPLEX> iri(d_);
          infReturnValue = iri.infer();
 #endif
       } else {

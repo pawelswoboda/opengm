@@ -24,9 +24,10 @@ public:
    typedef ACC AccumulationType;
    typedef GM GraphicalModelType;
    OPENGM_GM_TYPE_TYPEDEFS;
-
-   typedef LPCplex<GM,ACC> SolverType;
    
+   typedef LPCplex<GM,ACC> SolverType;
+   typedef bool WarmStartParamType;  // to do: find empty type
+
    typedef visitors::VerboseVisitor<SolverType> VerboseVisitorType;
    typedef visitors::EmptyVisitor<SolverType>   EmptyVisitorType;
    typedef visitors::TimingVisitor<SolverType>  TimingVisitorType;
@@ -44,6 +45,9 @@ public:
    bool IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
+
+   void SetWarmStartParam(WarmStartParamType& w) {};
+   void GetWarmStartParam(WarmStartParamType& w) {};
 
 private:
    const GM& gm_;

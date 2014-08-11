@@ -6,7 +6,10 @@
 
 namespace opengm {
 
-   // solver for iteratice_relaxed_inference must implement the additional two functions specified below
+// solver for iteratice_relaxed_inference must implement the additional two functions specified below
+// additional requirements:
+//    SolverType must be defined
+//    WarmStartParamType (=P in Set- and GetWarmStartParam) must be defined
 template<class GM, class ACC> 
 class POpt_IRI_SolverBase 
 {  
@@ -25,6 +28,8 @@ public:
    virtual bool IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l) = 0;
+   template<class P> void SetWarmStartParam(P&) {throw;};
+   template<class P> void GetWarmStartParam(P&) {throw;};
 };
 
 } // end namespace opengm

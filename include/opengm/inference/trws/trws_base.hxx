@@ -70,10 +70,10 @@ public:
 
 	void getDDVector(DDVectorType* ddvector)const;
 	size_t  getDDVectorSize()const;
-	void addDDvector(const DDVectorType& ddvector);
+	void addDDVector(const DDVectorType& ddvector);
 private:
 	void _InitSubModels(const DDVectorType* pddvector=0);
-	//void _addDDvector(const DDVectorType& ddvector);
+	//void _addDDVector(const DDVectorType& ddvector);
 	const GM& _gm;
 	StructureType  _structureType;
 	std::vector<SubModel*> _subModels;
@@ -990,7 +990,7 @@ void DecompositionStorage<GM>::_InitSubModels(const DDVectorType* pddvector)
 		};
 
 		if (pddvector!=0)
-			addDDvector(*pddvector);
+			addDDVector(*pddvector);
 
 	}catch(std::runtime_error& err)
 	{
@@ -1000,10 +1000,10 @@ void DecompositionStorage<GM>::_InitSubModels(const DDVectorType* pddvector)
 
 
 template<class GM>
-void DecompositionStorage<GM>::addDDvector(const DDVectorType& delta)
+void DecompositionStorage<GM>::addDDVector(const DDVectorType& delta)
 {
 	if (delta.size()!=getDDVectorSize())
-		throw std::runtime_error("DecompositionStorage<GM>::addDDvector(): Error: size of the input vector does not match the size of the graphical model.");
+		throw std::runtime_error("DecompositionStorage<GM>::addDDVector(): Error: size of the input vector does not match the size of the graphical model.");
 
 	typename DDVectorType::const_iterator deltaIt=delta.begin();
 	for (IndexType varId=0;varId<masterModel().numberOfVariables();++varId)// all variables

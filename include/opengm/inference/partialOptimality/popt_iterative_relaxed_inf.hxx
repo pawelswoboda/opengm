@@ -110,7 +110,7 @@ public:
       }
    }
    void end(INFERENCE & inf){
-      std::cout<<"value "<< inf.value() <<" bound "<< inf.bound() <<"\n";
+      std::cout << "value " << inf.value() << " bound " << inf.bound() << std::endl;
    }
 private:
    double eps_;
@@ -118,10 +118,10 @@ private:
    size_t nIter_;
 };
 
-
-
 // Persistency by improving mappings: iterative algorithm
-template<class DATA, class ACC> 
+// DATA is POpt_data<GM,ACC>
+// SOLVER is derived from POpt_IRI_SolverBase<GM,ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER> 
 class IRI : public POpt_Inference<DATA, ACC>
 {
 public:
@@ -141,7 +141,10 @@ public:
    typedef typename PersistencyGMType::ConstVariableIterator PGMConstVariableIterator;
 
   
+   typedef SOLVER<GM,ACC> InitSolverType;
+   typedef SOLVER<PersistencyGMType,ACC> IterSolverType;
 
+/*
 #ifdef OPENGM_IRI_TRWS
    typedef LPReparametrisationStorage<PersistencyGMType> RepaStorageType;
    typedef GraphicalModel<ValueType,opengm::Adder,opengm::ReparametrizationView<PersistencyGMType,RepaStorageType>,
@@ -153,15 +156,17 @@ public:
    typedef TRWSi<PersistencyGMType,ACC> PersSolverType;
    typedef TRWSi_Parameter<PersistencyGMType> PersSolverParamType;
 #endif
+*/
 
-
+/*
 #ifdef OPENGM_IRI_CPLEX
    typedef LPCplex<GM, ACC> SolverType;
    typedef LPCplex<PersistencyGMType, ACC> PersSolverType;
 
-   typedef typename LPCplex<DATA,ACC >::Parameter SolverParamType;
+   typedef typename LPCplex<DATA,ACC,SOLVER >::Parameter SolverParamType;
    typedef typename LPCplex<PersistencyGMType,ACC >::Parameter PersSolverParamType;
 #endif
+*/
 
    IRI(DATA& d);
    virtual std::string name() const {return "IRI";}
@@ -170,6 +175,7 @@ public:
    //template<class VISITOR>
    //   InferenceTermination infer(VISITOR &);
    //InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const;
+   const static double eps_; 
    
 private:
    void InitializeImprovingMap();
@@ -210,17 +216,16 @@ private:
    void IncreaseImmovableLabels(
          std::vector<std::vector<bool> >& immovable,
          const std::vector<IndexType>& l,
-         PersSolverType& solver,
+         IterSolverType& solver,
          PersistencyGMType& pgm);
-   bool IsGloballyOptimalSolution(SolverType& solver);
+   //bool IsGloballyOptimalSolution(SOLVER& solver);
    size_t NoImmovableLabels(const std::vector<std::vector<bool> >& immovable);
 
-   const static double eps_; 
    DATA& d_;
    const GM& gm_;
    const size_t n_; // number of variables
-   SolverParamType SolverParam_;
-   PersSolverParamType PersSolverParam_;
+   //SolverParamType SolverParam_;
+   //PersSolverParamType PersSolverParam_;
 
    // improving mapping
    std::vector<std::vector<LabelType> > im_;
@@ -233,22 +238,22 @@ private:
    std::clock_t totalTime, singleNodePruningTime, pruningCutTime, initialInferenceTime, subsequentInferenceTime, MRFModificationTime;
 };
 
-template<class DATA,class ACC>
-const double IRI<DATA,ACC>::eps_ = 1.0e-6;
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
+const double IRI<DATA,ACC,SOLVER>::eps_ = 1.0e-6;
 
-template<class DATA,class ACC>
-IRI<DATA,ACC>::IRI(DATA& d) :
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
+IRI<DATA,ACC,SOLVER>::IRI(DATA& d) :
    d_(d),
    gm_(d.graphicalModel()),
    n_(d.graphicalModel().numberOfVariables())
 {
-#ifdef OPENGM_IRI_TRWS
+/*#ifdef OPENGM_IRI_TRWS
    OPENGM_ASSERT(gm_.factorOrder() <= 2); 
-#endif
+#endif*/
    InitializeImprovingMap();
    InitializeImmovable();
 
-#ifdef OPENGM_IRI_TRWS
+/*#ifdef OPENGM_IRI_TRWS
    const static size_t TRWSIter = 1500;
    SolverParam_ = SolverParamType(TRWSIter);
    SolverParam_.verbose_=true;
@@ -258,12 +263,12 @@ IRI<DATA,ACC>::IRI(DATA& d) :
    PersSolverParam_.verbose_=true;
    PersSolverParam_.precision() = 1e-6; 
    PersSolverParam_.setTreeAgreeMaxStableIter(100);
-#endif
+#endif*/
 
-#ifdef OPENGM_IRI_CPLEX
+/*#ifdef OPENGM_IRI_CPLEX
    SolverParam_.integerConstraint_ = false;
    PersSolverParam_.integerConstraint_ = false;
-#endif
+#endif*/
 
    totalTime = 0;
    singleNodePruningTime = 0;
@@ -273,29 +278,30 @@ IRI<DATA,ACC>::IRI(DATA& d) :
    MRFModificationTime = 0;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::InitializeImprovingMap()
+IRI<DATA,ACC,SOLVER>::InitializeImprovingMap()
 {
    im_.resize(n_);
    for(size_t v=0; v<n_; v++)
       im_[v].resize(gm_.numberOfLabels(v),0);
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::InitializeImmovable()
+IRI<DATA,ACC,SOLVER>::InitializeImmovable()
 {
    immovable_.resize(n_);
    for(size_t i=0; i<n_; i++) 
       immovable_[i].assign(gm_.numberOfLabels(i),false);
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void 
-IRI<DATA,ACC>::ImproveLabeling(std::vector<LabelType>& l)
+IRI<DATA,ACC,SOLVER>::ImproveLabeling(std::vector<LabelType>& l)
 {
-   // to do: possibly improbe labeling with lazy flipper
+   // given an initial labeling, we must find a labeling such that no label is forbidden. This need not hold for the inital labeling.
+   // to do: possibly improve labeling with lazy flipper
    for(IndexType i=0; i<n_; i++) {
       if(d_.getPOpt(i,l[i]) == false) {
          // get best local labeling
@@ -316,9 +322,9 @@ IRI<DATA,ACC>::ImproveLabeling(std::vector<LabelType>& l)
 }
 
 // construct MRF with cost theta - P^\T * theta
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::ConstructMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im)
+IRI<DATA,ACC,SOLVER>::ConstructMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im)
 {
    std::clock_t beginTime = clock();
 
@@ -340,9 +346,9 @@ IRI<DATA,ACC>::ConstructMRF(PersistencyGMType& pgm, const std::vector<std::vecto
 }
 
 // update MRF with cost theta - P^\T * theta, when P has changed
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im)
+IRI<DATA,ACC,SOLVER>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im)
 {
    std::clock_t beginTime = clock();
 
@@ -362,9 +368,9 @@ IRI<DATA,ACC>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<L
 }
 
 // Update MRF for only one variable
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im, size_t v)
+IRI<DATA,ACC,SOLVER>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im, size_t v)
 {
    // Update affected factors
    for(size_t fc=0; fc<pgm.numberOfFactors(v); fc++) {
@@ -380,9 +386,9 @@ IRI<DATA,ACC>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<L
 }
 
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::ConstructSubsetToOneMap(std::vector<typename GM::LabelType>& im,
+IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(std::vector<typename GM::LabelType>& im,
                                      const typename GM::LabelType l,
                                      const std::vector<bool>& immovable)
 {
@@ -396,9 +402,9 @@ IRI<DATA,ACC>::ConstructSubsetToOneMap(std::vector<typename GM::LabelType>& im,
    OPENGM_ASSERT(IsProjection(im));
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC>::ConstructSubsetToOneMap(std::vector<std::vector<typename GM::LabelType> >& im,
+IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(std::vector<std::vector<typename GM::LabelType> >& im,
                                      const std::vector<typename GM::LabelType> l,
                                      const std::vector<std::vector<bool> >& immovable)
 {
@@ -407,9 +413,9 @@ IRI<DATA,ACC>::ConstructSubsetToOneMap(std::vector<std::vector<typename GM::Labe
       ConstructSubsetToOneMap(im[v],l[v],immovable[v]);
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 bool 
-IRI<DATA,ACC>::IsProjection(const std::vector<typename GM::LabelType>& p)
+IRI<DATA,ACC,SOLVER>::IsProjection(const std::vector<typename GM::LabelType>& p)
 {
    // permutation property: p[i] < p.size();
    for(size_t i=0; i<p.size(); i++)
@@ -424,9 +430,9 @@ IRI<DATA,ACC>::IsProjection(const std::vector<typename GM::LabelType>& p)
    return true;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 bool 
-IRI<DATA,ACC>::AllLabelImmovable(const std::vector<std::vector<bool> >& immovable)
+IRI<DATA,ACC,SOLVER>::AllLabelImmovable(const std::vector<std::vector<bool> >& immovable)
 {
    OPENGM_ASSERT(n_ == immovable.size());
    for(size_t v=0; v<n_; v++)
@@ -436,9 +442,9 @@ IRI<DATA,ACC>::AllLabelImmovable(const std::vector<std::vector<bool> >& immovabl
    return true;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 size_t 
-IRI<DATA,ACC>::NoImmovableLabels(const std::vector<std::vector<bool> >& immovable)
+IRI<DATA,ACC,SOLVER>::NoImmovableLabels(const std::vector<std::vector<bool> >& immovable)
 {
    OPENGM_ASSERT(n_ == immovable.size());
    size_t noImmovableLabels = 0;
@@ -449,9 +455,10 @@ IRI<DATA,ACC>::NoImmovableLabels(const std::vector<std::vector<bool> >& immovabl
    return noImmovableLabels;
 }
 
-template<class DATA, class ACC>
+/*
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 bool 
-IRI<DATA,ACC>::IsGloballyOptimalSolution(SolverType& solver)
+IRI<DATA,ACC,SOLVER>::IsGloballyOptimalSolution(SolverType& solver)
 {
 #ifdef OPENGM_IRI_TRWS
       std::vector<bool> treeAgreement;
@@ -481,10 +488,11 @@ IRI<DATA,ACC>::IsGloballyOptimalSolution(SolverType& solver)
       return true;
 #endif
 }
+*/
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 typename DATA::GraphicalModelType::ValueType
-IRI<DATA,ACC>::GetMinimalLabels(const std::vector<ValueType>& p, std::vector<bool>& m)
+IRI<DATA,ACC,SOLVER>::GetMinimalLabels(const std::vector<ValueType>& p, std::vector<bool>& m)
 {
    m.assign(p.size(),false);
    ValueType minPotential = *std::min_element(p.begin(),p.end());
@@ -494,9 +502,9 @@ IRI<DATA,ACC>::GetMinimalLabels(const std::vector<ValueType>& p, std::vector<boo
    return minPotential;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 typename DATA::GraphicalModelType::ValueType
-IRI<DATA,ACC>::AddPairwiseImmovable(
+IRI<DATA,ACC,SOLVER>::AddPairwiseImmovable(
       const std::vector<std::vector<LabelType> >& p,
       const std::vector<ValueType>& p1,
       const std::vector<ValueType>& p2,
@@ -543,9 +551,9 @@ IRI<DATA,ACC>::AddPairwiseImmovable(
    return minLabelCost;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 std::vector<typename DATA::GraphicalModelType::LabelType> 
-IRI<DATA,ACC>::PruningCut(
+IRI<DATA,ACC,SOLVER>::PruningCut(
       const std::vector<LabelType>& curLabeling, // labeling with negative cost. Some labels will end up being immovable.
       const std::vector<LabelType>& projLabeling, // labeling to which subset to one map projects.
       const std::vector<std::vector<bool> >& immovable,
@@ -606,9 +614,9 @@ IRI<DATA,ACC>::PruningCut(
 }
 
 // do zrobienia: dodaj immovable do argumentow
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 bool
-IRI<DATA,ACC>::SingleNodePruning(const size_t v, const size_t i, const PersistencyGMType& pgm)
+IRI<DATA,ACC,SOLVER>::SingleNodePruning(const size_t v, const size_t i, const PersistencyGMType& pgm)
 {
    marray::Vector<size_t> fList;
    pgm.numberOfNthOrderFactorsOfVariable(v,1,fList);
@@ -644,9 +652,9 @@ IRI<DATA,ACC>::SingleNodePruning(const size_t v, const size_t i, const Persisten
 }
 
 // do zrobienia: add parameter im
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 size_t
-IRI<DATA,ACC>::SingleNodePruning(
+IRI<DATA,ACC,SOLVER>::SingleNodePruning(
       std::vector<std::vector<bool> >& immovable,
       PersistencyGMType& pgm)
 {
@@ -690,12 +698,12 @@ IRI<DATA,ACC>::SingleNodePruning(
    return newImmovable;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void 
-IRI<DATA,ACC>::IncreaseImmovableLabels(
+IRI<DATA,ACC,SOLVER>::IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l,
-      PersSolverType& solver,
+      IterSolverType& solver,
       PersistencyGMType& pgm)
 {
    // get integer labeling. If value < 0 add all labels to immovables
@@ -715,52 +723,9 @@ IRI<DATA,ACC>::IncreaseImmovableLabels(
       OPENGM_ASSERT(newImmovable>0); 
       if(newImmovable == 0)
          throw;
-   } //else {
-
-#ifdef OPENGM_IRI_TRWS
-      // get reparametrized model and add minimal reparametrized labels for each potential
-      ReparametrizedGMType repGmSolved;
-      typename PersSolverType::ReparametrizerType* prepa=solver.getReparametrizer();
-      //prepa->reparametrize(immovable); // reparametrize such that immovable labels have unaries == 0
-      prepa->reparametrize(); // reparametrize such that immovable labels have unaries == 0
-      prepa->getReparametrizedModel(repGmSolved);
-      OPENGM_ASSERT(solver.graphicalModel().numberOfVariables() == repGmSolved.numberOfVariables());
-      OPENGM_ASSERT(solver.graphicalModel().numberOfFactors() == repGmSolved.numberOfFactors());
-
-      // inspect reparametrized unary labels
-      for(size_t v=0; v<n_; v++) {
-         std::vector<ValueType> repPotential;
-         GetUnaryFactor<ReparametrizedGMType>(repGmSolved,v,repPotential);
-         ValueType minLabelCost = std::numeric_limits<ValueType>::max();
-         for(size_t i=0; i<immovable[i].size(); i++) {
-            minLabelCost = std::min(minLabelCost,repPotential[i]);
-            //if(immovable[v][i]) { // only valid for reparametrizations with immovables
-            //   OPENGM_ASSERT(repPotential[i] > (-1)*eps_);
-            //}
-         }
-         for(size_t i=0; i<immovable[i].size(); i++) {
-            if(repPotential[i] <= minLabelCost+eps_) {
-               immovable[v][i] = true;
-            }
-         }
-      }
-
-      delete prepa;
-#endif
-
-#ifdef OPENGM_IRI_CPLEX
-      // label becomes immovable if it has positive marginal
-      for(size_t v=0; v<n_; v++) {
-         IndependentFactorType indFac;
-         solver.variable(v, indFac);
-         OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
-         for(size_t i=0; i<indFac.numberOfLabels( 0 ); i++)
-            if(indFac(i) > eps_)
-               immovable[v][i] = true;
-      }
-#endif
-
-   //}
+   } else {
+      solver.IncreaseImmovableLabels(immovable,l);
+   }
 
    ConstructSubsetToOneMap(im_,l,immovable);
    UpdateMRF(pgm, im_);
@@ -771,19 +736,20 @@ IRI<DATA,ACC>::IncreaseImmovableLabels(
    std::cout << "Added " << newImmovable << " new immovable labels" << std::endl;
 }
 
-template<class DATA, class ACC>
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
 inline InferenceTermination
-IRI<DATA,ACC>::infer()
+IRI<DATA,ACC,SOLVER>::infer()
 {
-#ifdef OPENGM_IRI_TRWS
-   typename SolverType::DDVectorType dd; // reparametrization stored for subsequent speedup
-#endif
+   //typename SolverType::DDVectorType dd; // reparametrization stored for subsequent speedup
+   typename SOLVER<GM,ACC>::WarmStartParamType warmStartParam;
 
    std::clock_t beginInferenceTime = clock();
    // first solve the original problem to get a labeling
    {
       std::clock_t beginTime = clock();
-      SolverType solver(gm_,SolverParam_);
+
+      InitSolverType solver(gm_);
+      //SolverType solver(gm_,SolverParam_);
       solver.infer();
       solver.arg(l_); // do zrobienia: Wez wszystkie label z wszystkich drzew, moze tez jeszcze patrz lokalnie z lazy flipper za lepszymi itp.
       ImproveLabeling(l_);
@@ -799,13 +765,12 @@ IRI<DATA,ACC>::infer()
       std::cout << "Energy of subset to one labeling = " << gm_.evaluate(l_.begin()) << std::endl;
       std::cout << "Lower bound of original problem = " << solver.bound() << std::endl;
 
-      if(IsGloballyOptimalSolution(solver)) {
+      if(solver.IsGloballyOptimalSolution()) {
          std::cout << "Globally optimal solution found by relaxation" << std::endl;
          return NORMAL;
       }
-#ifdef OPENGM_IRI_TRWS
-      solver.getDDVector(&dd);
-#endif
+      //solver.getDDVector(&dd);
+      solver.GetWarmStartParam(warmStartParam);
    }
 
    // construct the modified MRF based on the improving mapping
@@ -821,21 +786,17 @@ IRI<DATA,ACC>::infer()
       std::cout << "New iteration " << iter << " in improving mapping persistency algorithm" << std::endl;
 
       std::clock_t beginTime = clock();
-#ifdef OPENGM_IRI_TRWS
-      PersSolverParam_.initPoint_ = dd;
-#endif
-      PersSolverType solver(pgm,PersSolverParam_);
+      //PersSolverParam_.initPoint_ = dd;
+      //PersSolverType solver(pgm,PersSolverParam_);
+      IterSolverType solver(pgm);
+      solver.SetWarmStartParam(warmStartParam);
+
       std::cout << "Solving modified model" << std::endl;
-#ifdef OPENGM_IRI_TRWS
-      PrimalBoundVisitor<PersSolverType> visitor(-eps_,1); // create visitor stopping whenever some integer labeling with value < 0 is found
+      PrimalBoundVisitor<typename IterSolverType::SolverType> visitor(-eps_,1); // visitor stops whenever some integer labeling with value < 0 is found
       solver.infer(visitor); 
-#endif
-#ifdef OPENGM_IRI_CPLEX
-      solver.infer();
-#endif
-#ifdef OPENGM_IRI_TRWS
-      solver.getDDVector(&dd);
-#endif
+
+//      solver.getDDVector(&dd);
+      solver.GetWarmStartParam(warmStartParam);
 
       std::clock_t endTime = clock();
       subsequentInferenceTime += endTime - beginTime;
@@ -881,9 +842,9 @@ IRI<DATA,ACC>::infer()
    return NORMAL;
 }
 
-/*template<class DATA,class ACC>
+/*template<class DATA,class ACC,template <typename,typename> class SOLVER>
 InferenceTermination 
-IRI<DATA,ACC>::arg(
+IRI<DATA,ACC,SOLVER>::arg(
       std::vector<typename GM::LabelType>& l,
       const size_t T
       ) const

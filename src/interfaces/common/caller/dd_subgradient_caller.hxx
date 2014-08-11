@@ -247,7 +247,8 @@ namespace opengm {
          else if((*this).subInf_.compare("RILP")==0){
 #ifdef WITH_QPBO
 #ifdef WITH_CPLEX
-            typedef typename ReducedInferenceHelper<SubGmType>::InfGmType GM2;
+            // below gives compiler error
+            /*typedef typename ReducedInferenceHelper<SubGmType>::InfGmType GM2;
             typedef opengm::LPCplex<GM2, ACC>  ILP;
             typedef ReducedInference<SubGmType,ACC,ILP>  InfType;
             typedef opengm::DualDecompositionSubGradient<GM,InfType,DualBlockType>  DDType;
@@ -259,7 +260,7 @@ namespace opengm {
             parameter.subPara_.ConnectedComponents_ = true;        
             parameter.subPara_.subParameter_.integerConstraint_  = true;
             parameter.subPara_.subParameter_.numberOfThreads_ = 1; 
-            this-> template infer<DDType, TimingVisitorType, typename DDType::Parameter>(model, output, verbose, parameter);
+            this-> template infer<DDType, TimingVisitorType, typename DDType::Parameter>(model, output, verbose, parameter);*/
 #else
             std::cout << "CPLEX not enabled!!!" <<std::endl;
 #endif

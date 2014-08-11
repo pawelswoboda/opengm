@@ -162,6 +162,7 @@ public:
   {return new ReparametrizerType(_storage,_solver.getFactorProperties(),params);}
 
   void getDDVector(DDVectorType* pddvector)const{_storage.getDDVector(pddvector);}
+  void addDDVector(const DDVectorType& pddvector){_storage.addDDVector(pddvector);}
 
   private:
    Storage _storage;

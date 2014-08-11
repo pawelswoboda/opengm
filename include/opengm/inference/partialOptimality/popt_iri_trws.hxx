@@ -27,7 +27,10 @@ public:
    typedef ACC AccumulationType;
    typedef GM GraphicalModelType;
    OPENGM_GM_TYPE_TYPEDEFS;
-   
+
+   typedef TRWSi<GM,ACC> SolverType;
+   typedef typename SolverType::DDVectorType WarmStartParamType; // reparametrization stored for subsequent speedup
+  
    typedef TRWSi_Parameter<GM> ParamType;
    typedef LPReparametrisationStorage<GM> RepaStorageType;
    typedef GraphicalModel<ValueType,opengm::Adder,opengm::ReparametrizationView<GM,RepaStorageType>,
@@ -47,6 +50,9 @@ public:
    bool IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
+
+   void GetWarmStartParam(WarmStartParamType& w) { SolverType::getDDVector(&w); };
+   void SetWarmStartParam(WarmStartParamType& w) { SolverType::addDDVector(w);  };
 
 private:
    const GM& gm_;

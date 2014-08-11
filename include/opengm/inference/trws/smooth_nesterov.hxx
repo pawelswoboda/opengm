@@ -238,7 +238,7 @@ void NesterovAcceleratedGradient<GM,ACC>::_SetDualVariables(const DDVectorType& 
 	DDVectorType delta(_currentDualVector.size());
 	std::transform(lambda.begin(),lambda.end(),_currentDualVector.begin(),delta.begin(),std::minus<ValueType>());
 	_currentDualVector=lambda;
-	parent::_storage.addDDvector(delta);
+	parent::_storage.addDDVector(delta);
 };
 
 template<class GM, class ACC>
