@@ -26,7 +26,7 @@ public:
    OPENGM_GM_TYPE_TYPEDEFS;
    
    typedef LPCplex<GM,ACC> SolverType;
-   typedef bool WarmStartParamType;  // to do: find empty type
+   typedef void* WarmStartParamType; // no warm start implemented
 
    typedef visitors::VerboseVisitor<SolverType> VerboseVisitorType;
    typedef visitors::EmptyVisitor<SolverType>   EmptyVisitorType;
@@ -35,23 +35,24 @@ public:
    POpt_IRI_CPLEX(const GM& gm);
    virtual std::string name() const {return "POpt_CPLEX";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
-   //InferenceTermination infer() { EmptyVisitorType visitor; return infer(visitor);}
-   //template<class VISITOR>
-   //   InferenceTermination infer(VISITOR &);
    InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const; 
-   //virtual ValueType value() const; // implement own value function based on custom arg
+   ValueType value() const; 
 
    bool IsGloballyOptimalSolution();
-   bool IncreaseImmovableLabels(
+   size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
 
    void SetWarmStartParam(WarmStartParamType& w) {};
    void GetWarmStartParam(WarmStartParamType& w) {};
 
+   const static double eps_;
 private:
    const GM& gm_;
 };
+
+template<class GM,class ACC>
+const double POpt_IRI_CPLEX<GM,ACC>::eps_ = 1.0e-6;
 
 template<class GM, class ACC>
 POpt_IRI_CPLEX<GM,ACC>::POpt_IRI_CPLEX(
@@ -59,11 +60,13 @@ POpt_IRI_CPLEX<GM,ACC>::POpt_IRI_CPLEX(
    : gm_(gm), 
    SolverType(gm) //,SolverType::Parameter().integerConstraint_(false))
 {
+   //SolverParam_.integerConstraint_ = false;
+   //PersSolverParam_.integerConstraint_ = false;
 }
 
 template<class GM, class ACC>
 bool
-POpt_IRI_CPLEX<GM,ACC>::IsGloballyOptimalSolution()
+POpt_IRI_CPLEX<GM,ACC>::IsGloballyOptimalSolution() 
 {
    // get marginal solution and test for integrality
    for(size_t i=0; i<gm_.numberOfVariables(); i++) {
@@ -71,30 +74,36 @@ POpt_IRI_CPLEX<GM,ACC>::IsGloballyOptimalSolution()
       SolverType::variable( i, indFac );
       OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
       for(size_t x_i=0; x_i<indFac.numberOfLabels( 0 ); x_i++)
-         if(indFac(x_i)>opengm::IRI::IRI<GM,ACC,POpt_IRI_TRWS>::eps_ && indFac(x_i)<1-opengm::IRI::IRI<GM,ACC,POpt_IRI_TRWS>::eps_)
+         if(indFac(x_i)>eps_ && indFac(x_i)<1-eps_)
             return false;
    }
    return true;
 }
 
 template<class GM, class ACC>
-bool 
+size_t 
 POpt_IRI_CPLEX<GM,ACC>::IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
-      const std::vector<IndexType>& l)
+      const std::vector<IndexType>& l) 
 {
+   size_t newImmovable = 0;
    // label becomes immovable if it has positive marginal
    for(size_t v=0; v<gm_.numberOfVariables(); v++) {
       IndependentFactorType indFac;
       SolverType::variable(v, indFac);
       OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
       for(size_t i=0; i<indFac.numberOfLabels( 0 ); i++)
-         if(indFac(i) > opengm::IRI::IRI<GM,ACC,POpt_IRI_TRWS>::eps_)
-            immovable[v][i] = true;
+         if(indFac(i) > eps_)
+            if(immovable[v][i] == false) {
+               newImmovable++;
+               immovable[v][i] = true;
+            }
    }
+   return newImmovable;
 }
 
-// attention: It seems to me that CPLEX rounds solutions. This may not occur in iterative relaxed inference for otherwise the result may not be partially optimal
+// attention: It seems to me that CPLEX rounds solutions. This must not occur in iterative relaxed inference for otherwise the result may not be partially optimal. 
+// We need labelings on the support of optimal fractional solutions of the local polytope relaxation
 template<class GM, class ACC>
 InferenceTermination 
 POpt_IRI_CPLEX<GM,ACC>::arg(std::vector<LabelType>& l, const size_t T) const
@@ -102,22 +111,32 @@ POpt_IRI_CPLEX<GM,ACC>::arg(std::vector<LabelType>& l, const size_t T) const
    OPENGM_ASSERT(T == 1);
 
    l.resize( gm_.numberOfVariables() );
-	for(size_t i = 0; i < gm_.numberOfVariables(); ++i) {
-		IndependentFactorType indFac;
+   for(size_t i = 0; i < gm_.numberOfVariables(); ++i) {
+      IndependentFactorType indFac;
       SolverType::variable( i, indFac );
-		OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
+      OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
       // find maximum entry
+      // possibly: evaluate star for all ambiguous labelings and take best one
       ValueType max_marg = 0.0;
-		for(size_t x_i = 0; x_i < indFac.numberOfLabels( 0 ); ++x_i) {
-         if(max_marg < indFac(i)) {
-            max_marg = indFac(i);
+      for(size_t x_i=0; x_i<indFac.numberOfLabels( 0 ); ++x_i) {
+         if(max_marg < indFac(x_i)) {
+            max_marg = indFac(x_i);
             l[i] = x_i;
          }
-		}
-	}
+      }
+   }
    return NORMAL;
 }
 
+// get value based on own arg function.
+template<class GM, class ACC>
+typename GM::ValueType
+POpt_IRI_CPLEX<GM,ACC>::value() const
+{
+   std::vector<LabelType> l;
+   arg(l);
+   gm_.evaluate(l.begin());
+}
 
 } // end namespace opengm
 

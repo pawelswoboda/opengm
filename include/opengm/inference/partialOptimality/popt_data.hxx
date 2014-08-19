@@ -48,7 +48,10 @@ public:
     void                                   get(std::vector<LabelType>&) const;
 
     const GmType&                          graphicalModel() const {return gm_;}
-    void                                   reducedGraphicalModel(ReducedGmType&);
+    void                                   reducedGraphicalModel(ReducedGmType&) const;
+
+    void                                   OriginalToReducedLabeling(const std::vector<LabelType>& lOrig, std::vector<LabelType>& lRed) const;
+    void                                   ReducedToOriginalLabeling(std::vector<LabelType>& lOrig, const std::vector<LabelType>& lRed) const;
 
 private:
     const GmType& gm_;
@@ -228,107 +231,115 @@ void POpt_Data<GM>::get(std::vector<LabelType>& labeling) const {
 }
 
 template<class GM>
-void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm){
-    {
-        //Variables and their labels are included in case they are not optimal yet.
+void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
+{
+   //Variables and their labels are included in case they are not optimal yet.
 
-        IndexType newVariable[gm_.numberOfVariables()];
-        IndexType variable = 0;
+   IndexType newVariable[gm_.numberOfVariables()];
+   IndexType variable = 0;
 
-        for (IndexType v = 0; v < gm_.numberOfVariables(); v++) {
-          if(!optimal_[v]) {
-            newVariable[v] = variable;
-            variable++;
+   for (IndexType v = 0; v < gm_.numberOfVariables(); v++) {
+      if(!optimal_[v]) {
+         newVariable[v] = variable;
+         variable++;
 
-            LabelType numLabels = 0;
+         LabelType numLabels = 0;
 
-            for(IndexType i = 0; i < gm_.numberOfLabels(v); i++) {
-              if(!(partialOptimality_[v][i] == opengm::Tribool::False))
-                numLabels++;
+         for(IndexType i = 0; i < gm_.numberOfLabels(v); i++) {
+            if(!(partialOptimality_[v][i] == opengm::Tribool::False))
+               numLabels++;
+         }
+         OPENGM_ASSERT(numLabels>1);
+         reducedGm.addVariable(numLabels);
+      }
+   }
+
+
+   //factors will be included in case one of their variables is not optimal yet.
+   for (IndexType f = 0; f < gm_.numberOfFactors(); f++) {
+      bool insert_f = false;
+      size_t numVariables = 0;
+      std::vector<IndexType> variablesOfFactor;
+      std::vector<IndexType> numLabels;
+      IndexType numLabelComb = 1;
+
+      for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
+         if(!optimal_[gm_[f].variableIndex(v)]){
+            insert_f = true;
+            numVariables++;
+            variablesOfFactor.std::vector<IndexType>::push_back(newVariable[gm_[f].variableIndex(v)]);
+            numLabels.std::vector<IndexType>::push_back(reducedGm.numberOfLabels(newVariable[gm_[f].variableIndex(v)]));
+            numLabelComb *= numLabels.std::vector<IndexType>::back();
+         }
+      }
+
+      if(insert_f){
+         ExplicitFunction g(numLabels.std::vector<IndexType>::begin(), numLabels.std::vector<IndexType>::end());
+         LabelType reducedShape [numVariables];
+         LabelType shape [gm_[f].numberOfVariables()];
+
+         for(size_t v = 0; v < numVariables; v++){
+            reducedShape[v] = 0;
+         }
+
+         for(size_t v = 0; v < gm_[f].numberOfVariables(); v++){
+            if(optimal_[gm_[f].variableIndex(v)]){
+               shape[v] = labeling_[gm_[f].variableIndex(v)];
+            }else{
+               shape[v] = 0;
             }
-              OPENGM_ASSERT(numLabels>1);
-              reducedGm.addVariable(numLabels);
-          }
-        }
+         }
+         g(reducedShape) = gm_[f](shape);
 
-
-        //factors will be included in case one of their variables is not optimal yet.
-        for (IndexType f = 0; f < gm_.numberOfFactors(); f++) {
-          bool insert_f = false;
-          size_t numVariables = 0;
-          std::vector<IndexType> variablesOfFactor;
-          std::vector<IndexType> numLabels;
-          IndexType numLabelComb = 1;
-
-          for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
-            if(!optimal_[gm_[f].variableIndex(v)]){
-              insert_f = true;
-              numVariables++;
-              variablesOfFactor.std::vector<IndexType>::push_back(newVariable[gm_[f].variableIndex(v)]);
-              numLabels.std::vector<IndexType>::push_back(reducedGm.numberOfLabels(newVariable[gm_[f].variableIndex(v)]));
-              numLabelComb *= numLabels.std::vector<IndexType>::back();
+         for(size_t comb = 1; comb < numLabelComb; comb++){
+            //next label combination
+            IndexType nextStep = 0;
+            while(reducedShape[nextStep] = numLabels[nextStep] && nextStep < numVariables-1){
+               nextStep++;
             }
-          }
+            reducedShape[nextStep]++;
 
-          if(insert_f){
-            ExplicitFunction g(numLabels.std::vector<IndexType>::begin(), numLabels.std::vector<IndexType>::end());
-            LabelType reducedShape [numVariables];
-            LabelType shape [gm_[f].numberOfVariables()];
+            size_t index = 0;
+            for(size_t v = 0; v < nextStep; v++){
+               reducedShape[v] = 0;
 
-            for(size_t v = 0; v < numVariables; v++){
-              reducedShape[v] = 0;
-            }
-
-            for(size_t v = 0; v < gm_[f].numberOfVariables(); v++){
-              if(optimal_[gm_[f].variableIndex(v)]){
-                shape[v] = labeling_[gm_[f].variableIndex(v)];
-              }else{
-                shape[v] = 0;
-              }
-            }
-            g(reducedShape) = gm_[f](shape);
-
-            for(size_t comb = 1; comb < numLabelComb; comb++){
-              //next label combination
-              IndexType nextStep = 0;
-              while(reducedShape[nextStep] = numLabels[nextStep] && nextStep < numVariables-1){
-                nextStep++;
-              }
-              reducedShape[nextStep]++;
-
-              size_t index = 0;
-              for(size_t v = 0; v < nextStep; v++){
-                reducedShape[v] = 0;
-
-                while(optimal_[gm_[f].variableIndex(index)])
+               while(optimal_[gm_[f].variableIndex(index)])
                   index++;
 
-                size_t label = 0;
-                while(partialOptimality_[gm_[f].variableIndex(index)][label] == opengm::Tribool::False)
+               size_t label = 0;
+               while(partialOptimality_[gm_[f].variableIndex(index)][label] == opengm::Tribool::False)
                   label++;
 
-                shape[index] = label;
-                index++;
-              }
-
-              while(optimal_[gm_[f].variableIndex(index)]){
-                index++;
-              }
-              shape[index]++;
-              while(partialOptimality_[gm_[f].variableIndex(index)][shape[index]] == opengm::Tribool::False)
-                shape[index]++;
-
-              g(reducedShape) = gm_[f](shape);
+               shape[index] = label;
+               index++;
             }
 
-            typename ReducedGmType::FunctionIdentifier id = reducedGm.addFunction(g);
+            while(optimal_[gm_[f].variableIndex(index)]){
+               index++;
+            }
+            shape[index]++;
+            while(partialOptimality_[gm_[f].variableIndex(index)][shape[index]] == opengm::Tribool::False)
+               shape[index]++;
 
-            reducedGm.addFactor(id, variablesOfFactor.std::vector<IndexType>::begin(), variablesOfFactor.std::vector<IndexType>::end());
-          }
-        }
-    }
+            g(reducedShape) = gm_[f](shape);
+         }
+
+         typename ReducedGmType::FunctionIdentifier id = reducedGm.addFunction(g);
+
+         reducedGm.addFactor(id, variablesOfFactor.std::vector<IndexType>::begin(), variablesOfFactor.std::vector<IndexType>::end());
+      }
+   }
 }
 
+template<class GM>
+void POpt_Data<GM>::OriginalToReducedLabeling(const std::vector<LabelType>& lOrig, std::vector<LabelType>& lRed) const
+{
+}
+
+template<class GM>
+void POpt_Data<GM>::ReducedToOriginalLabeling(std::vector<LabelType>& lOrig, const std::vector<LabelType>& lRed) const
+{
+}
 
 
 } // namespace opengm

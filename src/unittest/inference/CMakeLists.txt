@@ -89,6 +89,20 @@ if(LINK_RT)
 endif(LINK_RT)
 add_test(test-astar  ${CMAKE_CURRENT_BINARY_DIR}/test-astar)
 
+add_executable(test-iri test_iri.cxx ${headers})
+if(WITH_QPBO)
+   if(WITH_CPLEX)
+      target_link_libraries(test-iri external-library-qpbo ${CPLEX_LIBRARIES} )  
+   else()
+      target_link_libraries(test-iri external-library-qpbo)
+   endif()
+else()
+   target_link_libraries(test-iri)
+endif()
+add_test(test-iri ${CMAKE_CURRENT_BINARY_DIR}/test-iri)
+
+
+
 if(WITH_BOOST)
    add_executable(test-2sat test_2sat.cxx ${headers})
    add_test(test-2sat ${CMAKE_CURRENT_BINARY_DIR}/test-2sat)
@@ -186,7 +200,11 @@ if(WITH_QPBO)
    add_test(test-mqpbo ${CMAKE_CURRENT_BINARY_DIR}/test-mqpbo)
 
    add_executable(test-kovtun test_kovtun.cxx ${headers})
-   target_link_libraries(test-kovtun external-library-qpbo)
+   if(WITH_CPLEX)
+      target_link_libraries(test-kovtun external-library-qpbo ${CPLEX_LIBRARIES} )  
+   else()
+      target_link_libraries(test-kovtun external-library-qpbo)
+   endif()
    add_test(test-kovtun ${CMAKE_CURRENT_BINARY_DIR}/test-kovtun)
 endif()
 

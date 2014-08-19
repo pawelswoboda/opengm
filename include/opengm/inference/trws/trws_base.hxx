@@ -606,7 +606,7 @@ void TRWSPrototype<SubSolver>::_InitSubSolvers()
 template <class SubSolver>
 bool TRWSPrototype<SubSolver>::CheckDualityGap(ValueType primalBound,ValueType dualBound)
 {
-	OPENGM_ASSERT((ACC::bop(-1,1) ? 1 : -1 )*(primalBound-dualBound) >  -dualBound*std::numeric_limits<ValueType>::epsilon());
+	//OPENGM_ASSERT((ACC::bop(-1,1) ? 1 : -1 )*(primalBound-dualBound) >  -dualBound*std::numeric_limits<ValueType>::epsilon());
 
 //	_fout << "(ACC::bop(-1,1) ? 1 : -1 )*(primalBound-dualBound)=" << (ACC::bop(-1,1) ? 1 : -1 )*(primalBound-dualBound)
 //			<< ", -dualBound*std::numeric_limits<ValueType>::epsilon()=" << -dualBound*std::numeric_limits<ValueType>::epsilon()<<std::endl;

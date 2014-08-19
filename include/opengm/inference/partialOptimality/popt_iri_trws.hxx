@@ -20,8 +20,21 @@
 
 namespace opengm {
 
+   // class for initializing parameters for TRWSi, (workaround for initializing TRWSi_Parameters before TRWSi in POpt_IRI_TRWS)
+template<class GM, class ACC>
+class POpt_IRI_TRWS_Init
+{
+public:
+   POpt_IRI_TRWS_Init() : param_(TRWSi_Parameter<GM>(1500)) { 
+      param_.verbose_ = false; 
+      param_.precision_ = 1e-6; 
+      param_.setTreeAgreeMaxStableIter(100); 
+   }
+   TRWSi_Parameter<GM> param_;
+};
+
 template<class GM, class ACC> 
-class POpt_IRI_TRWS : public POpt_IRI_SolverBase<GM, ACC>, public TRWSi<GM,ACC>
+class POpt_IRI_TRWS : protected POpt_IRI_TRWS_Init<GM,ACC>, public POpt_IRI_SolverBase<GM, ACC>, public TRWSi<GM,ACC>
 {  
 public:
    typedef ACC AccumulationType;
@@ -43,38 +56,37 @@ public:
    POpt_IRI_TRWS(const GM& gm);
    virtual std::string name() const {return "POpt_TRWSi";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
-   //InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const;
-   //virtual ValueType value() const; 
 
    bool IsGloballyOptimalSolution();
-   bool IncreaseImmovableLabels(
+   size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
 
    void GetWarmStartParam(WarmStartParamType& w) { SolverType::getDDVector(&w); };
-   void SetWarmStartParam(WarmStartParamType& w) { SolverType::addDDVector(w);  };
+   void SetWarmStartParam(WarmStartParamType& w) { SolverType::addDDVector(w) ; };
 
 private:
    const GM& gm_;
-   TRWSi_Parameter<GM> param_; 
+   TRWSi_Parameter<GM> param_;
 };
 
 template<class GM, class ACC>
 POpt_IRI_TRWS<GM,ACC>::POpt_IRI_TRWS(
       const GM& gm)
    : gm_(gm),
-   //param_::verbose_(true),
-   //param_.setTreeAgreeMaxStableIter(100),
-   TRWSi<GM,ACC>(gm,TRWSi_Parameter<GM>(1500)) //.setTreeAgreeMaxStableIter(100)) // verbose(true)
+   POpt_IRI_TRWS_Init<GM,ACC>(),
+   TRWSi<GM,ACC>(gm,POpt_IRI_TRWS_Init<GM,ACC>::param_)
 {
    OPENGM_ASSERT(gm_.factorOrder() <= 2); 
-   //TRWSi<GM,ACC>::_parameters.setTreeAgreeMaxStableIter(100);
-   //TRWSi<GM,ACC>::verbose_=true;
+   
+   param_.verbose_ = false;
+   param_.precision_ = 1e-6;
+   param_.setTreeAgreeMaxStableIter(100);
 }
 
 template<class GM, class ACC>
 bool
-POpt_IRI_TRWS<GM,ACC>::IsGloballyOptimalSolution()
+POpt_IRI_TRWS<GM,ACC>::IsGloballyOptimalSolution() 
 {
    std::vector<bool> treeAgreement;
    TRWSi<GM,ACC>::getTreeAgreement(treeAgreement);
@@ -91,11 +103,12 @@ POpt_IRI_TRWS<GM,ACC>::IsGloballyOptimalSolution()
 }
 
 template<class GM, class ACC>
-bool 
+size_t 
 POpt_IRI_TRWS<GM,ACC>::IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
-      const std::vector<IndexType>& l)
+      const std::vector<IndexType>& l) 
 {
+   size_t newImmovable = 0;
    // get reparametrized model and add minimal reparametrized labels for each potential
    ReparametrizedGMType repGmSolved;
    typename TRWSi<GM,ACC>::ReparametrizerType* prepa = TRWSi<GM,ACC>::getReparametrizer();
@@ -118,12 +131,16 @@ POpt_IRI_TRWS<GM,ACC>::IncreaseImmovableLabels(
       }
       for(size_t i=0; i<immovable[i].size(); i++) {
          if(repPotential[i] <= minLabelCost + opengm::IRI::IRI<GM,ACC,POpt_IRI_TRWS>::eps_) {
-            immovable[v][i] = true;
+            if(immovable[v][i] == false) {
+               immovable[v][i] = true;
+               newImmovable++;
+            }
          }
       }
    }
 
    delete prepa;
+   return newImmovable;
 }
 
 } // end namespace opengm

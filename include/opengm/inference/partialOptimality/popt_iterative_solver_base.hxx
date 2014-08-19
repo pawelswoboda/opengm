@@ -24,12 +24,13 @@ public:
    typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType;
    typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier;
 
-   virtual bool IsGloballyOptimalSolution() = 0;
-   virtual bool IncreaseImmovableLabels(
+   virtual bool IsGloballyOptimalSolution() = 0 ;
+   virtual size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
-      const std::vector<IndexType>& l) = 0;
-   template<class P> void SetWarmStartParam(P&) {throw;};
-   template<class P> void GetWarmStartParam(P&) {throw;};
+      const std::vector<IndexType>& l) = 0 ;
+   // warm start functionality must be implemented by derived class as well. Cannot make them virtual due to template
+   template<class P> void SetWarmStartParam(P&) {throw("derived class must implement warm start functionality");};
+   template<class P> void GetWarmStartParam(P&) {throw("derived class must implement warm start functionality");};
 };
 
 } // end namespace opengm

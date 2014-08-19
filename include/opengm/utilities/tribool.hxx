@@ -125,8 +125,8 @@ namespace opengm {
       const bool a
    ) const
    {
-      return (value_ != Tribool::True && a == true)
-         || (value_ != Tribool::True && a == false);
+     return (value_ != Tribool::True && a == true)
+         || (value_ != Tribool::False && a == false);
    }
 
    inline Tribool::operator bool() const

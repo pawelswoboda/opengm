@@ -8,7 +8,9 @@
 #include "popt_dee.hxx"
 #include "popt_iterative_relaxed_inf.hxx"
 #include "popt_iri_trws.hxx"
+#ifdef WITH_CPLEX
 #include "popt_iri_cplex.hxx"
+#endif
 
 namespace opengm {
 
