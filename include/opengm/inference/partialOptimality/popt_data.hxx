@@ -342,7 +342,7 @@ void POpt_Data<GM>::OriginalToReducedLabeling(const std::vector<LabelType>& lOri
             {
               if(!lOrig[origIndex] == labeling_[origIndex])
               {
-                  std::cout << "ERROR: The given labeling cannot be optimal." << std::endl;
+                  throw RuntimeError("The given labeling cannot be optimal.");
                   return;
               }
             } else {
