@@ -346,7 +346,22 @@ void POpt_Data<GM>::OriginalToReducedLabeling(const std::vector<LabelType>& lOri
                   return;
               }
             } else {
-              lRed.std::vector<LabelType>::push_back(lOrig[origIndex]);
+
+              if(! partialOptimality_[origIndex][lOrig[origIndex]] == opengm::Tribool::False)
+              {
+                  LabelType redLabel = 0;
+
+                  for(LabelType l = 0; l < lOrig[origIndex]; l++)
+                  {
+                    if(! partialOptimality_[origIndex][l] == opengm::Tribool::False)
+                      redLabel ++;
+                  }
+
+                  lRed.std::vector<LabelType>::push_back(redLabel);
+
+              } else {
+                  throw RuntimeError("The given labeling cannot be optimal.");
+              }
             }
         }
     }
@@ -355,17 +370,32 @@ void POpt_Data<GM>::OriginalToReducedLabeling(const std::vector<LabelType>& lOri
 template<class GM>
 void POpt_Data<GM>::ReducedToOriginalLabeling(std::vector<LabelType>& lOrig, const std::vector<LabelType>& lRed) const
 {
-    size_t redIndex = 0;
+    IndexType redIndex = 0;
 
-    if(lOrig.std::vector<LabelType>::empty())
+    if(lOrig.std::vector<LabelType>::empty() && !lRed.std::vector<LabelType>::empty())
     {
-        for(size_t origIndex = 0; origIndex < gm_.numberOfVariables(); origIndex++)
+        for(IndexType origIndex = 0; origIndex < gm_.numberOfVariables(); origIndex++)
         {
             if(optimal_[origIndex])
             {
                 lOrig.std::vector<LabelType>::push_back(labeling_[origIndex]);
             } else {
-                lOrig.std::vector<LabelType>::push_back(lRed[redIndex]);
+                LabelType origLabel = 0;
+                OPENGM_ASSERT(lRed[redIndex] < gm_.numberOfLabels(origIndex) - countFalse_[origIndex]);
+
+                for(LabelType l = 0; l < lRed[redIndex]+1; l++)
+                {
+                  while(partialOptimality_[origIndex][origLabel] == opengm::Tribool::False)
+                  {
+                    origLabel++;
+                    if(origLabel == gm_.numberOfLabels(origIndex))
+                      break;
+                  }
+                  origLabel++;
+                }
+                origLabel--;
+
+                lOrig.std::vector<LabelType>::push_back(origLabel);
                 redIndex++;
             }
         }
