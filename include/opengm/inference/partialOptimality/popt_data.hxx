@@ -334,13 +334,43 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
 template<class GM>
 void POpt_Data<GM>::OriginalToReducedLabeling(const std::vector<LabelType>& lOrig, std::vector<LabelType>& lRed) const
 {
+    if(lOrig.std::vector<LabelType>::size() == gm_.numberOfVariables() && lRed.std::vector<LabelType>::empty())
+    {
+        for(size_t origIndex = 0; origIndex < gm_.numberOfVariables(); origIndex++)
+        {
+            if(optimal_[origIndex])
+            {
+              if(!lOrig[origIndex] == labeling_[origIndex])
+              {
+                  std::cout << "ERROR: The given labeling cannot be optimal." << std::endl;
+                  return;
+              }
+            } else {
+              lRed.std::vector<LabelType>::push_back(lOrig[origIndex]);
+            }
+        }
+    }
 }
 
 template<class GM>
 void POpt_Data<GM>::ReducedToOriginalLabeling(std::vector<LabelType>& lOrig, const std::vector<LabelType>& lRed) const
 {
-}
+    size_t redIndex = 0;
 
+    if(lOrig.std::vector<LabelType>::empty())
+    {
+        for(size_t origIndex = 0; origIndex < gm_.numberOfVariables(); origIndex++)
+        {
+            if(optimal_[origIndex])
+            {
+                lOrig.std::vector<LabelType>::push_back(labeling_[origIndex]);
+            } else {
+                lOrig.std::vector<LabelType>::push_back(lRed[redIndex]);
+                redIndex++;
+            }
+        }
+    }
+}
 
 } // namespace opengm
 
