@@ -2,7 +2,7 @@
 #ifndef OPENGM_IRI_POTENTIAL_PERM_HXX
 #define OPENGM_IRI_POTENTIAL_PERM_HXX
 
-//#define OPENGM_IRI_SUBMODULARIZATION // only makes sense for subset to one maps
+#define OPENGM_IRI_SUBMODULARIZATION // only makes sense for subset to one maps
 
 #include <iostream>
 #include <iterator>

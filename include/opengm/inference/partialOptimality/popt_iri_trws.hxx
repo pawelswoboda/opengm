@@ -17,7 +17,6 @@
 #include <opengm/inference/trws/trws_reparametrization.hxx>
 #include <opengm/inference/auxiliary/lp_reparametrization.hxx>
 
-
 namespace opengm {
 
    // class for initializing parameters for TRWSi, (workaround for initializing TRWSi_Parameters before TRWSi in POpt_IRI_TRWS)
@@ -57,7 +56,8 @@ public:
    virtual std::string name() const {return "POpt_TRWSi";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
 
-   bool IsGloballyOptimalSolution();
+   //bool IsGloballyOptimalSolution();
+   void consistent(std::vector<bool>& c);
    size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
@@ -84,6 +84,7 @@ POpt_IRI_TRWS<GM,ACC>::POpt_IRI_TRWS(
    param_.setTreeAgreeMaxStableIter(100);
 }
 
+/*
 template<class GM, class ACC>
 bool
 POpt_IRI_TRWS<GM,ACC>::IsGloballyOptimalSolution() 
@@ -101,6 +102,16 @@ POpt_IRI_TRWS<GM,ACC>::IsGloballyOptimalSolution()
       return false;
    }
 }
+*/
+
+template<class GM, class ACC>
+void
+POpt_IRI_TRWS<GM,ACC>::consistent(std::vector<bool>& c)
+{
+   TRWSi<GM,ACC>::getTreeAgreement(c);
+}
+
+
 
 template<class GM, class ACC>
 size_t 
@@ -113,7 +124,7 @@ POpt_IRI_TRWS<GM,ACC>::IncreaseImmovableLabels(
    ReparametrizedGMType repGmSolved;
    typename TRWSi<GM,ACC>::ReparametrizerType* prepa = TRWSi<GM,ACC>::getReparametrizer();
    //prepa->reparametrize(immovable); // reparametrize such that immovable labels have unaries == 0
-   prepa->reparametrize(); // reparametrize such that immovable labels have unaries == 0
+   prepa->reparametrize(); 
    prepa->getReparametrizedModel(repGmSolved);
    OPENGM_ASSERT(graphicalModel().numberOfVariables() == repGmSolved.numberOfVariables());
    OPENGM_ASSERT(graphicalModel().numberOfFactors() == repGmSolved.numberOfFactors());

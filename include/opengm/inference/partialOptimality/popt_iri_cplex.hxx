@@ -38,7 +38,8 @@ public:
    InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const; 
    ValueType value() const; 
 
-   bool IsGloballyOptimalSolution();
+   //bool IsGloballyOptimalSolution();
+   void consistent(std::vector<bool>& c);
    size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
@@ -64,6 +65,7 @@ POpt_IRI_CPLEX<GM,ACC>::POpt_IRI_CPLEX(
    //PersSolverParam_.integerConstraint_ = false;
 }
 
+/*
 template<class GM, class ACC>
 bool
 POpt_IRI_CPLEX<GM,ACC>::IsGloballyOptimalSolution() 
@@ -78,6 +80,23 @@ POpt_IRI_CPLEX<GM,ACC>::IsGloballyOptimalSolution()
             return false;
    }
    return true;
+}
+*/
+
+template<class GM, class ACC>
+void
+POpt_IRI_CPLEX<GM,ACC>::consistent(std::vector<bool>& consistent) 
+{
+   consistent.resize(gm_.numberOfVariables());
+   for(size_t i=0; i<gm_.numberOfVariables(); i++) {
+      IndependentFactorType indFac;
+      SolverType::variable( i, indFac );
+      OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
+      for(size_t x_i=0; x_i<indFac.numberOfLabels( 0 ); x_i++)
+         if(indFac(x_i)>eps_ && indFac(x_i)<1-eps_)
+            consistent[i] = false;
+      consistent[i] = true;
+   }
 }
 
 template<class GM, class ACC>

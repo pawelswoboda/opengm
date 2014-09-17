@@ -101,6 +101,8 @@ else()
 endif()
 add_test(test-iri ${CMAKE_CURRENT_BINARY_DIR}/test-iri)
 
+add_executable(test-dee test_dee.cxx ${headers})
+add_test(test-dee ${CMAKE_CURRENT_BINARY_DIR}/test-dee)
 
 
 if(WITH_BOOST)

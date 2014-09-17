@@ -1,54 +1,75 @@
-#include <stdlib.h>
-#include <vector>
-#include <set>
-#include <functional>
+#include <iostream>
 
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/multiplier.hxx>
-#include <opengm/operations/minimizer.hxx>
-#include <opengm/operations/maximizer.hxx>
 
-#include <opengm/unittests/popttester.hxx>
+#include <opengm/unittests/blackboxtester.hxx>
 #include <opengm/unittests/blackboxtests/blackboxtestgrid.hxx>
 #include <opengm/unittests/blackboxtests/blackboxtestfull.hxx>
 #include <opengm/unittests/blackboxtests/blackboxteststar.hxx>
 
+#include <opengm/unittests/popttester.hxx>
+
+#include <opengm/functions/potts.hxx>
+
+#include <opengm/inference/bruteforce.hxx>
+#include <opengm/inference/partialOptimality/popt_iterative_relaxed_inf.hxx>
 #include <opengm/inference/partialOptimality/popt_dee.hxx>
 
-int main() {
-   typedef opengm::GraphicalModel<double, opengm::Adder > AdderGmType;
-   typedef opengm::BlackBoxTestGrid<AdderGmType> AdderGridTest;
-   typedef opengm::BlackBoxTestFull<AdderGmType> AdderFullTest;
-   typedef opengm::BlackBoxTestStar<AdderGmType> AdderStarTest;
-   std::cout << "DEE Tests" << std::endl;
-   {
-      opengm::PartialOptimalityTester<AdderGmType> adderTester;
-      adderTester.addTest(new AdderFullTest(1, 90, false, 1, AdderFullTest::POTTS, opengm::OPTIMAL, 20));
-      adderTester.addTest(new AdderGridTest(5, 4, 5, false, true, AdderGridTest::POTTS, opengm::PASS, 2));
-      adderTester.addTest(new AdderGridTest(4, 4, 5, false, false, AdderGridTest::POTTS, opengm::PASS, 2));
-      adderTester.addTest(new AdderStarTest(10, 2, false, true, AdderStarTest::POTTS, opengm::OPTIMAL, 20));
-      adderTester.addTest(new AdderStarTest(5, 5, false, true, AdderStarTest::POTTS, opengm::OPTIMAL, 20));
-      adderTester.addTest(new AdderStarTest(10, 10, false, true, AdderStarTest::POTTS, opengm::PASS, 2));
-      adderTester.addTest(new AdderGridTest(3, 3, 3, false, true, AdderGridTest::POTTS, opengm::OPTIMAL, 20));
-      adderTester.addTest(new AdderGridTest(5, 5, 4, false, true, AdderGridTest::POTTS, opengm::PASS, 2));
-      adderTester.addTest(new AdderStarTest(10, 4, false, true, AdderStarTest::POTTS, opengm::PASS, 20));
-      adderTester.addTest(new AdderStarTest(10, 2, false, false, AdderStarTest::POTTS, opengm::OPTIMAL, 20));
-      adderTester.addTest(new AdderStarTest(10, 4, false, true, AdderStarTest::POTTS, opengm::PASS, 20));
-      adderTester.addTest(new AdderStarTest(6, 4, false, true, AdderStarTest::POTTS, opengm::PASS, 4));
-      adderTester.addTest(new AdderFullTest(5, 3, false, 3, AdderFullTest::POTTS, opengm::PASS, 20));
-      //adderTester.addTest(new AdderGridTest(400, 400, 5, false, false, AdderGridTest::POTTS, opengm::PASS, 1));
+int main(){ 
+   typedef double ValueType;
+   typedef opengm::meta::TypeListGenerator
+   <
+   opengm::PottsFunction<ValueType>,
+   opengm::ExplicitFunction<ValueType>
+   >::type FunctionTypeList;
+   
 
-      {
-         std::cout << "  * Minimization/Adder ..." << std::endl;
-         typedef opengm::GraphicalModel<double, opengm::Adder> GmType;
-         typedef opengm::POpt_Data<GmType> DataType;
-         typedef opengm::DEE<DataType, opengm::Minimizer> DEEType;
-         DEEType::Parameter para;
-         adderTester.test<DEEType>(para);
-         std::cout << " OK!" << std::endl;
-      }
+   typedef opengm::GraphicalModel<ValueType,opengm::Adder,FunctionTypeList>  GmType;
+   typedef opengm::POpt_Data<GmType> POpt_DataType;
 
-    }
+   typedef opengm::DEE<POpt_DataType,opengm::Minimizer> DEEType;
+
+   typedef opengm::BlackBoxTestGrid<GmType> GridTest;
+   typedef opengm::BlackBoxTestFull<GmType> FullTest;
+   typedef opengm::BlackBoxTestStar<GmType> StarTest;
+   
+   opengm::test::PartialOptimalityTester<GmType> tester;
+   tester.addTest(new GridTest(3, 3, 3, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
+   tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
+   tester.addTest(new StarTest(6,    5, false, true, StarTest::POTTS, opengm::OPTIMAL, 10));
+   tester.addTest(new FullTest(5,    5, false, 3,    FullTest::POTTS, opengm::OPTIMAL, 10));
+#ifdef WITH_CPLEX
+   tester.addTest(new GridTest(15, 15, 5, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
+   tester.addTest(new StarTest(30,     5, false, true, StarTest::POTTS, opengm::OPTIMAL, 10));
+   tester.addTest(new FullTest(30,     5, false, 3,    FullTest::POTTS, opengm::OPTIMAL, 10));
+#endif
+
+   tester.addTest(new GridTest(3, 3, 3, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+   tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+   tester.addTest(new StarTest(6,    5, false, true, StarTest::RANDOM, opengm::OPTIMAL, 10));
+   tester.addTest(new FullTest(5,    5, false, 3,    FullTest::RANDOM, opengm::OPTIMAL, 10));
+#ifdef WITH_CPLEX
+   tester.addTest(new GridTest(15, 15, 5, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+   tester.addTest(new StarTest(30,     5, false, true, StarTest::RANDOM, opengm::OPTIMAL, 10));
+   tester.addTest(new FullTest(30,     5, false, 3,    FullTest::RANDOM, opengm::OPTIMAL, 10));
+#endif
+
+   typename opengm::DEE::Parameter param;
+
+   std::cout << "Test dee 1" << std::endl;
+   param.method_ = DEE1;
+   tester.test<DEEType>(param);
+
+   std::cout << "Test dee 3" << std::endl;
+   param.method_ = DEE3;
+   tester.test<DEEType>(param);
+
+   std::cout << "Test dee 4" << std::endl;
+   param.method_ = DEE4;
+   tester.test<DEEType>(param);
+
    return 0;
-}
+};
+

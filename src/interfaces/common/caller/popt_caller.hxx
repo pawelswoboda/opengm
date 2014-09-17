@@ -62,6 +62,10 @@ namespace opengm {
 #ifdef WITH_CPLEX
          POptMethods_.push_back("IRI_CPLEX");
 #endif
+         POptMethods_.push_back("PBP_TRWS");
+#ifdef WITH_CPLEX
+         POptMethods_.push_back("PBP_CPLEX");
+#endif
 
          POptSequence_.resize(noPOpt_);
          // make list of partial optimality methods to call
@@ -105,6 +109,10 @@ namespace opengm {
                parameter_.methodSequence_.push_back(POpt_ParameterType::IRI_TRWS);
             } else if(POptSequence_[i].compare("IRI_CPLEX") == 0 ) {
                parameter_.methodSequence_.push_back(POpt_ParameterType::IRI_CPLEX);
+            } else if(POptSequence_[i].compare("PBP_TRWS") == 0 ) {
+               parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_TRWS);
+            } else if(POptSequence_[i].compare("PBP_CPLEX") == 0 ) {
+               parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_CPLEX);
             } else {
                std::cout << "method not implemented yet" << std::endl;
                throw; // no other methods implemented yet

@@ -24,7 +24,8 @@ public:
    typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType;
    typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier;
 
-   virtual bool IsGloballyOptimalSolution() = 0 ;
+   virtual bool IsGloballyOptimalSolution(); // do zrobienia: infer from consistent
+   virtual void consistent(std::vector<bool>& consistent) = 0;
    virtual size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l) = 0 ;
@@ -32,6 +33,18 @@ public:
    template<class P> void SetWarmStartParam(P&) {throw("derived class must implement warm start functionality");};
    template<class P> void GetWarmStartParam(P&) {throw("derived class must implement warm start functionality");};
 };
+
+template<class GM, class ACC>
+bool
+POpt_IRI_SolverBase<GM,ACC>::IsGloballyOptimalSolution()
+{
+   std::vector<bool> c;
+   consistent(c);
+   for(size_t i=0; i<c.size(); i++)
+      if(!c[i])
+         return false;
+   return true;
+}
 
 } // end namespace opengm
 

@@ -103,7 +103,7 @@ private:
 };
 
 //! [class IRI iterative relaxed inference]
-/// Persistency by improving mappings: iterative algorithm
+/// Persistency with improving mappings: iterative algorithm
 ///
 /// Corresponding author: Paul Swoboda
 ///
@@ -127,6 +127,7 @@ public:
    typedef opengm::IRI::Potential<GM> PersPotentialType;
    typedef GraphicalModel<ValueType,opengm::Adder,PersPotentialType,
            opengm::DiscreteSpace<IndexType,LabelType> > PersistencyGMType;
+
    typedef typename PersistencyGMType::ConstFactorIterator PGMConstFactorIterator;
    typedef typename PersistencyGMType::ConstVariableIterator PGMConstVariableIterator;
 

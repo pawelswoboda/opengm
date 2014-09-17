@@ -7,6 +7,7 @@
 #include "popt_kovtun.hxx"
 #include "popt_dee.hxx"
 #include "popt_iterative_relaxed_inf.hxx"
+#include "popt_pbp.hxx"
 #include "popt_iri_trws.hxx"
 #ifdef WITH_CPLEX
 #include "popt_iri_cplex.hxx"
@@ -19,7 +20,7 @@ class POpt_infer : public Inference<GM, ACC>
 {  
 public:
    struct Parameter {
-      enum Method {DEE1,DEE2,DEE3,DEE4,Kovtun,MQPBO,IRI_TRWS,IRI_CPLEX};
+      enum Method {DEE1,DEE2,DEE3,DEE4,Kovtun,MQPBO,IRI_TRWS,IRI_CPLEX,PBP_TRWS,PBP_CPLEX};
       std::vector<Method> methodSequence_;
    };
 
@@ -69,24 +70,32 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
       if(parameter_.methodSequence_[i] == Parameter::DEE1) {
          DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_);
          infReturnValue = dee.dee1();
-      } else if(parameter_.methodSequence_[i] == Parameter::DEE3  ) {
+      } else if(parameter_.methodSequence_[i] == Parameter::DEE3) {
          DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_);
          infReturnValue = dee.dee3();
-      } else if(parameter_.methodSequence_[i] == Parameter::DEE4 ) {
+      } else if(parameter_.methodSequence_[i] == Parameter::DEE4) {
          DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_);
          infReturnValue = dee.dee4();
 #ifdef WITH_QPBO
-      } else if(parameter_.methodSequence_[i] == Parameter::Kovtun ) {
+      } else if(parameter_.methodSequence_[i] == Parameter::Kovtun) {
          POpt_Kovtun<POpt_Data<GM>, opengm::Minimizer> kovtun(d_);
          infReturnValue = kovtun.infer();
 #endif
-      } else if(parameter_.methodSequence_[i] == Parameter::IRI_TRWS  ) {
+      } else if(parameter_.methodSequence_[i] == Parameter::IRI_TRWS) {
          IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> iri(d_);
          infReturnValue = iri.infer();
 #ifdef WITH_CPLEX
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_CPLEX) {
          IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_CPLEX> iri(d_);
          infReturnValue = iri.infer();
+#endif
+      } else if(parameter_.methodSequence_[i] == Parameter::PBP_TRWS) {
+         PBP::PBP<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> pbp(d_);
+         infReturnValue = pbp.infer();
+#ifdef WITH_CPLEX
+      } else if(parameter_.methodSequence_[i] == Parameter::PBP_CPLEX) {
+         PBP::PBP<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_CPLEX> pbp(d_);
+         infReturnValue = pbp.infer();
 #endif
       } else {
          std::cout << "method not implemented yet" << std::endl;
