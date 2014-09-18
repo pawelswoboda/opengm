@@ -59,7 +59,7 @@ namespace test {
 
       for(size_t testId = 0; testId < testList.size(); ++testId) {
          size_t numTests = testList[testId]->numberOfTests();
-         BlackBoxBehaviour behaviour = testList[testId]->behaviour();
+         const BlackBoxBehaviour behaviour = testList[testId]->behaviour();
          std::cout << testList[testId]->infoText();
          std::cout << " " << std::flush;
          for(size_t n = 0; n < numTests; ++n) {
@@ -68,9 +68,8 @@ namespace test {
             // Create partial optimality object
             POpt_Data<GraphicalModelType> D(gm);
             // Run Algorithm
-            bool exceptionFlag = false;
             std::vector<typename GM::LabelType> state;
-            try{
+            //try{
                POPT inf(D,infPara);
                InferenceTermination returnValue=inf.infer();
                OPENGM_TEST((returnValue==opengm::NORMAL) || (returnValue==opengm::CONVERGENCE));
@@ -108,32 +107,34 @@ namespace test {
 
 
                      // to do: this test is always applicable, even when solution is not unique
-                     ReducedGmType gmRed;
-                     D.reducedGraphicalModel(gmRed);
-                     std::vector<typename GM::LabelType> optimalStateRed;
+                     if(std::abs( D.getPOpt()-1) < 0.000001) { // all variables could be determined
+                        // check if labeling determined is optimal
+                        std::vector<typename GM::LabelType> optimalStateRed(gm.numberOfVariables());
+                        D.get(optimalStateRed);
+                        OPENGM_TEST_EQUAL_TOLERANCE(gm.evaluate(optimalStateOrig), gm.evaluate(optimalStateRed), 0.00001);
+                     } else { // check if partial labeling can be augmented to globally optimal labeling
+                        ReducedGmType gmRed;
+                        std::cout << "Percentage partial optimality = " << D.getPOpt() << std::endl;
+                        D.reducedGraphicalModel(gmRed);
+                        std::vector<typename GM::LabelType> optimalStateRed;
 #ifdef WITH_CPLEX
-                     typename opengm::LPCplex<ReducedGmType,AccType>::Parameter redParam;
-                     redParam.integerConstraint_ = false;
-                     opengm::LPCplex<ReducedGmType,AccType> redSolver(gmRed,redParam);
+                        typename opengm::LPCplex<ReducedGmType,AccType>::Parameter redParam;
+                        redParam.integerConstraint_ = false;
+                        opengm::LPCplex<ReducedGmType,AccType> redSolver(gmRed,redParam);
 #else
-                     opengm::Bruteforce<ReducedGmType, AccType> redSolver(gmRed);
+                        opengm::Bruteforce<ReducedGmType, AccType> redSolver(gmRed);
 #endif
-                     OPENGM_TEST(redSolver.infer()==opengm::NORMAL);
-                     OPENGM_TEST(redSolver.arg(optimalStateRed)==opengm::NORMAL);
-                     OPENGM_TEST(optimalStateRed.size()==gmRed.numberOfVariables());
+                        OPENGM_TEST(redSolver.infer()==opengm::NORMAL);
+                        OPENGM_TEST(redSolver.arg(optimalStateRed)==opengm::NORMAL);
+                        OPENGM_TEST(optimalStateRed.size()==gmRed.numberOfVariables());
 
-                     OPENGM_TEST_EQUAL_TOLERANCE(gm.evaluate(optimalStateOrig), gmRed.evaluate(optimalStateRed), 0.00001);
+                        OPENGM_TEST_EQUAL_TOLERANCE(gm.evaluate(optimalStateOrig), gmRed.evaluate(optimalStateRed), 0.00001);
+                     }
                   }
                }
-            } catch(std::exception& e) {
-               exceptionFlag = true;
-               std::cout << e.what() <<std::endl;
-            }
-            if(behaviour == opengm::FAIL) {
-               OPENGM_TEST(exceptionFlag);
-            }else{
-               OPENGM_TEST(!exceptionFlag);
-            }
+            //} catch(std::exception& e) {
+            //   std::cout << e.what() <<std::endl;
+            //}
          }
          if(behaviour == opengm::OPTIMAL) {
             std::cout << " OPTIMAL!" << std::endl;

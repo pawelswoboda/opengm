@@ -236,6 +236,7 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
    //Variables and their labels are included in case they are not optimal yet.
 
    IndexType newVariable[gm_.numberOfVariables()];
+   std::vector<IndexType> numLabels(0);
    IndexType variable = 0;
 
    for (IndexType v = 0; v < gm_.numberOfVariables(); v++) {
@@ -243,16 +244,16 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
          newVariable[v] = variable;
          variable++;
 
-         LabelType numLabels = 0;
+         numLabels.push_back(0);
 
          for(IndexType i = 0; i < gm_.numberOfLabels(v); i++) {
             if(!(partialOptimality_[v][i] == opengm::Tribool::False))
-               numLabels++;
+               numLabels.back()++;
          }
-         OPENGM_ASSERT(numLabels>1);
-         reducedGm.addVariable(numLabels);
+         OPENGM_ASSERT(numLabels.back()>1);
       }
    }
+   reducedGm.assign(opengm::DiscreteSpace<>(numLabels.begin(), numLabels.end()));
 
 
    //factors will be included in case one of their variables is not optimal yet.
