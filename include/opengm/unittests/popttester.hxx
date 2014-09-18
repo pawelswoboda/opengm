@@ -28,7 +28,7 @@ namespace test {
    {
    public:
       typedef GM GraphicalModelType;
-      template<class POPT> void test(); //const typename POPT::Parameter&, bool tValue=true, bool tArg=false, bool tMarg=false, bool tFacMarg=false);
+      template<class POPT> void test(const typename POPT::Parameter& param = typename POPT::Parameter()); //, bool tValue=true, bool tArg=false, bool tMarg=false, bool tFacMarg=false);
       void addTest(BlackBoxTestBase<GraphicalModelType>*);
       ~PartialOptimalityTester();
 
@@ -50,7 +50,7 @@ namespace test {
 
    template<class GM>
    template<class POPT>
-   void PartialOptimalityTester<GM>::test() //const typename POPT::Parameter& infPara, bool tValue, bool tArg, bool tMarg, bool tFacMarg)
+   void PartialOptimalityTester<GM>::test(const typename POPT::Parameter& infPara) //, bool tValue, bool tArg, bool tMarg, bool tFacMarg)
    {
       typedef typename GraphicalModelType::ValueType ValueType;
       typedef typename GraphicalModelType::OperatorType OperatorType;
@@ -71,7 +71,7 @@ namespace test {
             bool exceptionFlag = false;
             std::vector<typename GM::LabelType> state;
             try{
-               POPT inf(D);
+               POPT inf(D,infPara);
                InferenceTermination returnValue=inf.infer();
                OPENGM_TEST((returnValue==opengm::NORMAL) || (returnValue==opengm::CONVERGENCE));
                if(typeid(AccType) == typeid(opengm::Minimizer) || typeid(AccType) == typeid(opengm::Maximizer)) {
@@ -90,7 +90,7 @@ namespace test {
                      OPENGM_TEST(optimalStateOrig.size()==gm.numberOfVariables());
                      // to do: check if solution unique, otherwise test may not be correct
                      //if(gm.evaluate(optimalStateOrig.begin()) < gm.evaluate(optimalStateOrig2.begin()) - 0.00001) {
-                        for(size_t var = 0; var < gm.numberOfVariables(); ++var) {
+                     //   for(size_t var = 0; var < gm.numberOfVariables(); ++var) {
 
                            //std::cout << "node = " << var << ", optimal label = " << optimalStateOrig[var] << ", partial Optimality = ";
                            //if(D.getPOpt(var,optimalStateOrig[var]) == false) std::cout << "false";
@@ -98,9 +98,9 @@ namespace test {
                            //else std::cout << "maybe";
                            //std::cout << std::endl;
 
-                           OPENGM_TEST(optimalStateOrig[var]<gm.numberOfLabels(var));
-                           OPENGM_TEST(D.getPOpt(var,optimalStateOrig[var]) != false);
-                        }
+                     //      OPENGM_TEST(optimalStateOrig[var]<gm.numberOfLabels(var));
+                     //      OPENGM_TEST(D.getPOpt(var,optimalStateOrig[var]) != false);
+                     //   }
                      //} else {
                      //   OPENGM_TEST_EQUAL_TOLERANCE(gm.evaluate(optimalStateOrig), gm.evaluate(optimalStateOrig2), 0.00001);
                      //   std::cout << "graphical model possesses more than one minimum" << std::endl;
@@ -108,7 +108,6 @@ namespace test {
 
 
                      // to do: this test is always applicable, even when solution is not unique
-                     /*
                      ReducedGmType gmRed;
                      D.reducedGraphicalModel(gmRed);
                      std::vector<typename GM::LabelType> optimalStateRed;
@@ -124,7 +123,6 @@ namespace test {
                      OPENGM_TEST(optimalStateRed.size()==gmRed.numberOfVariables());
 
                      OPENGM_TEST_EQUAL_TOLERANCE(gm.evaluate(optimalStateOrig), gmRed.evaluate(optimalStateRed), 0.00001);
-                     */
                   }
                }
             } catch(std::exception& e) {

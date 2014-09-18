@@ -27,7 +27,16 @@
 namespace opengm
 {
 
-// DEE
+////! [class DEE - dead end elimination]
+/// based on "The dead-end elimination theorem and its use in protein side-chain positioning",
+/// originally by J. Desmet, M. D. Maeyer, B. Hazes and I. Lasters, Nature 1992
+/// also see "Maximum Persistency in Energy Minimization", A. Shekhovtsov, CVPR 2014
+/// for concise description.
+///
+/// Corresponding author: Paul Swoboda, email: swoboda@math.uni-heidelberg.de
+///
+///\ingroup inference
+
 template<class DATA, class ACC>
 class DEE : public POpt_Inference<DATA, ACC>
 {
@@ -44,7 +53,7 @@ public:
        MethodType method_;
     };
 
-    DEE(DATA& gmD);
+    DEE(DATA& gmD, const Parameter& param);
 
     std::string name() const { return "DEE"; };
     const GraphicalModelType& graphicalModel() const { return gm_; };
@@ -68,7 +77,10 @@ template<class DATA,class ACC>
 const double DEE<DATA,ACC>::eps_ = 1.0e-8;
 
 template<class DATA,class ACC>
-DEE<DATA,ACC>::DEE(DATA& gmD) : gmD_(gmD), gm_(gmD.graphicalModel())
+DEE<DATA,ACC>::DEE(DATA& gmD, const Parameter& param) 
+: gmD_(gmD), 
+   gm_(gmD.graphicalModel()),
+   param_(param)
 {
 }
 

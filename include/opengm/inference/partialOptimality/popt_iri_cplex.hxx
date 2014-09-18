@@ -38,7 +38,6 @@ public:
    InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const; 
    ValueType value() const; 
 
-   //bool IsGloballyOptimalSolution();
    void consistent(std::vector<bool>& c);
    size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
@@ -65,24 +64,7 @@ POpt_IRI_CPLEX<GM,ACC>::POpt_IRI_CPLEX(
    //PersSolverParam_.integerConstraint_ = false;
 }
 
-/*
-template<class GM, class ACC>
-bool
-POpt_IRI_CPLEX<GM,ACC>::IsGloballyOptimalSolution() 
-{
-   // get marginal solution and test for integrality
-   for(size_t i=0; i<gm_.numberOfVariables(); i++) {
-      IndependentFactorType indFac;
-      SolverType::variable( i, indFac );
-      OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
-      for(size_t x_i=0; x_i<indFac.numberOfLabels( 0 ); x_i++)
-         if(indFac(x_i)>eps_ && indFac(x_i)<1-eps_)
-            return false;
-   }
-   return true;
-}
-*/
-
+// indicate which variables have integral solutions
 template<class GM, class ACC>
 void
 POpt_IRI_CPLEX<GM,ACC>::consistent(std::vector<bool>& consistent) 
@@ -121,7 +103,8 @@ POpt_IRI_CPLEX<GM,ACC>::IncreaseImmovableLabels(
    return newImmovable;
 }
 
-// attention: It seems to me that CPLEX rounds solutions. This must not occur in iterative relaxed inference for otherwise the result may not be partially optimal. 
+// attention: It seems to me that CPLEX rounds solutions. 
+// This must not occur in iterative relaxed inference for otherwise the result may not be partially optimal. 
 // We need labelings on the support of optimal fractional solutions of the local polytope relaxation
 template<class GM, class ACC>
 InferenceTermination 

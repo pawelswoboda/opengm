@@ -29,7 +29,7 @@ namespace opengm {
 
       struct Parameter{};
 
-      POpt_Kovtun(DATA&);
+      POpt_Kovtun(DATA&, const Parameter& param_ = Parameter());
       ~POpt_Kovtun();
 
       std::string name() const { return "Kovtun"; };
@@ -46,7 +46,7 @@ namespace opengm {
 
    template<class DATA, class ACC>
    POpt_Kovtun<DATA,ACC>::POpt_Kovtun
-   ( DATA& data ) : data_(data), gm_(data_.graphicalModel())
+   ( DATA& data, const Parameter& param ) : data_(data), gm_(data_.graphicalModel())
    {
       size_t numEdges = 0;
       for(size_t j = 0; j < gm_.numberOfFactors(); ++j) {

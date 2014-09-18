@@ -1,0 +1,38 @@
+#pragma once
+#ifndef OPENGM_POPT_INFERENCE_BASE_HXX
+#define OPENGM_POPT_INFERENCE_BASE_HXX
+#include <vector>
+#include <string>
+#include <list>
+#include <limits>
+#include <exception>
+#include "opengm/opengm.hxx"
+#include "opengm/inference/inference.hxx"
+#include "popt_data.hxx"
+
+namespace opengm {
+
+/// Inference algorithm interface
+template <class DATA, class ACC>
+class POpt_Inference
+{
+public:
+   typedef typename DATA::GraphicalModelType GraphicalModelType;
+   typedef ACC AccumulationType;
+   typedef typename GraphicalModelType::LabelType LabelType;
+   typedef typename GraphicalModelType::IndexType IndexType;
+   typedef typename GraphicalModelType::ValueType ValueType;
+   typedef typename GraphicalModelType::OperatorType OperatorType;
+   typedef typename GraphicalModelType::FactorType FactorType;
+   typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType;
+   typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier;
+
+   virtual ~POpt_Inference() {}
+   virtual std::string name() const = 0;
+   virtual const GraphicalModelType& graphicalModel() const = 0;
+   virtual InferenceTermination infer() = 0;
+};
+
+} // namespace opengm
+
+#endif // #ifndef OPENGM_POPT_INFERENCE_BASE_HXX

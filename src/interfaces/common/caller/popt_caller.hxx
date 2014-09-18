@@ -59,10 +59,12 @@ namespace opengm {
          POptMethods_.push_back("DEE3");
          POptMethods_.push_back("DEE4");
          POptMethods_.push_back("IRI_TRWS");
+         POptMethods_.push_back("IRI_ADSAL");
 #ifdef WITH_CPLEX
          POptMethods_.push_back("IRI_CPLEX");
 #endif
          POptMethods_.push_back("PBP_TRWS");
+         POptMethods_.push_back("PBP_ADSAL");
 #ifdef WITH_CPLEX
          POptMethods_.push_back("PBP_CPLEX");
 #endif
@@ -107,10 +109,14 @@ namespace opengm {
                parameter_.methodSequence_.push_back(POpt_ParameterType::DEE4);
             } else if(POptSequence_[i].compare("IRI_TRWS") == 0 ) {
                parameter_.methodSequence_.push_back(POpt_ParameterType::IRI_TRWS);
+            } else if(POptSequence_[i].compare("IRI_ADSal") == 0 ) {
+               parameter_.methodSequence_.push_back(POpt_ParameterType::IRI_ADSal);
             } else if(POptSequence_[i].compare("IRI_CPLEX") == 0 ) {
                parameter_.methodSequence_.push_back(POpt_ParameterType::IRI_CPLEX);
             } else if(POptSequence_[i].compare("PBP_TRWS") == 0 ) {
                parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_TRWS);
+            } else if(POptSequence_[i].compare("PBP_ADSAL") == 0 ) {
+               parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_ADSal);
             } else if(POptSequence_[i].compare("PBP_CPLEX") == 0 ) {
                parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_CPLEX);
             } else {

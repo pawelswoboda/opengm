@@ -9,6 +9,7 @@
 #include "popt_iterative_relaxed_inf.hxx"
 #include "popt_pbp.hxx"
 #include "popt_iri_trws.hxx"
+#include "popt_iri_adsal.hxx"
 #ifdef WITH_CPLEX
 #include "popt_iri_cplex.hxx"
 #endif
@@ -20,7 +21,9 @@ class POpt_infer : public Inference<GM, ACC>
 {  
 public:
    struct Parameter {
-      enum Method {DEE1,DEE2,DEE3,DEE4,Kovtun,MQPBO,IRI_TRWS,IRI_CPLEX,PBP_TRWS,PBP_CPLEX};
+      enum Method {DEE1,DEE2,DEE3,DEE4,Kovtun,MQPBO,IRI_TRWS,
+                   IRI_ADSal,IRI_CPLEX,
+                   PBP_TRWS,PBP_CPLEX,PBP_ADSal};
       std::vector<Method> methodSequence_;
    };
 
@@ -68,13 +71,16 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
    for(size_t i=0; i<parameter_.methodSequence_.size(); i++) {
       InferenceTermination infReturnValue;
       if(parameter_.methodSequence_[i] == Parameter::DEE1) {
-         DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_);
+         typename DEE<POpt_Data<GM>, opengm::Minimizer>::Parameter param( DEE<POpt_Data<GM>, opengm::Minimizer>::DEE1);
+         DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_,param);
          infReturnValue = dee.dee1();
       } else if(parameter_.methodSequence_[i] == Parameter::DEE3) {
-         DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_);
+         typename DEE<POpt_Data<GM>, opengm::Minimizer>::Parameter param( DEE<POpt_Data<GM>, opengm::Minimizer>::DEE3);
+         DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_,param);
          infReturnValue = dee.dee3();
       } else if(parameter_.methodSequence_[i] == Parameter::DEE4) {
-         DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_);
+         typename DEE<POpt_Data<GM>, opengm::Minimizer>::Parameter param( DEE<POpt_Data<GM>, opengm::Minimizer>::DEE4);
+         DEE<POpt_Data<GM>, opengm::Minimizer> dee(d_,param);
          infReturnValue = dee.dee4();
 #ifdef WITH_QPBO
       } else if(parameter_.methodSequence_[i] == Parameter::Kovtun) {
@@ -84,6 +90,9 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_TRWS) {
          IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> iri(d_);
          infReturnValue = iri.infer();
+      } else if(parameter_.methodSequence_[i] == Parameter::IRI_ADSal) {
+         IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_ADSal> iri(d_);
+         infReturnValue = iri.infer();
 #ifdef WITH_CPLEX
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_CPLEX) {
          IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_CPLEX> iri(d_);
@@ -91,6 +100,9 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
 #endif
       } else if(parameter_.methodSequence_[i] == Parameter::PBP_TRWS) {
          PBP::PBP<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> pbp(d_);
+         infReturnValue = pbp.infer();
+      } else if(parameter_.methodSequence_[i] == Parameter::PBP_ADSal) {
+         PBP::PBP<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_ADSal> pbp(d_);
          infReturnValue = pbp.infer();
 #ifdef WITH_CPLEX
       } else if(parameter_.methodSequence_[i] == Parameter::PBP_CPLEX) {

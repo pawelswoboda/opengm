@@ -22,11 +22,14 @@ namespace opengm {
 
 namespace PBP {
 
-//! [class PBP partial optimality by pruning]
-/// Persistency by pruning, published in CVPR 2014 as 
+//! [class PBP]
+/// PBP - partial optimality by pruning]
+/// Persistency by pruning for computing partially optimal labelings on general graphical models, 
+/// published in CVPR 2014 as 
 /// "Partial Optimality by Pruning for MAP-inference with General Graphical Models"
+/// by P. Swoboda, B. Savchynskyy, J.H. Kappes and C. Schn\"orr.
 ///
-/// Corresponding author: Paul Swoboda
+/// Corresponding author: Paul Swoboda, email: swoboda@math.uni-heidelberg.de
 ///
 ///\ingroup inference
 
@@ -59,8 +62,9 @@ public:
    typedef SOLVER<GM,ACC> InitSolverType;
    typedef SOLVER<PersistencyGMType,ACC> IterSolverType;
 
+   struct Parameter{};
 
-   PBP(DATA& d);
+   PBP(DATA& d, const Parameter& param = Parameter());
    virtual std::string name() const {return "PBP";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
    InferenceTermination infer();
@@ -96,7 +100,7 @@ template<class DATA,class ACC,template <typename,typename> class SOLVER>
 const double PBP<DATA,ACC,SOLVER>::eps_ = 1.0e-6;
 
 template<class DATA,class ACC,template <typename,typename> class SOLVER>
-PBP<DATA,ACC,SOLVER>::PBP(DATA& d) :
+PBP<DATA,ACC,SOLVER>::PBP(DATA& d, const Parameter& param) :
    d_(d),
    gm_(d.graphicalModel()),
    n_(d.graphicalModel().numberOfVariables())
@@ -420,17 +424,6 @@ PBP<DATA,ACC,SOLVER>::SubToOrigConsistent(
    }
    return consistentOrig;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 } // namespace PBP
 } // namespace opengm

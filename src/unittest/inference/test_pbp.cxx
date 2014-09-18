@@ -14,8 +14,12 @@
 #include <opengm/functions/potts.hxx>
 
 #include <opengm/inference/bruteforce.hxx>
-#include <opengm/inference/partialOptimality/popt_iterative_relaxed_inf.hxx>
-#include <opengm/inference/partialOptimality/popt_dee.hxx>
+#include <opengm/inference/partialOptimality/popt_pbp.hxx>
+#include <opengm/inference/partialOptimality/popt_iri_trws.hxx>
+#ifdef WITH_CPLEX
+#include <opengm/inference/partialOptimality/popt_iri_cplex.hxx>
+#endif
+
 
 int main(){ 
    typedef double ValueType;
@@ -29,7 +33,10 @@ int main(){
    typedef opengm::GraphicalModel<ValueType,opengm::Adder,FunctionTypeList>  GmType;
    typedef opengm::POpt_Data<GmType> POpt_DataType;
 
-   typedef opengm::DEE<POpt_DataType,opengm::Minimizer> DEEType;
+   typedef opengm::PBP::PBP<POpt_DataType,opengm::Minimizer,opengm::POpt_IRI_TRWS> POptTypeTRWS;
+#ifdef WITH_CPLEX
+   typedef opengm::PBP::PBP<POpt_DataType,opengm::Minimizer,opengm::POpt_IRI_CPLEX> POptTypeCPLEX;
+#endif
 
    typedef opengm::BlackBoxTestGrid<GmType> GridTest;
    typedef opengm::BlackBoxTestFull<GmType> FullTest;
@@ -56,19 +63,12 @@ int main(){
    tester.addTest(new FullTest(30,     5, false, 3,    FullTest::RANDOM, opengm::OPTIMAL, 10));
 #endif
 
-   typename DEEType::Parameter param;
-
-   std::cout << "Test dee 1" << std::endl;
-   param.method_ = DEEType::DEE1;
-   tester.test<DEEType>(param);
-
-   std::cout << "Test dee 3" << std::endl;
-   param.method_ = DEEType::DEE3;
-   tester.test<DEEType>(param);
-
-   std::cout << "Test dee 4" << std::endl;
-   param.method_ = DEEType::DEE4;
-   tester.test<DEEType>(param);
+   std::cout << "Test iterative relaxed inference with TRWS as subsolver" << std::endl;
+   tester.test<POptTypeTRWS>();
+#ifdef WITH_CPLEX
+   std::cout << "Test iterative relaxed inference with CPLEX as subsolver" << std::endl;
+   tester.test<POptTypeCPLEX>();
+#endif
 
    return 0;
 };

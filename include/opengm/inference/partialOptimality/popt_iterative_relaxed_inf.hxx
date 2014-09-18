@@ -96,16 +96,23 @@ public:
    void end(INFERENCE & inf){
       std::cout << "value " << inf.value() << " bound " << inf.bound() << std::endl;
    }
+
+   void addLog(const std::string & logName){}
+   void log(const std::string & logName,const double logValue){}
+
 private:
    double eps_;
    size_t minIter_;
    size_t nIter_;
 };
 
-//! [class IRI iterative relaxed inference]
-/// Persistency with improving mappings: iterative algorithm
+//! [class IRI]
+/// IRI - iterative relaxed inference
+/// Persistency with improving mappings: iterative algorithm.
+/// Based on the improving mapping framework described in
+/// "Maximum Persistency in Energy Minimization", A. Shekhovtsov, CVPR 2014.
 ///
-/// Corresponding author: Paul Swoboda
+/// Corresponding author: Paul Swoboda, email: swoboda@math.uni-heidelberg.de
 ///
 ///\ingroup inference
 
@@ -135,8 +142,9 @@ public:
    typedef SOLVER<GM,ACC> InitSolverType;
    typedef SOLVER<PersistencyGMType,ACC> IterSolverType;
 
+   struct Parameter {};
 
-   IRI(DATA& d);
+   IRI(DATA& d, const Parameter& param = Parameter());
    virtual std::string name() const {return "IRI";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
    InferenceTermination infer();
@@ -200,7 +208,7 @@ template<class DATA,class ACC,template <typename,typename> class SOLVER>
 const double IRI<DATA,ACC,SOLVER>::eps_ = 1.0e-6;
 
 template<class DATA,class ACC,template <typename,typename> class SOLVER>
-IRI<DATA,ACC,SOLVER>::IRI(DATA& d) :
+IRI<DATA,ACC,SOLVER>::IRI(DATA& d, const Parameter& param) :
    d_(d),
    gm_(d.graphicalModel()),
    n_(d.graphicalModel().numberOfVariables())

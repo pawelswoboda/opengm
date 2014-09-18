@@ -1,6 +1,6 @@
 #pragma once
-#ifndef POPT_IRI_TRWS_HXX
-#define POPT_IRI_TRWS_HXX
+#ifndef POPT_IRI_ADSal_HXX
+#define POPT_IRI_ADSal_HXX
 
 #include "popt_iterative_solver_base.hxx"
 #include <opengm/opengm.hxx>
@@ -13,47 +13,47 @@
 #include "popt_inference_base.hxx"
 
 #include <opengm/inference/trws/trws_base.hxx>
-#include <opengm/inference/trws/trws_trws.hxx>
+#include "opengm/inference/trws/trws_adsal.hxx"
 #include <opengm/inference/trws/trws_reparametrization.hxx>
 #include <opengm/inference/auxiliary/lp_reparametrization.hxx>
 
 namespace opengm {
 
-// class for initializing parameters for TRWSi, (workaround for initializing TRWSi_Parameters before TRWSi in POpt_IRI_TRWS)
+// class for initializing parameters for ADSal, (workaround for initializing ADSal::Parameter before ADSal in POpt_IRI_ADSal)
 template<class GM, class ACC>
-class POpt_IRI_TRWS_Init
+class POpt_IRI_ADSal_Init
 {
 public:
-   POpt_IRI_TRWS_Init() : param_(TRWSi_Parameter<GM>(1500)) { 
+   POpt_IRI_ADSal_Init() : param_(typename ADSal<GM,ACC>::Parameter(1500)) { 
       param_.verbose_ = false; 
-      param_.precision_ = 1e-6; 
-      param_.setTreeAgreeMaxStableIter(100); 
+      param_.smoothingDecayMultiplier() = 0.05;
    }
-   TRWSi_Parameter<GM> param_;
+   typename ADSal<GM,ACC>::Parameter param_;
 };
 
 template<class GM, class ACC> 
-class POpt_IRI_TRWS : protected POpt_IRI_TRWS_Init<GM,ACC>, public POpt_IRI_SolverBase<GM, ACC>, public TRWSi<GM,ACC>
+class POpt_IRI_ADSal : protected POpt_IRI_ADSal_Init<GM,ACC>, public POpt_IRI_SolverBase<GM, ACC>, public ADSal<GM,ACC>
 {  
 public:
    typedef ACC AccumulationType;
    typedef GM GraphicalModelType;
    OPENGM_GM_TYPE_TYPEDEFS;
 
-   typedef TRWSi<GM,ACC> SolverType;
-   typedef typename SolverType::DDVectorType WarmStartParamType; // reparametrization stored for subsequent speedup
+   typedef ADSal<GM,ACC> SolverType;
+   typedef void* WarmStartParamType; // no warm start implemented
+   //typedef typename SolverType::DDVectorType WarmStartParamType; // reparametrization stored for subsequent speedup
   
-   typedef TRWSi_Parameter<GM> ParamType;
+   typedef typename ADSal<GM,ACC>::Parameter ParamType;
    typedef LPReparametrisationStorage<GM> RepaStorageType;
    typedef GraphicalModel<ValueType,opengm::Adder,opengm::ReparametrizationView<GM,RepaStorageType>,
            opengm::DiscreteSpace<IndexType,LabelType> > ReparametrizedGMType;
 
-   typedef visitors::VerboseVisitor<TRWSi<GM,ACC> > VerboseVisitorType;
-   typedef visitors::EmptyVisitor<TRWSi<GM,ACC> >   EmptyVisitorType;
-   typedef visitors::TimingVisitor<TRWSi<GM,ACC> >  TimingVisitorType;
+   typedef visitors::VerboseVisitor<ADSal<GM,ACC> > VerboseVisitorType;
+   typedef visitors::EmptyVisitor<ADSal<GM,ACC> >   EmptyVisitorType;
+   typedef visitors::TimingVisitor<ADSal<GM,ACC> >  TimingVisitorType;
 
-   POpt_IRI_TRWS(const GM& gm);
-   virtual std::string name() const {return "POpt_TRWSi";}
+   POpt_IRI_ADSal(const GM& gm);
+   virtual std::string name() const {return "POpt_ADSal";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
 
    void consistent(std::vector<bool>& c);
@@ -61,20 +61,22 @@ public:
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l);
 
-   void GetWarmStartParam(WarmStartParamType& w) { SolverType::getDDVector(&w); };
-   void SetWarmStartParam(WarmStartParamType& w) { SolverType::addDDVector(w) ; };
+   //void GetWarmStartParam(WarmStartParamType& w) { SolverType::getDDVector(&w); };
+   //void SetWarmStartParam(WarmStartParamType& w) { SolverType::addDDVector(w) ; };
+   void GetWarmStartParam(WarmStartParamType& w) {};
+   void SetWarmStartParam(WarmStartParamType& w) {};
 
 private:
    const GM& gm_;
-   TRWSi_Parameter<GM> param_;
+   ParamType param_;
 };
 
 template<class GM, class ACC>
-POpt_IRI_TRWS<GM,ACC>::POpt_IRI_TRWS(
+POpt_IRI_ADSal<GM,ACC>::POpt_IRI_ADSal(
       const GM& gm)
    : gm_(gm),
-   POpt_IRI_TRWS_Init<GM,ACC>(),
-   TRWSi<GM,ACC>(gm,POpt_IRI_TRWS_Init<GM,ACC>::param_)
+   POpt_IRI_ADSal_Init<GM,ACC>(),
+   ADSal<GM,ACC>(gm,POpt_IRI_ADSal_Init<GM,ACC>::param_)
 {
    OPENGM_ASSERT(gm_.factorOrder() <= 2); 
 }
@@ -82,21 +84,21 @@ POpt_IRI_TRWS<GM,ACC>::POpt_IRI_TRWS(
 // indicate which variables have arc-consistent solutions
 template<class GM, class ACC>
 void
-POpt_IRI_TRWS<GM,ACC>::consistent(std::vector<bool>& c)
+POpt_IRI_ADSal<GM,ACC>::consistent(std::vector<bool>& c)
 {
-   TRWSi<GM,ACC>::getTreeAgreement(c);
+   ADSal<GM,ACC>::getTreeAgreement(c);
 }
 
 template<class GM, class ACC>
 size_t 
-POpt_IRI_TRWS<GM,ACC>::IncreaseImmovableLabels(
+POpt_IRI_ADSal<GM,ACC>::IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
       const std::vector<IndexType>& l) 
 {
    size_t newImmovable = 0;
    // get reparametrized model and add minimal reparametrized labels for each potential
    ReparametrizedGMType repGmSolved;
-   typename TRWSi<GM,ACC>::ReparametrizerType* prepa = TRWSi<GM,ACC>::getReparametrizer();
+   typename ADSal<GM,ACC>::ReparametrizerType* prepa = ADSal<GM,ACC>::getReparametrizer();
    //prepa->reparametrize(immovable); // reparametrize such that immovable labels have unaries == 0
    prepa->reparametrize(); 
    prepa->getReparametrizedModel(repGmSolved);
@@ -115,7 +117,7 @@ POpt_IRI_TRWS<GM,ACC>::IncreaseImmovableLabels(
          //}
       }
       for(size_t i=0; i<immovable[i].size(); i++) {
-         if(repPotential[i] <= minLabelCost + opengm::IRI::IRI<GM,ACC,POpt_IRI_TRWS>::eps_) {
+         if(repPotential[i] <= minLabelCost + opengm::IRI::IRI<GM,ACC,POpt_IRI_ADSal>::eps_) {
             if(immovable[v][i] == false) {
                immovable[v][i] = true;
                newImmovable++;
@@ -130,4 +132,5 @@ POpt_IRI_TRWS<GM,ACC>::IncreaseImmovableLabels(
 
 } // end namespace opengm
 
-#endif // POPT_IRI_TRWS_HXX
+#endif // POPT_IRI_ADSal_HXX
+

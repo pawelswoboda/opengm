@@ -9,7 +9,7 @@ namespace opengm {
 // solver for iteratice_relaxed_inference must implement the additional two functions specified below
 // additional requirements:
 //    SolverType must be defined
-//    WarmStartParamType (=P in Set- and GetWarmStartParam) must be defined
+//    WarmStartParamType (=class P in Set- and GetWarmStartParam) must be defined
 template<class GM, class ACC> 
 class POpt_IRI_SolverBase 
 {  
@@ -24,7 +24,11 @@ public:
    typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType;
    typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier;
 
-   virtual bool IsGloballyOptimalSolution(); // do zrobienia: infer from consistent
+   virtual bool IsGloballyOptimalSolution(); 
+   // consistent: function returning an array of indicator variables denoting which variables are e.g.
+   // - integral in LP-relaxation, 
+   // - arc-consistent in dual LP-relaxation.
+   // If all nodes are consistent, solution must be globally optimal.
    virtual void consistent(std::vector<bool>& consistent) = 0;
    virtual size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
