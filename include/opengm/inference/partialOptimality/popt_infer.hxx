@@ -37,6 +37,7 @@ public:
    POpt_infer(const GM& gm, const Parameter& p);
    virtual std::string name() const {return "POpt_infer";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
+   POpt_Data<GM> getPOpt_Data() {return d_;};
    InferenceTermination infer() { EmptyVisitorType visitor; return infer(visitor);}
    template<class VISITOR>
       InferenceTermination infer(VISITOR &);
@@ -56,7 +57,7 @@ POpt_infer<GM,ACC>::POpt_infer
  const GM& gm,
  const Parameter& p
 )
-    :  gm_(gm),
+    : gm_(gm),
     parameter_(p),
     d_(POpt_Data<GM>(gm))
 {
