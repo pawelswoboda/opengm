@@ -84,6 +84,7 @@ template<class GM, class ACC>
 void
 POpt_IRI_TRWS<GM,ACC>::consistent(std::vector<bool>& c)
 {
+   c.resize(gm_.numberOfVariables(),true);
    TRWSi<GM,ACC>::getTreeAgreement(c);
 }
 

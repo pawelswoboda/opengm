@@ -2,7 +2,7 @@
 #ifndef OPENGM_BOUNDARYVIEWFUNCTION_HXX
 #define OPENGM_BOUNDARYVIEWFUNCTION_HXX
 
-//#define INVARIANT_TO_REPARAMETRIZATION
+//#define PBP_INVARIANT_TO_REPARAMETRIZATION
 
 #include <limits>
 #include <iostream>
@@ -61,8 +61,8 @@ private:
    bool conformsToBoundaryConditions(std::vector<IndexType>&) const;
    ValueType boundaryCost(std::vector<IndexType>&) const;
    ValueType boundaryCost(std::vector<IndexType>&,minMax::Type) const;
-   bool isLastIndex(const std::vector<IndexType>&,const std::vector<IndexType>&) const;
-   void incrementIndex(std::vector<IndexType>&,const std::vector<IndexType>&) const;
+   //bool isLastIndex(const std::vector<IndexType>&,const std::vector<IndexType>&) const;
+   bool incrementIndex(std::vector<IndexType>&,const std::vector<IndexType>&) const;
    IndexType indexFromVector(std::vector<IndexType>&,const std::vector<IndexType>&) const;
 
    const GraphicalModelType * gm_;
@@ -124,8 +124,9 @@ inline BoundaryViewFunction<GM>::BoundaryViewFunction
 	do {
 		boundaryCost_[indexFromVector(indexVec,insideNodes_)] = boundaryCost(indexVec);
 		//cout << boundaryCost_[indexFromVector(indexVec,insideNodes_)] << ", " << flush;
-		incrementIndex(indexVec,insideNodes_);
-	} while( !isLastIndex(indexVec,insideNodes_) );
+		//incrementIndex(indexVec,insideNodes_);
+	} while( incrementIndex(indexVec,insideNodes_) );
+	//} while( !isLastIndex(indexVec,insideNodes_) );
 	//cout << "Boundary Cost computed" << endl;
 }
 
@@ -142,6 +143,7 @@ inline bool BoundaryViewFunction<GM>::conformsToBoundaryConditions
 	return true;
 }
 
+/*
 template<class GM>
 inline bool BoundaryViewFunction<GM>::isLastIndex
 (
@@ -154,22 +156,26 @@ inline bool BoundaryViewFunction<GM>::isLastIndex
 			return false;
 	return true;
 }
+*/
 
 template<class GM>
-inline void BoundaryViewFunction<GM>::incrementIndex
+inline bool BoundaryViewFunction<GM>::incrementIndex
 (
    std::vector<IndexType>& indexVector,
    const std::vector<IndexType>& nodes
 ) const
 {
-	for(IndexType node=0; node<nodes.size(); node++) {
-		if( indexVector[node]<gm_->numberOfLabels(gm_->variableOfFactor(factorIndex_,nodes[node])) -1) { //daj tutaj shape?
-			indexVector[node]++;
-			for(IndexType nodePrev = 0; nodePrev<node; nodePrev++)
-				indexVector[nodePrev] = 0;
-			return;
-		}
-	}
+   OPENGM_ASSERT( indexVector.size() == nodes.size() );
+   //std::cout << gm_->numberOfLabels(gm_->variableOfFactor(factorIndex_,nodes[0])) << ", " << indexVector[0] << std::endl;
+   for(IndexType node=0; node<nodes.size(); node++) {
+      if( indexVector[node] < gm_->numberOfLabels(gm_->variableOfFactor(factorIndex_,nodes[node])) -1 ) { //daj tutaj shape?
+         indexVector[node]++;
+         for(IndexType nodePrev = 0; nodePrev<node; nodePrev++)
+            indexVector[nodePrev] = 0;
+         return true;
+      }
+   }
+   return false;
 }
 
 template<class GM>
@@ -198,11 +204,12 @@ BoundaryViewFunction<GM>::boundaryCost
    minMax::Type m
 ) const
 {
-#ifndef INVARIANT_TO_REPARAMETRIZATION
+#ifndef PBP_INVARIANT_TO_REPARAMETRIZATION
 	ValueType val = (m == minMax::max ? -std::numeric_limits<ValueType>::infinity() : std::numeric_limits<ValueType>::infinity());
 	std::vector<IndexType> fullLabelIndex(gm_->operator[](factorIndex_).numberOfVariables(),0);
 	std::vector<IndexType> outsideIndexVec(outsideNodes_.size(),0);
-	while( !isLastIndex(outsideIndexVec,outsideNodes_) ) {
+   do {
+	//while( !isLastIndex(outsideIndexVec,outsideNodes_) ) {
 
 		for(IndexType node=0; node<insideNodes_.size(); node++)
 			fullLabelIndex[insideNodes_[node]] = insideIndexVec[node];
@@ -213,12 +220,14 @@ BoundaryViewFunction<GM>::boundaryCost
 			val = std::max(val, gm_->operator[](factorIndex_)(fullLabelIndex.begin()));
 		else
 			val = std::min(val, gm_->operator[](factorIndex_)(fullLabelIndex.begin()));
-		incrementIndex(outsideIndexVec,outsideNodes_);
-	}
+		//incrementIndex(outsideIndexVec,outsideNodes_);
+   } while( incrementIndex(outsideIndexVec,outsideNodes_) );
+	//while( !isLastIndex(outsideIndexVec,outsideNodes_) && incrementIndex(outsideIndexVec,outsideNodes_) ) };
+	//}
 	return val;
 #endif
 
-#ifdef INVARIANT_TO_REPARAMETRIZATION
+#ifdef PBP_INVARIANT_TO_REPARAMETRIZATION
    OPENGM_ASSERT(insideLabeling_.size() == insideIndexVec.size());
 
    if(m == minMax::max) { // conforms to boundary conditions
@@ -228,7 +237,8 @@ BoundaryViewFunction<GM>::boundaryCost
       std::vector<IndexType> fullLabelIndexCur(gm_->operator[](factorIndex_).numberOfVariables(),0); // inside with the current labeling
       std::vector<IndexType> fullLabelIndexCond(gm_->operator[](factorIndex_).numberOfVariables(),0); // inside with the boundary condition laeling
       std::vector<IndexType> outsideIndexVec(outsideNodes_.size(),0);
-      while( !isLastIndex(outsideIndexVec,outsideNodes_) ) {
+      do {
+      //while( !isLastIndex(outsideIndexVec,outsideNodes_) ) {
 
          for(IndexType node=0; node<insideNodes_.size(); node++) {
             fullLabelIndexCur[insideNodes_[node]] = insideIndexVec[node];
@@ -241,8 +251,9 @@ BoundaryViewFunction<GM>::boundaryCost
 
          val = std::min( val, gm_->operator[](factorIndex_)(fullLabelIndexCur.begin()) - gm_->operator[](factorIndex_)(fullLabelIndexCond.begin()) );
 
-         incrementIndex(outsideIndexVec,outsideNodes_);
-      }
+         //incrementIndex(outsideIndexVec,outsideNodes_);
+      } while( incrementIndex(outsideIndexVec,outsideNodes_) );
+      //}
       return val;
    }
 #endif
@@ -290,7 +301,7 @@ BoundaryViewFunction<GM>::shape(const size_t i) const
 template<class GM>
 inline size_t BoundaryViewFunction<GM>::size() const
 {
-	int size = 1;
+	size_t size = 1;
 	for(int i=0; i<insideNodes_.size(); i++) 
 		size *= gm_->numberOfLabels( gm_->variableOfFactor(factorIndex_,insideNodes_[i]) ); 
 	return size;

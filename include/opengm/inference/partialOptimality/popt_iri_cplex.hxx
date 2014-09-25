@@ -17,8 +17,21 @@
 
 namespace opengm {
 
+// class for initializing parameters for CPLEX, (workaround for initializing parameters for CPLEX before LPCplex in POpt_IRI_CPLEX)
+template<class GM, class ACC>
+class POpt_IRI_CPLEX_Init
+{
+public:
+   POpt_IRI_CPLEX_Init() : param_(typename LPCplex<GM,ACC>::Parameter()) { 
+      param_.verbose_ = false; 
+      param_.integerConstraint_ = false; 
+   }
+   typename LPCplex<GM,ACC>::Parameter param_;
+};
+
+
 template<class GM, class ACC> 
-class POpt_IRI_CPLEX : public POpt_IRI_SolverBase<GM, ACC>, public LPCplex<GM,ACC>
+class POpt_IRI_CPLEX : protected POpt_IRI_CPLEX_Init<GM,ACC>, public POpt_IRI_SolverBase<GM, ACC>, public LPCplex<GM,ACC>
 {  
 public:
    typedef ACC AccumulationType;
@@ -27,6 +40,9 @@ public:
    
    typedef LPCplex<GM,ACC> SolverType;
    typedef void* WarmStartParamType; // no warm start implemented
+
+   typedef typename LPCplex<GM,ACC>::Parameter ParamType;
+
 
    typedef visitors::VerboseVisitor<SolverType> VerboseVisitorType;
    typedef visitors::EmptyVisitor<SolverType>   EmptyVisitorType;
@@ -49,6 +65,7 @@ public:
    const static double eps_;
 private:
    const GM& gm_;
+   ParamType param_;
 };
 
 template<class GM,class ACC>
@@ -58,10 +75,9 @@ template<class GM, class ACC>
 POpt_IRI_CPLEX<GM,ACC>::POpt_IRI_CPLEX(
       const GM& gm)
    : gm_(gm), 
-   SolverType(gm) //,SolverType::Parameter().integerConstraint_(false))
+   POpt_IRI_CPLEX_Init<GM,ACC>(),
+   SolverType(gm,POpt_IRI_CPLEX_Init<GM,ACC>::param_) 
 {
-   //SolverParam_.integerConstraint_ = false;
-   //PersSolverParam_.integerConstraint_ = false;
 }
 
 // indicate which variables have integral solutions
@@ -69,15 +85,16 @@ template<class GM, class ACC>
 void
 POpt_IRI_CPLEX<GM,ACC>::consistent(std::vector<bool>& consistent) 
 {
-   consistent.resize(gm_.numberOfVariables());
+   consistent.resize(gm_.numberOfVariables(),true);
    for(size_t i=0; i<gm_.numberOfVariables(); i++) {
       IndependentFactorType indFac;
       SolverType::variable( i, indFac );
       OPENGM_ASSERT( indFac.numberOfVariables() == 1 );
-      for(size_t x_i=0; x_i<indFac.numberOfLabels( 0 ); x_i++)
-         if(indFac(x_i)>eps_ && indFac(x_i)<1-eps_)
+      for(size_t x_i=0; x_i<indFac.numberOfLabels( 0 ); x_i++) {
+         if(indFac(x_i)>eps_ && indFac(x_i)<1.0-eps_) {
             consistent[i] = false;
-      consistent[i] = true;
+         }
+      }
    }
 }
 
