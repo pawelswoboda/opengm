@@ -295,32 +295,36 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
          for(size_t comb = 1; comb < numLabelComb; comb++){
             //next label combination
             IndexType nextStep = 0;
-            while(reducedShape[nextStep] = numLabels[nextStep] && nextStep < numVariables-1){
+            while(reducedShape[nextStep] == numLabels[nextStep]-1 && nextStep < numVariables-1){
                nextStep++;
             }
+            OPENGM_ASSERT(reducedShape[nextStep] < numLabels[nextStep]-1);
             reducedShape[nextStep]++;
 
-            size_t index = 0;
-            for(size_t v = 0; v < nextStep; v++){
-               reducedShape[v] = 0;
+            size_t v = 0;
+            for(size_t reducedV = 0; reducedV < nextStep; reducedV++){
+               reducedShape[reducedV] = 0;
 
-               while(optimal_[gm_[f].variableIndex(index)])
-                  index++;
+               while(optimal_[gm_[f].variableIndex(v)])
+                  v++;
 
                size_t label = 0;
-               while(partialOptimality_[gm_[f].variableIndex(index)][label] == opengm::Tribool::False)
+               while(partialOptimality_[gm_[f].variableIndex(v)][label] == opengm::Tribool::False)
                   label++;
 
-               shape[index] = label;
-               index++;
+               shape[v] = label;
+               v++;
             }
 
-            while(optimal_[gm_[f].variableIndex(index)]){
-               index++;
+            while(optimal_[gm_[f].variableIndex(v)]){
+               v++;
             }
-            shape[index]++;
-            while(partialOptimality_[gm_[f].variableIndex(index)][shape[index]] == opengm::Tribool::False)
-               shape[index]++;
+            OPENGM_ASSERT(v < gm_[f].numberOfVariables());
+
+            OPENGM_ASSERT(shape[v] < gm_[f].numberOfLabels(v));
+            shape[v]++;
+            while(partialOptimality_[gm_[f].variableIndex(v)][shape[v]] == opengm::Tribool::False)
+               shape[v]++;
 
             g(reducedShape) = gm_[f](shape);
          }
