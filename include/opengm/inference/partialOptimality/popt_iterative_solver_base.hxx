@@ -24,7 +24,7 @@ public:
    typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType;
    typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier;
 
-   virtual bool IsGloballyOptimalSolution(); 
+   bool IsGloballyOptimalSolution(); 
    // consistent: function returning an array of indicator variables denoting which variables are e.g.
    // - integral in LP-relaxation, 
    // - arc-consistent in dual LP-relaxation.
@@ -32,10 +32,10 @@ public:
    virtual void consistent(std::vector<bool>& consistent) = 0;
    virtual size_t IncreaseImmovableLabels(
       std::vector<std::vector<bool> >& immovable, 
-      const std::vector<IndexType>& l) = 0 ;
+      const std::vector<IndexType>& l) = 0;
    // warm start functionality must be implemented by derived class as well. Cannot make them virtual due to template
-   template<class P> void SetWarmStartParam(P&) {throw("derived class must implement warm start functionality");};
-   template<class P> void GetWarmStartParam(P&) {throw("derived class must implement warm start functionality");};
+   template<class P> void SetWarmStartParam(P& param) {throw("derived class must implement warm start functionality");};
+   template<class P> void GetWarmStartParam(P& param) {throw("derived class must implement warm start functionality");};
 };
 
 template<class GM, class ACC>
@@ -45,7 +45,7 @@ POpt_IRI_SolverBase<GM,ACC>::IsGloballyOptimalSolution()
    std::vector<bool> c;
    consistent(c);
    for(size_t i=0; i<c.size(); i++)
-      if(!c[i])
+      if(c[i] == false)
          return false;
    return true;
 }

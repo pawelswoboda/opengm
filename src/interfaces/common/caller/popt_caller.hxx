@@ -156,6 +156,11 @@ inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, cons
    storage += ":partialOptimality";
    io_.storeVector(storage, partialOptimality);
 
+   storage = outputFilename;
+   storage += ":partialOptimalityPercentage";
+   partialOptimality =  std::vector<double>(1,inference.getPOpt_Data().getPOpt());
+   io_.storeVector(storage, partialOptimality);
+
    //this-> template infer<POpt_inferType, TimingVisitorType, typename POpt_inferType::Parameter>(model, output, verbose, parameter_);
 }
 
