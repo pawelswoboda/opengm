@@ -20,7 +20,7 @@
 #include <ctime>
 
 // do zrobienia: skasuj
-#include "store_into_explicit.hxx"
+//#include "store_into_explicit.hxx"
 
 namespace opengm {
 

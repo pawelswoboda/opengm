@@ -162,10 +162,15 @@ inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, cons
    io_.storeVector(storage, partialOptimality);
 
    storage = outputFilename;
-   storage += ":partialOptimalityPercentage";
+   storage += ":partialOptimalityPercentageExcludedLabels";
    partialOptimality =  std::vector<double>(1,inference.getPOpt_Data().getPOpt());
    io_.storeVector(storage, partialOptimality);
 
+   storage = outputFilename;
+   storage += ":partialOptimalityLogarithmic";
+   partialOptimality =  std::vector<double>(1,inference.getPOpt_Data().getPOptLogarithmic());
+   io_.storeVector(storage, partialOptimality);
+   std::cout << "Logarithmic percentage of partial optimal labels = " << inference.getPOpt_Data().getPOptLogarithmic() << std::endl;
    std::vector<bool> partialOptimalNodes_tmp = inference.getPOpt_Data().getOpt();
    std::vector<double> partialOptimalNodes(model.numberOfVariables(),0.0);
    for(size_t i=0; i<model.numberOfVariables(); i++)

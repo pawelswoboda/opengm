@@ -40,6 +40,7 @@ public:
     Tribool                                getPOpt(const IndexType, const LabelType) const;
     std::vector<opengm::Tribool>           getPOpt(const IndexType) const;
     ValueType                              getPOpt() const;
+    ValueType                              getPOptLogarithmic() const;
     // Get Optimal Certificates
     bool                                   getOpt(const IndexType) const;
     const std::vector<bool>&               getOpt() const;
@@ -201,6 +202,24 @@ typename GM::ValueType POpt_Data<GM>::getPOpt() const {
    OPENGM_ASSERT(p <= 1.0);
    return p;
 }
+
+// calculate 1 - \sum_{u\in\V} log |p_u(X_u)| / (\sum_{u\in\V} log |X_u| )
+template<class GM>
+typename GM::ValueType POpt_Data<GM>::getPOptLogarithmic() const {
+   ValueType nominator = 0.0;
+   ValueType denominator = 0.0;
+   for(size_t var=0; var<gm_.numberOfVariables(); var++) {
+      denominator += log( gm_.numberOfLabels(var) );
+      size_t noLabelsNotExcluded = 0;
+      for(size_t i=0; i<gm_.numberOfLabels(var); i++) {
+         if(getPOpt(var,i) != false)
+            noLabelsNotExcluded++;
+      }
+      nominator += log(noLabelsNotExcluded);
+   }
+   return 1.0 - nominator/denominator;
+}
+
 
 // Get Optimality
 template<class GM>
