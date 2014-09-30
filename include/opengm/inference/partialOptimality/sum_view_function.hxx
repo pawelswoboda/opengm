@@ -75,7 +75,7 @@ template<class Iterator>
 inline typename opengm::SumViewFunction<GM>::ValueType
 SumViewFunction<GM>::operator()( Iterator begin ) const
 {
-   OPENGM_ASSERT(dimension() == 1);
+   //OPENGM_ASSERT(dimension() == 1);
    return function_(*begin);//, begin+shape_.size());
 }
 

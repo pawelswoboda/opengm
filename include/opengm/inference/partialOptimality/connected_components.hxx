@@ -37,12 +37,14 @@ void getConnectComp(
    std::vector< IndexType > gm2ccIDX(gm_.numberOfVariables());
 
    for(IndexType f=0 ; f < gm_.numberOfFactors() ; ++f){
-      OPENGM_ASSERT( gm_[f].numberOfVariables() <= 2)
-         if(gm_[f].numberOfVariables() == 2){
-            IndexType var1 = gm_[f].variableIndex(0);
-            IndexType var2 = gm_[f].variableIndex(1);
+      //OPENGM_ASSERT( gm_[f].numberOfVariables() <= 2);
+      if(gm_[f].numberOfVariables() > 1) {
+         IndexType var1 = gm_[f].variableIndex(0);
+         for(size_t varId=1; varId<gm_[f].numberOfVariables(); varId++) {
+            IndexType var2 = gm_[f].variableIndex(varId);
             CC.join(var1,var2);
          }
+      }
    }
 
    CC.representativeLabeling(representives);
@@ -64,15 +66,15 @@ void getConnectComp(
          if(gm_[fkt].numberOfVariables() == 1){
             setFactors[n].insert(fkt);
          }
-         else if(gm_[fkt].numberOfVariables() == 2){
-            IndexType var1 = gm_[fkt].variableIndex(0);
-            IndexType var2 = gm_[fkt].variableIndex(1);
-            setFactors[n].insert(fkt);
-         } else {
-            throw "only pairwise or unary factors supported in connected components";
+         else if(gm_[fkt].numberOfVariables() > 1){
+            const IndexType var1 = gm_[fkt].variableIndex(0);
+            //if(var1 == var) // do zrobienia: to avoid double counting?
+            //IndexType var2 = gm_[fkt].variableIndex(1);
+            setFactors[n].insert(fkt); // do zrobienia: double counting?
+         //} else {
+         //   throw "only pairwise or unary factors supported in connected components";
          }
       }  
-
    }
    models.resize(numCC);
    cc2gm.resize(numCC);

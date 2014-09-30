@@ -142,7 +142,13 @@ public:
    typedef SOLVER<GM,ACC> InitSolverType;
    typedef SOLVER<PersistencyGMType,ACC> IterSolverType;
 
-   struct Parameter {};
+   // possibly make this available to the command line
+   struct Parameter { 
+      enum METHOD {SUBSET_TO_ONE, ALL_TO_ONE}; 
+      METHOD method_;
+      Parameter() : method_(SUBSET_TO_ONE) {};
+      //Parameter() : method_(ALL_TO_ONE) {};
+   } param_;
 
    IRI(DATA& d, const Parameter& param = Parameter());
    virtual std::string name() const {return "IRI";}
@@ -209,6 +215,7 @@ const double IRI<DATA,ACC,SOLVER>::eps_ = 1.0e-6;
 
 template<class DATA,class ACC,template <typename,typename> class SOLVER>
 IRI<DATA,ACC,SOLVER>::IRI(DATA& d, const Parameter& param) :
+   param_(param),
    d_(d),
    gm_(d.graphicalModel()),
    n_(d.graphicalModel().numberOfVariables())
@@ -585,6 +592,23 @@ IRI<DATA,ACC,SOLVER>::IncreaseImmovableLabels(
    std::cout << "Compute single node pruning" << std::endl;
    newImmovable += SingleNodePruning(immovable,pgm);
    std::cout << "Added " << newImmovable << " new immovable labels" << std::endl;
+
+   // if all to one set all labels of some node to immovable as soon as more than two labels are immovable
+   if(param_.method_ == Parameter::ALL_TO_ONE) {
+      for(size_t v=0; v<n_; v++) {
+         size_t noImmovables = 0;
+         for(size_t l=0; l<immovable[v].size(); l++) {
+            if(immovable[v][l] == true) {
+               noImmovables++;
+            }
+         }
+         if(noImmovables > 1) {
+            for(size_t l=0; l<immovable[v].size(); l++) {
+               immovable[v][l] = true;
+            }
+         }
+      }
+   }
 }
 
 template<class DATA,class ACC,template <typename,typename> class SOLVER>

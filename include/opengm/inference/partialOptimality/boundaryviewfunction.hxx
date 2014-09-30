@@ -61,7 +61,6 @@ private:
    bool conformsToBoundaryConditions(std::vector<IndexType>&) const;
    ValueType boundaryCost(std::vector<IndexType>&) const;
    ValueType boundaryCost(std::vector<IndexType>&,minMax::Type) const;
-   //bool isLastIndex(const std::vector<IndexType>&,const std::vector<IndexType>&) const;
    bool incrementIndex(std::vector<IndexType>&,const std::vector<IndexType>&) const;
    IndexType indexFromVector(std::vector<IndexType>&,const std::vector<IndexType>&) const;
 
@@ -124,9 +123,7 @@ inline BoundaryViewFunction<GM>::BoundaryViewFunction
 	do {
 		boundaryCost_[indexFromVector(indexVec,insideNodes_)] = boundaryCost(indexVec);
 		//cout << boundaryCost_[indexFromVector(indexVec,insideNodes_)] << ", " << flush;
-		//incrementIndex(indexVec,insideNodes_);
 	} while( incrementIndex(indexVec,insideNodes_) );
-	//} while( !isLastIndex(indexVec,insideNodes_) );
 	//cout << "Boundary Cost computed" << endl;
 }
 
@@ -142,21 +139,6 @@ inline bool BoundaryViewFunction<GM>::conformsToBoundaryConditions
 			return false;
 	return true;
 }
-
-/*
-template<class GM>
-inline bool BoundaryViewFunction<GM>::isLastIndex
-(
-   const std::vector<IndexType>& indexVector,
-   const std::vector<IndexType>& nodes
-) const
-{
-	for(IndexType node=0; node<nodes.size(); node++) 
-		if( indexVector[node]<gm_->numberOfLabels(gm_->variableOfFactor(factorIndex_,nodes[node])) -1 ) //daj tutaj shape?
-			return false;
-	return true;
-}
-*/
 
 template<class GM>
 inline bool BoundaryViewFunction<GM>::incrementIndex
@@ -209,8 +191,6 @@ BoundaryViewFunction<GM>::boundaryCost
 	std::vector<IndexType> fullLabelIndex(gm_->operator[](factorIndex_).numberOfVariables(),0);
 	std::vector<IndexType> outsideIndexVec(outsideNodes_.size(),0);
    do {
-	//while( !isLastIndex(outsideIndexVec,outsideNodes_) ) {
-
 		for(IndexType node=0; node<insideNodes_.size(); node++)
 			fullLabelIndex[insideNodes_[node]] = insideIndexVec[node];
 		for(IndexType node=0; node<outsideNodes_.size(); node++)
@@ -220,10 +200,7 @@ BoundaryViewFunction<GM>::boundaryCost
 			val = std::max(val, gm_->operator[](factorIndex_)(fullLabelIndex.begin()));
 		else
 			val = std::min(val, gm_->operator[](factorIndex_)(fullLabelIndex.begin()));
-		//incrementIndex(outsideIndexVec,outsideNodes_);
    } while( incrementIndex(outsideIndexVec,outsideNodes_) );
-	//while( !isLastIndex(outsideIndexVec,outsideNodes_) && incrementIndex(outsideIndexVec,outsideNodes_) ) };
-	//}
 	return val;
 #endif
 
@@ -238,8 +215,6 @@ BoundaryViewFunction<GM>::boundaryCost
       std::vector<IndexType> fullLabelIndexCond(gm_->operator[](factorIndex_).numberOfVariables(),0); // inside with the boundary condition laeling
       std::vector<IndexType> outsideIndexVec(outsideNodes_.size(),0);
       do {
-      //while( !isLastIndex(outsideIndexVec,outsideNodes_) ) {
-
          for(IndexType node=0; node<insideNodes_.size(); node++) {
             fullLabelIndexCur[insideNodes_[node]] = insideIndexVec[node];
             fullLabelIndexCond[insideNodes_[node]] = insideLabeling_[node];
@@ -251,9 +226,7 @@ BoundaryViewFunction<GM>::boundaryCost
 
          val = std::min( val, gm_->operator[](factorIndex_)(fullLabelIndexCur.begin()) - gm_->operator[](factorIndex_)(fullLabelIndexCond.begin()) );
 
-         //incrementIndex(outsideIndexVec,outsideNodes_);
       } while( incrementIndex(outsideIndexVec,outsideNodes_) );
-      //}
       return val;
    }
 #endif

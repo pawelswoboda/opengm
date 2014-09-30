@@ -16,6 +16,7 @@
 
 namespace opengm {
 
+
 template<class GM, class ACC> 
 class POpt_infer : public Inference<GM, ACC>
 {  
@@ -37,7 +38,7 @@ public:
    POpt_infer(const GM& gm, const Parameter& p);
    virtual std::string name() const {return "POpt_infer";}
    const GraphicalModelType& graphicalModel() const {return gm_;};
-   POpt_Data<GM> getPOpt_Data() {return d_;};
+   const POpt_Data<GM>& getPOpt_Data() {return d_;};
    InferenceTermination infer() { EmptyVisitorType visitor; return infer(visitor);}
    template<class VISITOR>
       InferenceTermination infer(VISITOR &);
@@ -89,7 +90,7 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
          infReturnValue = kovtun.infer();
 #endif
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_TRWS) {
-         IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> iri(d_);
+         IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_TRWS> iri(d_); 
          infReturnValue = iri.infer();
       } else if(parameter_.methodSequence_[i] == Parameter::IRI_ADSal) {
          IRI::IRI<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_ADSal> iri(d_);
@@ -150,8 +151,6 @@ POpt_infer<GM, ACC>::value() const
 {
    return d_.getPOpt();
 } 
-
-
 
 } // end namespace opengm
 

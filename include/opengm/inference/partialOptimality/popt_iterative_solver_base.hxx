@@ -24,7 +24,7 @@ public:
    typedef typename GraphicalModelType::IndependentFactorType IndependentFactorType;
    typedef typename GraphicalModelType::FunctionIdentifier FunctionIdentifier;
 
-   bool IsGloballyOptimalSolution(); 
+   virtual bool IsGloballyOptimalSolution(); 
    // consistent: function returning an array of indicator variables denoting which variables are e.g.
    // - integral in LP-relaxation, 
    // - arc-consistent in dual LP-relaxation.
@@ -42,6 +42,7 @@ template<class GM, class ACC>
 bool
 POpt_IRI_SolverBase<GM,ACC>::IsGloballyOptimalSolution()
 {
+
    std::vector<bool> c;
    consistent(c);
    for(size_t i=0; i<c.size(); i++)

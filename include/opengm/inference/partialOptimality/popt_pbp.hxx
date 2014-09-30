@@ -20,7 +20,7 @@
 #include <ctime>
 
 // do zrobienia: skasuj
-//#include "store_into_explicit.hxx"
+#include "store_into_explicit.hxx"
 
 namespace opengm {
 
@@ -125,6 +125,9 @@ template<class DATA, class ACC,template <typename,typename> class SOLVER>
 InferenceTermination 
 PBP<DATA, ACC, SOLVER>::infer() 
 {
+   std::clock_t beginTime = clock();
+   std::vector<std::clock_t> iterationTime;
+
    // first solve the original problem to get a labeling
    std::vector<LabelType> initLabeling, curLabeling;
    std::vector<bool> consistent;
@@ -139,6 +142,9 @@ PBP<DATA, ACC, SOLVER>::infer()
       }
 
       if(solver.IsGloballyOptimalSolution()) {
+         if(std::abs(solver.bound()-solver.value()) > eps_)
+            throw RuntimeError("Globally optimal labeling found, but integrality gap persists!");
+
          std::cout << "Globally optimal solution found by relaxation" << std::endl;
          for(size_t i=0; i<n_; i++)
             d_.setTrue(i,initLabeling[i]);
@@ -150,6 +156,7 @@ PBP<DATA, ACC, SOLVER>::infer()
    }
 
    curLabeling = initLabeling;
+   iterationTime.push_back(clock() - beginTime);
 
    size_t iterations = 1;
    while( (updateInterior(initLabeling,curLabeling,consistent,persistencyLoc) > 0) && PersistencyCandidatesExist(persistencyLoc) ) { // shrink interior by pruning variables
@@ -162,18 +169,22 @@ PBP<DATA, ACC, SOLVER>::infer()
       //if(iterations == 1)
       //   store_into_explicit(redGm,std::string("test.h5"));
 
+      /*
       IterSolverType solver(redGm);
       InferenceTermination status = solver.infer();
       if( status != NORMAL ) {
          std::cout << "Solver did not converge" << std::endl;
          return status;
       }
+      */
+
       std::pair<ValueType,ValueType> bounds;
       bounds = solveGM(redGm,curLabeling,consistent);
       
       std::cout << "current lower bound = " << bounds.first << ", labeling value = " << bounds.second << std::endl;
 
       iterations++;
+      iterationTime.push_back(clock() - beginTime);
    }
 
    std::cout << "Found persistent set after " << iterations << " iterations." << endl;
@@ -186,6 +197,11 @@ PBP<DATA, ACC, SOLVER>::infer()
    }
    std::cout << "Algorithm: Percentage partial optimality = " << double(p)/double(n_) << std::endl;
    std::cout << "Data object: Percentage partial optimality = " << d_.getPOpt() << std::endl;
+
+   for(size_t i=0; i<iterationTime.size(); i++)
+      std::cout << "Time for iteration " << i << " = " <<  double(iterationTime[i]) / CLOCKS_PER_SEC << std::endl;
+
+
    return NORMAL;
 }
 
@@ -240,7 +256,7 @@ void
 PBP<DATA,ACC,SOLVER>::buildRedGm(
       PersistencyGMType& redGm,
       const std::vector<LabelType>& initLabeling,
-      const std::vector<nodePos::Type>& persistencyLoc )
+      const std::vector<nodePos::Type>& persistencyLoc)
 {
    // we do not want to include outside nodes into the reduced graphical model. Hence build a table which translates nodes from reduced gm to original gm and vice versa
    std::vector<IndexType> nodeTranslationRedToOrig;
@@ -298,7 +314,7 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
    // add factors to redGm
    for(size_t factorId=0; factorId<gm_.numberOfFactors(); ++factorId) {
       const size_t boundaryFuncIdx = BoundaryFuncIndex(boundaryFactorIndices,redFactorIndices[factorId],factorIndices[factorId],persistencyLoc);
-      if( isInsideFactor(factorId,persistencyLoc) ) { // Attention: this means that factor support is in inside and boundary nodes!
+      if( isInsideFactor(factorId,persistencyLoc) ) { // Attention: this means that factor support is in inside *or* boundary nodes!
          if( boundaryFuncIdx == -1 ) {
             // add a view function to the original function
             const ViewFunctionType function( gm_[factorId] );
@@ -314,7 +330,6 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
             // unsure if this is the right way (memory leak?). However program crashes otherwise
             //std::vector<LabelType> * factorIndicesRed = new std::vector<LabelType>(redFactorIndices[factorId]);
             //redGm.addFactor( funcId, factorIndicesRed->begin(), factorIndicesRed->end());
-
 
             marray::Marray<ValueType> f(gm_[factorId].shapeBegin(), gm_[factorId].shapeEnd());
             gm_[factorId].copyValues(f.begin());
@@ -357,7 +372,7 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
       }
    }
 
-   cout << "Add boundary factors" << endl;
+   cout << "Add boundary factors ...";
    // add boundary factors 
    for(size_t i=0; i<boundaryFunc.size(); i++) {
       const FunctionIdentifier fid = redGm.addFunction(boundaryFunc[i]);
@@ -369,6 +384,7 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
       //   std::cout << boundaryFunc[i].operator()(&x_i) << ", ";
       //std::cout << std::endl;
    }
+   std::cout << "done." << std::endl;
 
    {
       // important for TRWS
@@ -376,7 +392,8 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
       for(size_t factorId=0; factorId<redGm.numberOfFactors(); factorId++)
          if(redGm.numberOfVariables(factorId) == 1)
             noUnaryFactors++;
-      OPENGM_ASSERT(redGm.numberOfVariables() == noUnaryFactors);
+      std::cout << "Number unary factors = " << noUnaryFactors << ", number of variables = " << redGm.numberOfVariables() << std::endl;
+      //OPENGM_ASSERT(redGm.numberOfVariables() == noUnaryFactors);
    }
 }
 
@@ -445,6 +462,7 @@ PBP<DATA,ACC,SOLVER>::solveGM(
       std::vector<LabelType>& l,
       std::vector<bool>& consistent)
 {
+   std::pair<ValueType,ValueType> bounds(0.0,0.0);
    typedef GraphicalModel<ValueType, OperatorType, OPENGM_TYPELIST_2(ExplicitFunctionType, ViewFunction<PersistencyGMType>) > RedGmTypeV;
 
 	std::vector<std::vector<typename RedGmTypeV::IndexType> > cc2gm;
@@ -458,12 +476,14 @@ PBP<DATA,ACC,SOLVER>::solveGM(
 	lcc.resize(cc2gm.size());
 	ccc.resize(cc2gm.size());
 
-   std::pair<ValueType,ValueType> bounds(0.0,0.0);
+   l.resize(gm.numberOfVariables());
+   consistent.resize(gm.numberOfVariables());
 
-   if(cc2gm.size() > 1) {
+
+   //if(cc2gm.size() > 1) {
       for( IndexType c=0; c<cc2gm.size(); c++ ) {
          if( cc2gm[c].size() == 1 ) { // for TRWSi, which cannot handle isolated nodes!
-            std::cout << "Solving component " << c << " with one node: " << cc2gm[c][0] << std::endl;
+            std::cout << "Solving component " << c << " with 1 node: " << cc2gm[c][0] << std::endl;
             ccc[c].resize(1);
             ccc[c][0] = true;
             OPENGM_ASSERT(cc[c].numberOfFactors() == 1);
@@ -500,19 +520,21 @@ PBP<DATA,ACC,SOLVER>::solveGM(
       reassembleFromCC<PersistencyGMType,bool>(consistent, ccc, cc2gm);
 
       std::cout << "reassembled all components" << std::endl;
-   } else {
+   /*} else {
+      std::cout << "Solving single component" << std::endl;
+      store_into_explicit(gm,std::string("test.h5"));
       IterSolverType solver(gm);
       solver.infer();
       solver.arg(l);
       solver.consistent(consistent);
       bounds.first = solver.bound();
       bounds.second = gm.evaluate(l.begin());
-   }
+      std::cout << "Solving single component ... done" << std::endl;
+   }*/
 
-   OPENGM_ASSERT(std::abs(bounds.second - gm.evaluate(l)) < eps_);
-
-   // do zrobienia: skasuj
    /*
+   OPENGM_ASSERT(std::abs(bounds.second - gm.evaluate(l)) < eps_);
+   // do zrobienia: skasuj
    {
       IterSolverType solver(gm);
       solver.infer();

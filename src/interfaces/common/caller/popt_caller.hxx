@@ -131,6 +131,8 @@ inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, cons
       }
    }
 
+   
+
    POpt_infer<GM,ACC> inference(model, parameter_);
    if((inference.infer() == UNKNOWN)) {
       std::string error("partial optimality method failed.");
@@ -141,7 +143,10 @@ inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, cons
    std::vector<typename GM::LabelType> states;
    inference.arg(states);
    output.storeStates(states);
+
+
    std::vector<typename GM::ValueType> partialOptimality(model.numberOfVariables());
+   // was very slow, test again if faster now
    for(size_t i=0; i<model.numberOfVariables(); i++) {
       for(size_t x_i=0; x_i<model.numberOfLabels(i); x_i++)
          if(inference.getPOpt_Data().getPOpt(i,x_i) == opengm::Tribool::False)
@@ -153,13 +158,20 @@ inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, cons
    }
 
    std::string storage = outputFilename;
-   storage += ":partialOptimality";
+   storage += ":partialOptimalLabels";
    io_.storeVector(storage, partialOptimality);
 
    storage = outputFilename;
    storage += ":partialOptimalityPercentage";
    partialOptimality =  std::vector<double>(1,inference.getPOpt_Data().getPOpt());
    io_.storeVector(storage, partialOptimality);
+
+   std::vector<bool> partialOptimalNodes_tmp = inference.getPOpt_Data().getOpt();
+   std::vector<double> partialOptimalNodes(model.numberOfVariables(),0.0);
+   for(size_t i=0; i<model.numberOfVariables(); i++)
+      partialOptimalNodes[i] = partialOptimalNodes_tmp[i];
+   storage += ":partialOptimalNodes";
+   io_.storeVector(storage, partialOptimalNodes);
 
    //this-> template infer<POpt_inferType, TimingVisitorType, typename POpt_inferType::Parameter>(model, output, verbose, parameter_);
 }
