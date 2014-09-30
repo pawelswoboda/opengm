@@ -85,7 +85,7 @@ namespace test {
 #endif
                      OPENGM_TEST(origSolver.infer()==opengm::NORMAL);
                      OPENGM_TEST(origSolver.arg(optimalStateOrig)==opengm::NORMAL);
-                     OPENGM_TEST(origSolver.arg(optimalStateOrig2,2)==opengm::NORMAL);
+                     OPENGM_TEST(origSolver.arg(optimalStateOrig2,1)==opengm::NORMAL);
                      OPENGM_TEST(optimalStateOrig.size()==gm.numberOfVariables());
                      // to do: check if solution unique, otherwise test may not be correct
                      //if(gm.evaluate(optimalStateOrig.begin()) < gm.evaluate(optimalStateOrig2.begin()) - 0.00001) {

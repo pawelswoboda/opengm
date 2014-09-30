@@ -21,14 +21,14 @@
 #endif
 
 
-int main(){ 
+int main(){
    typedef double ValueType;
    typedef opengm::meta::TypeListGenerator
    <
    opengm::PottsFunction<ValueType>,
    opengm::ExplicitFunction<ValueType>
    >::type FunctionTypeList;
-   
+
 
    typedef opengm::GraphicalModel<ValueType,opengm::Adder,FunctionTypeList>  GmType;
    typedef opengm::POpt_Data<GmType> POpt_DataType;
@@ -41,10 +41,10 @@ int main(){
    typedef opengm::BlackBoxTestGrid<GmType> GridTest;
    typedef opengm::BlackBoxTestFull<GmType> FullTest;
    typedef opengm::BlackBoxTestStar<GmType> StarTest;
-   
+
    opengm::test::PartialOptimalityTester<GmType> tester;
    tester.addTest(new GridTest(3, 3, 3, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
-   tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
+   //tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
    tester.addTest(new StarTest(6,    5, false, true, StarTest::POTTS, opengm::OPTIMAL, 10));
    tester.addTest(new FullTest(5,    5, false, 3,    FullTest::POTTS, opengm::OPTIMAL, 10));
 #ifdef WITH_CPLEX
@@ -54,7 +54,7 @@ int main(){
 #endif
 
    tester.addTest(new GridTest(3, 3, 3, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
-   tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+   //tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
    tester.addTest(new StarTest(6,    5, false, true, StarTest::RANDOM, opengm::OPTIMAL, 10));
    tester.addTest(new FullTest(5,    5, false, 3,    FullTest::RANDOM, opengm::OPTIMAL, 10));
 #ifdef WITH_CPLEX
