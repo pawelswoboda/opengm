@@ -44,7 +44,7 @@ int main(){
 
    opengm::test::PartialOptimalityTester<GmType> tester;
    tester.addTest(new GridTest(3, 3, 3, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
-   //tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
+   tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::POTTS, opengm::OPTIMAL, 10));
    tester.addTest(new StarTest(6,    5, false, true, StarTest::POTTS, opengm::OPTIMAL, 10));
    tester.addTest(new FullTest(5,    5, false, 3,    FullTest::POTTS, opengm::OPTIMAL, 10));
 #ifdef WITH_CPLEX
@@ -54,7 +54,7 @@ int main(){
 #endif
 
    tester.addTest(new GridTest(3, 3, 3, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
-   //tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+   tester.addTest(new GridTest(5, 3, 5, false, true, GridTest::RANDOM, opengm::OPTIMAL, 10));
    tester.addTest(new StarTest(6,    5, false, true, StarTest::RANDOM, opengm::OPTIMAL, 10));
    tester.addTest(new FullTest(5,    5, false, 3,    FullTest::RANDOM, opengm::OPTIMAL, 10));
 #ifdef WITH_CPLEX
