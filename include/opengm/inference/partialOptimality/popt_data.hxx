@@ -255,7 +255,7 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
    //Variables and their labels are included in case they are not optimal yet.
 
    IndexType newVariable[gm_.numberOfVariables()];
-   std::vector<IndexType> numLabels(0);
+   std::vector<IndexType> numLabels;
    IndexType variable = 0;
 
    for (IndexType v = 0; v < gm_.numberOfVariables(); v++) {
@@ -274,13 +274,12 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
    }
    reducedGm.assign(opengm::DiscreteSpace<>(numLabels.begin(), numLabels.end()));
 
-
+   std::vector<IndexType> variablesOfFactor;
    //factors will be included in case one of their variables is not optimal yet.
    for (IndexType f = 0; f < gm_.numberOfFactors(); f++) {
       bool insert_f = false;
       size_t numVariables = 0;
-      std::vector<IndexType> variablesOfFactor;
-      std::vector<IndexType> numLabels;
+      numLabels.std::vector<IndexType>::clear();
       IndexType numLabelComb = 1;
 
       for(IndexType v = 0; v < gm_[f].numberOfVariables(); v++){
@@ -315,19 +314,20 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
             //next label combination
             IndexType nextStep = 0;
             while(reducedShape[nextStep] == numLabels[nextStep]-1 && nextStep < numVariables-1){
+
                nextStep++;
             }
             OPENGM_ASSERT(reducedShape[nextStep] < numLabels[nextStep]-1);
             reducedShape[nextStep]++;
 
-            size_t v = 0;
-            for(size_t reducedV = 0; reducedV < nextStep; reducedV++){
+            IndexType v = 0;
+            for(IndexType reducedV = 0; reducedV < nextStep; reducedV++){
                reducedShape[reducedV] = 0;
 
                while(optimal_[gm_[f].variableIndex(v)])
                   v++;
 
-               size_t label = 0;
+               LabelType label = 0;
                while(partialOptimality_[gm_[f].variableIndex(v)][label] == opengm::Tribool::False)
                   label++;
 
@@ -339,8 +339,8 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
                v++;
             }
             OPENGM_ASSERT(v < gm_[f].numberOfVariables());
+            OPENGM_ASSERT(shape[v] < gm_[f].numberOfLabels(v)-1);
 
-            OPENGM_ASSERT(shape[v] < gm_[f].numberOfLabels(v));
             shape[v]++;
             while(partialOptimality_[gm_[f].variableIndex(v)][shape[v]] == opengm::Tribool::False)
                shape[v]++;
@@ -351,6 +351,7 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
          typename ReducedGmType::FunctionIdentifier id = reducedGm.addFunction(g);
 
          reducedGm.addFactor(id, variablesOfFactor.std::vector<IndexType>::begin(), variablesOfFactor.std::vector<IndexType>::end());
+         variablesOfFactor.std::vector<IndexType>::clear();
       }
    }
 }
