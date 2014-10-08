@@ -294,7 +294,7 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
             redFactorIndices[factorId].push_back( nodeTranslationOrigToRed[ factorIndices[factorId][varId] ] ); 
 
    // factor indices of boundary factors
-   std::vector< std::vector<LabelType> > boundaryFactorIndices; 
+   std::vector< std::vector<IndexType> > boundaryFactorIndices;
 
    // functions for accumulating inside and boundary factors sharing the same support, needed for TRWS, which cannot handle duplicate unary factors
    std::vector<SumFunctionType> boundaryFunc;
@@ -303,10 +303,12 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
          const size_t boundaryFuncIndex = BoundaryFuncIndex(boundaryFactorIndices,redFactorIndices[factorId],factorIndices[factorId],persistencyLoc);
          if(boundaryFuncIndex == -1) {
             std::vector<LabelType> boundaryShape;
-            for(size_t i=0; i<redFactorIndices[factorId].size(); i++)
-               boundaryShape.push_back(gm_.numberOfLabels( redFactorIndices[factorId][i] ));
+            for(size_t i=0; i<redFactorIndices[factorId].size(); i++) {
+               boundaryShape.push_back(redGm.numberOfLabels( redFactorIndices[factorId][i] ));
+            }
             boundaryFunc.push_back(SumFunctionType(boundaryShape));
             boundaryFactorIndices.push_back(redFactorIndices[factorId]);
+            OPENGM_ASSERT(BoundaryFuncIndex(boundaryFactorIndices,redFactorIndices[factorId],factorIndices[factorId],persistencyLoc) == boundaryFactorIndices.size() - 1);
          }
       }
    }
@@ -314,8 +316,9 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
    // add factors to redGm
    for(size_t factorId=0; factorId<gm_.numberOfFactors(); ++factorId) {
       const size_t boundaryFuncIdx = BoundaryFuncIndex(boundaryFactorIndices,redFactorIndices[factorId],factorIndices[factorId],persistencyLoc);
-      if( isInsideFactor(factorId,persistencyLoc) ) { // Attention: this means that factor support is in inside *or* boundary nodes!
+      if( isInsideFactor(factorId,persistencyLoc) ) { // Attention: this means that factor support is in inside *or* in boundary nodes!
          if( boundaryFuncIdx == -1 ) {
+            OPENGM_ASSERT(redFactorIndices[factorId].size() == factorIndices[factorId].size());
             // add a view function to the original function
             const ViewFunctionType function( gm_[factorId] );
             const FunctionIdentifierType funcId = redGm.addFunction( function );
@@ -323,19 +326,12 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
             std::vector<LabelType> * factorIndicesRed = new std::vector<LabelType>(redFactorIndices[factorId]);
             redGm.addFactor( funcId, factorIndicesRed->begin(), factorIndicesRed->end());
          } else { // accumulate function into boundaryFunc
-
-            // do zrobienia: skasuj
-            //const ViewFunctionType function( gm_[factorId] );
-            //const FunctionIdentifierType funcId = redGm.addFunction( function );
-            // unsure if this is the right way (memory leak?). However program crashes otherwise
-            //std::vector<LabelType> * factorIndicesRed = new std::vector<LabelType>(redFactorIndices[factorId]);
-            //redGm.addFactor( funcId, factorIndicesRed->begin(), factorIndicesRed->end());
-
             marray::Marray<ValueType> f(gm_[factorId].shapeBegin(), gm_[factorId].shapeEnd());
             gm_[factorId].copyValues(f.begin());
             boundaryFunc[boundaryFuncIdx].AddFunction( f );
          }
       } else if( isBoundaryFactor(factorId,persistencyLoc) ) { // means factor support contains boundary and outside nodes
+         OPENGM_ASSERT(redFactorIndices[factorId].size() < factorIndices[factorId].size());
          OPENGM_ASSERT(boundaryFuncIdx != -1);
          const PersPotentialType function( gm_, factorId, persistencyLoc, initLabeling);
          std::vector<LabelType> shape;
@@ -344,7 +340,6 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
          marray::Marray<ValueType> f(shape.begin(), shape.end());
 
          // copy values from function into f, can possibly be better implemented with ShapeWalker.
-         // do zrobienia: correct for higher order?
          std::vector<LabelType> shapeIterator(function.dimension());
          for(size_t i=0; i<f.size(); i++) {
             size_t i_tmp = i;
@@ -353,7 +348,9 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
                i_tmp = i_tmp/function.shape(j);
             }
             f(i) = function(shapeIterator.begin());
+            OPENGM_ASSERT(function(shapeIterator.begin()) == f(shapeIterator.begin()));
          }
+
          boundaryFunc[boundaryFuncIdx].AddFunction(f);
 
          // do zrobienia: skasuj
@@ -465,72 +462,81 @@ PBP<DATA,ACC,SOLVER>::solveGM(
    std::pair<ValueType,ValueType> bounds(0.0,0.0);
    typedef GraphicalModel<ValueType, OperatorType, OPENGM_TYPELIST_2(ExplicitFunctionType, ViewFunction<PersistencyGMType>) > RedGmTypeV;
 
-	std::vector<std::vector<typename RedGmTypeV::IndexType> > cc2gm;
-	std::vector<RedGmTypeV> cc;
-	std::vector<std::vector<bool> > ccc; // consistency in connected components
-	std::vector<std::vector<LabelType> > lcc; // labeling in connected components
-		
-   std::cout << "Computed connected components" << std::endl;
-	getConnectComp<PersistencyGMType, RedGmTypeV>(gm, cc2gm, cc);
-   std::cout << "done" << std::endl;
-	lcc.resize(cc2gm.size());
-	ccc.resize(cc2gm.size());
-
    l.resize(gm.numberOfVariables());
    consistent.resize(gm.numberOfVariables());
 
+   if(gm_.factorOrder() <= 2) {
+      std::vector<std::vector<typename RedGmTypeV::IndexType> > cc2gm;
+      std::vector<RedGmTypeV> cc;
+      std::vector<std::vector<bool> > ccc; // consistency in connected components
+      std::vector<std::vector<LabelType> > lcc; // labeling in connected components
 
-   //if(cc2gm.size() > 1) {
-      for( IndexType c=0; c<cc2gm.size(); c++ ) {
-         if( cc2gm[c].size() == 1 ) { // for TRWSi, which cannot handle isolated nodes!
-            std::cout << "Solving component " << c << " with 1 node: " << cc2gm[c][0] << std::endl;
-            ccc[c].resize(1);
-            ccc[c][0] = true;
-            OPENGM_ASSERT(cc[c].numberOfFactors() == 1);
-            std::vector<IndexType> idx(1,0);
-            ValueType v = cc[c][0].operator()(idx.begin());
-            IndexType min_idx = 0;
-            for( int i=0; i<cc[c].numberOfLabels(0); i++ ) {
-               idx[0] = i;
-               if( v > min(v,cc[c][0].operator()(idx.begin())) ) {
-                  min_idx = i;
-                  v = cc[c][0].operator()(idx.begin());
+      std::cout << "Computed connected components" << std::endl;
+      getConnectComp<PersistencyGMType, RedGmTypeV>(gm, cc2gm, cc);
+      std::cout << "done" << std::endl;
+      lcc.resize(cc2gm.size());
+      ccc.resize(cc2gm.size());
+
+
+      if(cc2gm.size() > 1) {
+         for( IndexType c=0; c<cc2gm.size(); c++ ) {
+            if( cc2gm[c].size() == 1 ) { // for TRWSi, which cannot handle isolated nodes!
+               std::cout << "Solving component " << c << " with 1 node: " << cc2gm[c][0] << std::endl;
+               ccc[c].resize(1);
+               ccc[c][0] = true;
+               OPENGM_ASSERT(cc[c].numberOfFactors() == 1);
+               std::vector<IndexType> idx(1,0);
+               ValueType v = cc[c][0].operator()(idx.begin());
+               IndexType min_idx = 0;
+               for( int i=0; i<cc[c].numberOfLabels(0); i++ ) {
+                  idx[0] = i;
+                  if( v > min(v,cc[c][0].operator()(idx.begin())) ) {
+                     min_idx = i;
+                     v = cc[c][0].operator()(idx.begin());
+                  }
                }
+               lcc[c].resize(1);
+               lcc[c][0] = min_idx;
+
+               bounds.first += cc[c][0].operator()(&min_idx);
+               bounds.second += cc[c][0].operator()(&min_idx);
+            } else {
+               std::cout << "Solving component " << c << " with " << cc[c].numberOfVariables() << " nodes." << std::endl;
+               SOLVER<RedGmTypeV,ACC> solver(cc[c]);
+               solver.infer();
+               solver.arg(lcc[c]);
+               solver.consistent(ccc[c]);
+
+               bounds.first += solver.bound();
+               bounds.second += solver.graphicalModel().evaluate(lcc[c].begin());
             }
-            lcc[c].resize(1);
-            lcc[c][0] = min_idx;
-
-            bounds.first += cc[c][0].operator()(&min_idx);
-            bounds.second += cc[c][0].operator()(&min_idx);
-         } else {
-            std::cout << "Solving component " << c << " with " << cc[c].numberOfVariables() << " nodes." << std::endl;
-            SOLVER<RedGmTypeV,ACC> solver(cc[c]);
-            solver.infer();
-            solver.arg(lcc[c]);
-            solver.consistent(ccc[c]);
-
-            bounds.first += solver.bound();
-            bounds.second += solver.graphicalModel().evaluate(lcc[c].begin());
          }
+
+         std::cout << "Solved all components" << std::endl;
+
+         reassembleFromCC<PersistencyGMType,IndexType>(l, lcc, cc2gm);
+         reassembleFromCC<PersistencyGMType,bool>(consistent, ccc, cc2gm);
+
+         std::cout << "reassembled all components" << std::endl;
+      } else { // single component
+         std::cout << "Solving single component" << std::endl;
+         //store_into_explicit(gm,std::string("test.h5"));
+         IterSolverType solver(gm);
+         solver.infer();
+         solver.arg(l);
+         solver.consistent(consistent);
+         bounds.first = solver.bound();
+         bounds.second = gm.evaluate(l.begin());
+         std::cout << "Solving single component ... done" << std::endl;
       }
-      
-      std::cout << "Solved all components" << std::endl;
-
-      reassembleFromCC<PersistencyGMType,IndexType>(l, lcc, cc2gm);
-      reassembleFromCC<PersistencyGMType,bool>(consistent, ccc, cc2gm);
-
-      std::cout << "reassembled all components" << std::endl;
-   /*} else {
-      std::cout << "Solving single component" << std::endl;
-      store_into_explicit(gm,std::string("test.h5"));
+   } else { // higher order
       IterSolverType solver(gm);
       solver.infer();
       solver.arg(l);
       solver.consistent(consistent);
       bounds.first = solver.bound();
       bounds.second = gm.evaluate(l.begin());
-      std::cout << "Solving single component ... done" << std::endl;
-   }*/
+   }
 
    /*
    OPENGM_ASSERT(std::abs(bounds.second - gm.evaluate(l)) < eps_);

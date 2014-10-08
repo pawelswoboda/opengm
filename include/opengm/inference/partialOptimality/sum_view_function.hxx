@@ -106,10 +106,10 @@ template<class GM>
 void SumViewFunction<GM>::AddFunction(const marray::Marray<ValueType>& f) 
 { 
    OPENGM_ASSERT(f.size() == size());
-   for(size_t i=0; i<function_.size(); i++) {
-      function_(i) = function_(i) + f(i);
-   }
-   //function_ += f;
+   //for(size_t i=0; i<function_.size(); i++) {
+   //   function_(i) = function_(i) + f(i);
+   //}
+   function_ += f;
 }
 
 

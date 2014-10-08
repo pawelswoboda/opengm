@@ -47,6 +47,7 @@ GetPairwiseFactor(
       marray::Matrix<typename GM::ValueType>& factor
 )
 {
+   OPENGM_ASSERT(gm[f].numberOfVariables() == 2);
    size_t v1 = gm.variableOfFactor(f,0);
    size_t v2 = gm.variableOfFactor(f,1);
    factor.resize(gm.numberOfLabels(v1),gm.numberOfLabels(v2));
@@ -120,6 +121,7 @@ template<class DATA,class ACC,template <typename,typename> class SOLVER>
 // DATA is POpt_data<GM,ACC>
 // SOLVER is derived from POpt_IRI_SolverBase<GM,ACC>
 // do zrobienia: template data musi byc template template parameter
+// do zrobienia: templatyzuj DATA tak jak SOLVER
 class IRI : public POpt_Inference<DATA, ACC>
 {
 public:
@@ -146,8 +148,8 @@ public:
    struct Parameter { 
       enum METHOD {SUBSET_TO_ONE, ALL_TO_ONE}; 
       METHOD method_;
-      Parameter() : method_(SUBSET_TO_ONE) {};
-      //Parameter() : method_(ALL_TO_ONE) {};
+      //Parameter() : method_(SUBSET_TO_ONE) {};
+      Parameter() : method_(ALL_TO_ONE) {};
    } param_;
 
    IRI(DATA& d, const Parameter& param = Parameter());
@@ -342,9 +344,10 @@ IRI<DATA,ACC,SOLVER>::UpdateMRF(PersistencyGMType& pgm, const std::vector<std::v
 
 template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(std::vector<typename GM::LabelType>& im,
-                                     const typename GM::LabelType l,
-                                     const std::vector<bool>& immovable)
+IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(
+      std::vector<typename GM::LabelType>& im,
+      const typename GM::LabelType l,
+      const std::vector<bool>& immovable)
 {
    im.resize(immovable.size());
    for(size_t i=0; i<im.size(); i++)
@@ -352,15 +355,16 @@ IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(std::vector<typename GM::LabelType
          im[i] = l;
       else
          im[i] = i;
-     
+
    OPENGM_ASSERT(IsProjection(im));
 }
 
 template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(std::vector<std::vector<typename GM::LabelType> >& im,
-                                     const std::vector<typename GM::LabelType> l,
-                                     const std::vector<std::vector<bool> >& immovable)
+IRI<DATA,ACC,SOLVER>::ConstructSubsetToOneMap(
+      std::vector<std::vector<typename GM::LabelType> >& im,
+      const std::vector<typename GM::LabelType> l,
+      const std::vector<std::vector<bool> >& immovable)
 {
    im.resize(n_);
    for(size_t v=0; v<n_; v++) 
@@ -608,6 +612,8 @@ IRI<DATA,ACC,SOLVER>::IncreaseImmovableLabels(
             }
          }
       }
+      ConstructSubsetToOneMap(im_,l,immovable);
+      UpdateMRF(pgm, im_);
    }
 }
 

@@ -25,7 +25,7 @@ class POpt_IRI_TRWS_Init
 {
 public:
    POpt_IRI_TRWS_Init() : param_(TRWSi_Parameter<GM>(1500)) { 
-      param_.verbose_ = false; 
+      param_.verbose_ = true; 
       param_.precision_ = 1e-6; 
       param_.setTreeAgreeMaxStableIter(100); 
    }

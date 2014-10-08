@@ -53,6 +53,7 @@ private:
    std::vector<std::vector<LabelType> > im_;
    std::vector<LabelType> origIt, permIt;
 #ifdef OPENGM_IRI_SUBMODULARIZATION
+   // do zrobienia: sprawdz blad w SUBMODULARIZATION! Eksperymenty daja rozne rezultaty, jezeli submodularyzajca jest wlaczona albo nie!
    std::vector<ValueType> Delta1, Delta2;
 #endif
 };

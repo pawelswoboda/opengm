@@ -154,7 +154,7 @@ POpt_IRI_CPLEX<GM,ACC>::value() const
 {
    std::vector<LabelType> l;
    arg(l);
-   gm_.evaluate(l.begin());
+   return gm_.evaluate(l.begin());
 }
 
 } // end namespace opengm
