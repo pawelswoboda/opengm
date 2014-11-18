@@ -2,7 +2,7 @@
 #ifndef OPENGM_BOUNDARYVIEWFUNCTION_HXX
 #define OPENGM_BOUNDARYVIEWFUNCTION_HXX
 
-#define PBP_INVARIANT_TO_REPARAMETRIZATION
+//#define PBP_INVARIANT_TO_REPARAMETRIZATION
 
 #include <limits>
 #include <iostream>
@@ -103,6 +103,9 @@ inline BoundaryViewFunction<GM>::BoundaryViewFunction
    boundaryLabeling_(&boundaryLabeling),
    factorIndex_(factorIndex)
 {
+   outsideNodes_.resize(0);
+   insideNodes_.resize(0);
+
 	for(IndexType node=0; node<gm.numberOfVariables(factorIndex); node++) {
 		if( persistencyLoc[ gm.variableOfFactor(factorIndex,node) ] == nodePos::outside ) {
 			outsideNodes_.push_back(node);
@@ -186,6 +189,8 @@ BoundaryViewFunction<GM>::boundaryCost
    minMax::Type m
 ) const
 {
+   OPENGM_ASSERT(insideLabeling_.size() == insideIndexVec.size());
+
 #ifndef PBP_INVARIANT_TO_REPARAMETRIZATION
 	ValueType val = (m == minMax::max ? -std::numeric_limits<ValueType>::infinity() : std::numeric_limits<ValueType>::infinity());
 	std::vector<IndexType> fullLabelIndex(gm_->operator[](factorIndex_).numberOfVariables(),0);
@@ -201,12 +206,14 @@ BoundaryViewFunction<GM>::boundaryCost
 		else
 			val = std::min(val, gm_->operator[](factorIndex_)(fullLabelIndex.begin()));
    } while( incrementIndex(outsideIndexVec,outsideNodes_) );
+   
+   for(size_t node=0; node<outsideIndexVec.size(); node++) {
+      OPENGM_ASSERT( outsideIndexVec[node] == (gm_->operator[](factorIndex_).numberOfLabels(outsideNodes_[node]) - 1) );
+   }
 	return val;
 #endif
 
 #ifdef PBP_INVARIANT_TO_REPARAMETRIZATION
-   OPENGM_ASSERT(insideLabeling_.size() == insideIndexVec.size());
-
    if(m == minMax::max) { // conforms to boundary conditions
       return 0;
    } else { // does not conform to boundary conditions
