@@ -334,7 +334,7 @@ namespace opengm{
                   OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
 #endif
                for (typename std::list<IndexType>::const_iterator it=result.begin();it!=result.end();++it)
-                  DilateMask(gm,*it,&mask);
+                  DilateMask(gm,*it,&mask);//BSD: Why to dilate the mask? We have to just to make mask[*it]=true, are not we?
             }
          }
 
