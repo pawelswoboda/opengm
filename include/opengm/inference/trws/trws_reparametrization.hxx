@@ -313,7 +313,7 @@ void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 		IndexType var1=(1-var0);
 		IndexType var1ID=gm[fit->first].variableIndex(var1);
 		//clear message
-		std::vector<IndexType> ind(2,0);
+		std::vector<IndexType> ind(2,(IndexType)0);
 		ValueType val=parent::Reparametrization().getFactorValue(fit->first,ind.begin());
 		lit=parent::Reparametrization().getIterators(fit->first,var1);
 		for (LabelType l1=0;l1<gm.numberOfLabels(var1ID);++l1)
