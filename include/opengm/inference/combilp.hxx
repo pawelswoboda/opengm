@@ -285,7 +285,12 @@ namespace opengm{
 #ifdef TRWS_DEBUG_OUTPUT
                _fout << "Reparametrizing..."<<std::endl;
 #endif
-               _Reparametrize(&gm,mask);
+               //BSD: temporary code, remove me
+               MaskType mask_minus(mask);
+               for (size_t i=0;i<mask.size();++i)
+            	   if (boundmask[i]) mask_minus[i]=false;//xor mask, boundary
+
+               _Reparametrize(&gm,mask_minus);
             }
 
             OPENGM_ASSERT(mask.size()==gm.numberOfVariables());
@@ -550,6 +555,8 @@ namespace opengm{
 
       MaskType mask;
       combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);//BSD: do not need to dilate it in the new approach
+
+      //fout << "Initial mask size="<<std::count(initialmask.begin(),initialmask.end(),true) <<std::endl;
 
       visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
       InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis);
