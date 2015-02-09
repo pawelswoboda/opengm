@@ -242,7 +242,6 @@ TRWS_Reparametrizer<Storage,ACC>::TRWS_Reparametrizer(Storage& storage,
 	}
 }
 
-
 template<class Storage,class ACC>
 void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 {
@@ -260,7 +259,7 @@ void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 	_subSolvers[i]->BackwardMove(&sequenceMask);
 	bound+=_subSolvers[i]->GetObjectiveValue();
 	}
-	//BSD: here add moving potentials from the boundary to p/w factor and from p/w factor to unaries
+	//BSD: moving potentials from the boundary to p/w factor and from p/w factor to unaries
 	//...according to the mask
 	// for all vars with mask=false
 	// check all incident factors
@@ -272,27 +271,10 @@ void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 	//and for each variable remember the label minimum comes from ?.
 	// - No need, after finding the ILP labeling we have to just check that the corresponding factor = 0
 
-
 	const typename Storage::GraphicalModelType& gm=_storage.masterModel();
-	std::vector<size_t> borderFactorCounter(gm.numberOfVariables(),0);
-	std::vector<std::pair<IndexType,IndexType> > borderFactors; borderFactors.reserve(gm.numberOfFactors());
-	for (IndexType varID=0;varID<gm.numberOfVariables();++varID)
-	if (!mask[varID])
-	{
-	 for (IndexType localfID=0;localfID<gm.numberOfFactors(varID);++localfID)
-	 {
-		 IndexType factorID=gm.factorOfVariable(varID,localfID);
-		 const typename GraphicalModelType::FactorType& factor=gm[factorID];
-		 if (factor.numberOfVariables()<2) continue;
-		 if (factor.numberOfVariables()>2) std::runtime_error("TRWS_Reparametrizer<Storage,ACC>::reparametrize(): Higher order models are not supported yet.");
-		 if (mask[factor.variableIndex(0)] || mask[factor.variableIndex(1)] )
-		 {
-			 IndexType var0=(!mask[factor.variableIndex(0)] ? 0 : 1 );
-			 ++borderFactorCounter[varID];
-			 borderFactors.push_back(std::make_pair(factorID,var0));
-		 }
-	 }
-	}
+	std::vector<IndexType> borderFactorCounter(gm.numberOfVariables(),0);
+	std::vector<std::pair<IndexType,IndexType> > borderFactors;
+	LPReparametrizer<GraphicalModelType,ACC>::getGMMaskBorder(gm,mask,&borderFactors,&borderFactorCounter);
 
 	for (typename std::vector<std::pair<IndexType,IndexType> >::const_iterator fit=borderFactors.begin();fit!=borderFactors.end();++fit)
 	{
@@ -313,12 +295,12 @@ void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 		IndexType var1=(1-var0);
 		IndexType var1ID=gm[fit->first].variableIndex(var1);
 		//clear message
-		std::vector<IndexType> ind(2,(IndexType)0);
-		ValueType val=parent::Reparametrization().getFactorValue(fit->first,ind.begin());
+		std::vector<LabelType> ind(2,(LabelType)0);
 		lit=parent::Reparametrization().getIterators(fit->first,var1);
 		for (LabelType l1=0;l1<gm.numberOfLabels(var1ID);++l1)
 		{
 		 ind[var1]=l1;
+		 ValueType val=ACC::template neutral<ValueType>();
 		 for (LabelType l0=0;l0<gm.numberOfLabels(var0ID);++l0)
 		 {
 			ind[var0]=l0;
