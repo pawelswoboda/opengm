@@ -194,7 +194,7 @@ namespace opengm{
 
          const GraphicalModelType& graphicalModel() const { return _lpparametrizer->graphicalModel(); }
 
-         template <class VISITORWRAPPER> InferenceTermination infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis);
+         template <class VISITORWRAPPER> InferenceTermination infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis,ValueType value, ValueType bound);
 
          InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
             {
@@ -270,8 +270,10 @@ namespace opengm{
 
       template<class GM, class ACC, class LPREPARAMETRIZER>
       template <class VISITORWRAPPER>
-      InferenceTermination CombiLP_base<GM,ACC,LPREPARAMETRIZER>::infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis)
+      InferenceTermination CombiLP_base<GM,ACC,LPREPARAMETRIZER>::infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis,ValueType value_, ValueType bound_)
       {
+    	  _value=value_;
+    	  _bound=bound_;
 #ifdef TRWS_DEBUG_OUTPUT
          if (!_parameter.singleReparametrization_)
             _fout << "Applying reparametrization for each ILP run ..."<<std::endl;
@@ -362,22 +364,23 @@ namespace opengm{
             std::list<IndexType> result;
             bool optimalityFlag;
 
-            ValueType gap;
+            ValueType gap=0;
             if (_parameter.singleReparametrization_) optimalityFlag=LabelingMatching<GM>(lp_labeling,labeling,boundmask,&result);
-            else optimalityFlag=LabelingMatching(gm,lp_labeling,labeling,mask,&result,&gap);
+            else
+            {
+            	optimalityFlag=LabelingMatching(gm,lp_labeling,labeling,mask,&result,&gap);
+                ValueType newvalue=gm.evaluate(labeling);
+                ValueType newbound=newvalue-gap;
 
-            ValueType newvalue=gm.evaluate(labeling);
-            ValueType newbound=newvalue-gap;
+                ACC::op(_value,newvalue,_value);
+                ACC::iop(_bound,newbound,_bound);
 
-            ACC::op(_value,newvalue,_value);
-            ACC::iop(_bound,newbound,_bound);
+    #ifdef TRWS_DEBUG_OUTPUT
+                _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
+                _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
+    #endif
+            }
 
-            vis();
-
-#ifdef TRWS_DEBUG_OUTPUT
-            _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
-            _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
-#endif
 
             if (optimalityFlag)
             {
@@ -620,7 +623,7 @@ namespace opengm{
       else mask=initialmask;
 
       visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
-      InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis);
+      InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis,value(),bound());
       if ( (terminationVal==NORMAL) || (terminationVal==CONVERGENCE) )
       {
          _value=_base.value();
