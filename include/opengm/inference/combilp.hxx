@@ -66,7 +66,7 @@ namespace opengm{
 
       template<class GM>
       bool LabelingMatching(const GM& gm, const std::vector<typename GM::LabelType>& labeling_out,const std::vector<typename GM::LabelType>& labeling_in,
-                            const std::vector<bool>& mask_in,std::list<typename GM::IndexType>* presult)
+                            const std::vector<bool>& mask_in,std::list<typename GM::IndexType>* presult, typename GM::ValueType* pgap)
       {
          OPENGM_ASSERT(labeling_in.size()==mask_in.size());
          OPENGM_ASSERT(labeling_out.size()==mask_in.size());
@@ -78,6 +78,7 @@ namespace opengm{
      	std::vector<typename GM::IndexType> borderFactorCounter(gm.numberOfVariables(),0);//!< is not needed below, just to fit function parameters list
      	LPReparametrizer<GM,Minimizer>::getGMMaskBorder(gm,mask_in,&borderFactors,&borderFactorCounter);//!< Minimizer does not play any role in this code, just to instantiate the template
 
+     	*pgap=0;
      	std::vector<typename GM::LabelType> ind(2,0);
      	for (typename std::vector<std::pair<typename GM::IndexType,typename GM::IndexType> >::const_iterator fit=borderFactors.begin();
      			fit!=borderFactors.end();++fit)
@@ -88,8 +89,11 @@ namespace opengm{
      		ind[fit->second]=labeling_out[var_out];
      		ind[1-fit->second]=labeling_in[var_in];
 
-     		if (fabs(gm[fit->first](ind.begin())) > 1e-5)//BSD: improve this line to get an optimal edge and be independent on numerical issues
+     		if (fabs(gm[fit->first](ind.begin())) > 1e-15)//BSD: improve this line to get an optimal edge and be independent on numerical issues
+     		{
+     			(*pgap)+=gm[fit->first](ind.begin());
      			presult->push_back(var_out);
+     		}
      	}
 
          return presult->empty();
@@ -190,7 +194,7 @@ namespace opengm{
 
          const GraphicalModelType& graphicalModel() const { return _lpparametrizer->graphicalModel(); }
 
-         template <class VISITORWRAPPER> InferenceTermination infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis);
+         template <class VISITORWRAPPER> InferenceTermination infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis,ValueType value, ValueType bound);
 
          InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
             {
@@ -266,8 +270,10 @@ namespace opengm{
 
       template<class GM, class ACC, class LPREPARAMETRIZER>
       template <class VISITORWRAPPER>
-      InferenceTermination CombiLP_base<GM,ACC,LPREPARAMETRIZER>::infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis)
+      InferenceTermination CombiLP_base<GM,ACC,LPREPARAMETRIZER>::infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis,ValueType value_, ValueType bound_)
       {
+    	  _value=value_;
+    	  _bound=bound_;
 #ifdef TRWS_DEBUG_OUTPUT
          if (!_parameter.singleReparametrization_)
             _fout << "Applying reparametrization for each ILP run ..."<<std::endl;
@@ -357,8 +363,24 @@ namespace opengm{
 
             std::list<IndexType> result;
             bool optimalityFlag;
+
+            ValueType gap=0;
             if (_parameter.singleReparametrization_) optimalityFlag=LabelingMatching<GM>(lp_labeling,labeling,boundmask,&result);
-            else optimalityFlag=LabelingMatching(gm,lp_labeling,labeling,mask,&result);
+            else
+            {
+            	optimalityFlag=LabelingMatching(gm,lp_labeling,labeling,mask,&result,&gap);
+                ValueType newvalue=gm.evaluate(labeling);
+                ValueType newbound=newvalue-gap;
+
+                ACC::op(_value,newvalue,_value);
+                ACC::iop(_bound,newbound,_bound);
+
+    #ifdef TRWS_DEBUG_OUTPUT
+                _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
+                _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
+    #endif
+            }
+
 
             if (optimalityFlag)
             {
@@ -601,7 +623,7 @@ namespace opengm{
       else mask=initialmask;
 
       visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
-      InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis);
+      InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis,value(),bound());
       if ( (terminationVal==NORMAL) || (terminationVal==CONVERGENCE) )
       {
          _value=_base.value();
