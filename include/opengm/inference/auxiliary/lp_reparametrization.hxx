@@ -302,6 +302,12 @@ public:
 	void reparametrize(const ImmovableLabelingType& immovableLabeling){};
 	virtual void getReparametrizedModel(ReparametrizedGMType& gm)const;
 	const GM& graphicalModel()const{return _gm;}
+
+	/*
+	 * Returns pairwise factors laying on the border to mask and *local* varID NOT belonging to mask.
+	 * The last parameter - number of border p/w factors incident to varID for all variables
+	 */
+	static void getGMMaskBorder(const GM& gm,const MaskType& mask,std::vector<std::pair<IndexType,IndexType> >* pborderFactors ,std::vector<IndexType>* pborderFactorCounter);
 private:
 	const GM& _gm;
 	RepaStorageType _repastorage;
@@ -418,7 +424,32 @@ void LPReparametrizer<GM,ACC>::getArcConsistency(std::vector<bool>* pmask,std::v
 
 }
 
+template<class GM, class ACC>
+void LPReparametrizer<GM,ACC>::
+getGMMaskBorder(const GM& gm,const MaskType& mask,std::vector<std::pair<IndexType,IndexType> >* pborderFactors ,std::vector<IndexType>* pborderFactorCounter)//static function
+{
+ pborderFactorCounter->assign(gm.numberOfVariables(),0);
+ pborderFactors->reserve(gm.numberOfFactors());
+ for (IndexType varID=0;varID<gm.numberOfVariables();++varID)
+ if (!mask[varID])
+ {
+ for (IndexType localfID=0;localfID<gm.numberOfFactors(varID);++localfID)
+ {
+	 IndexType factorID=gm.factorOfVariable(varID,localfID);
+	 const typename GraphicalModelType::FactorType& factor=gm[factorID];
+	 if (factor.numberOfVariables()<2) continue;
+	 if (factor.numberOfVariables()>2) std::runtime_error("LPReparametrizer::getGMMaskBorder(): Higher order models are not supported yet.");
+	 if (mask[factor.variableIndex(0)] || mask[factor.variableIndex(1)] )
+	 {
+		 IndexType var0=(!mask[factor.variableIndex(0)] ? 0 : 1 );
+		 ++(*pborderFactorCounter)[varID];
+		 pborderFactors->push_back(std::make_pair(factorID,var0));
+	 }
+  }
+ }
 }
+
+}//namespace
 
 
 #endif /* LP_REPARAMETRIZATION_STORAGE_HXX_ */

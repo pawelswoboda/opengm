@@ -63,6 +63,38 @@ namespace opengm{
          return presult->empty();
       }
 
+
+      template<class GM>
+      bool LabelingMatching(const GM& gm, const std::vector<typename GM::LabelType>& labeling_out,const std::vector<typename GM::LabelType>& labeling_in,
+                            const std::vector<bool>& mask_in,std::list<typename GM::IndexType>* presult)
+      {
+         OPENGM_ASSERT(labeling_in.size()==mask_in.size());
+         OPENGM_ASSERT(labeling_out.size()==mask_in.size());
+         presult->clear();
+
+         //go over all border p/w potentials and check that the corresponding edge 0
+
+     	std::vector<std::pair<typename GM::IndexType,typename GM::IndexType> > borderFactors;
+     	std::vector<typename GM::IndexType> borderFactorCounter(gm.numberOfVariables(),0);//!< is not needed below, just to fit function parameters list
+     	LPReparametrizer<GM,Minimizer>::getGMMaskBorder(gm,mask_in,&borderFactors,&borderFactorCounter);//!< Minimizer does not play any role in this code, just to instantiate the template
+
+     	std::vector<typename GM::LabelType> ind(2,0);
+     	for (typename std::vector<std::pair<typename GM::IndexType,typename GM::IndexType> >::const_iterator fit=borderFactors.begin();
+     			fit!=borderFactors.end();++fit)
+     	{
+     		typename GM::IndexType var_out=gm[fit->first].variableIndex(fit->second);
+     		typename GM::IndexType var_in=gm[fit->first].variableIndex(1-fit->second);
+
+     		ind[fit->second]=labeling_out[var_out];
+     		ind[1-fit->second]=labeling_in[var_in];
+
+     		if (fabs(gm[fit->first](ind.begin())) > 1e-5)//BSD: improve this line to get an optimal edge and be independent on numerical issues
+     			presult->push_back(var_out);
+     	}
+
+         return presult->empty();
+      }
+
       template<class GM>
       void GetMaskBoundary(const GM& gm,const std::vector<bool>& mask,std::vector<bool>* boundmask)
       {
@@ -285,12 +317,15 @@ namespace opengm{
 #ifdef TRWS_DEBUG_OUTPUT
                _fout << "Reparametrizing..."<<std::endl;
 #endif
-               //BSD: temporary code, remove me
-               MaskType mask_minus(mask);
-               for (size_t i=0;i<mask.size();++i)
-            	   if (boundmask[i]) mask_minus[i]=false;//xor mask, boundary
+//               //BSD: temporary code, remove me
+//               MaskType mask_minus(mask);
+//               for (size_t i=0;i<mask.size();++i)
+//            	   if (boundmask[i]) mask_minus[i]=false;//xor mask, boundary
+//
+//               _Reparametrize(&gm,mask_minus);
+               _Reparametrize(&gm,mask);
 
-               _Reparametrize(&gm,mask_minus);
+
             }
 
             OPENGM_ASSERT(mask.size()==gm.numberOfVariables());
@@ -321,7 +356,11 @@ namespace opengm{
 #endif
 
             std::list<IndexType> result;
-            if (LabelingMatching<GM>(lp_labeling,labeling,boundmask,&result))
+            bool optimalityFlag;
+            if (_parameter.singleReparametrization_) optimalityFlag=LabelingMatching<GM>(lp_labeling,labeling,boundmask,&result);
+            else optimalityFlag=LabelingMatching(gm,lp_labeling,labeling,mask,&result);
+
+            if (optimalityFlag)
             {
                startILP=false;
                _labeling=labeling;
@@ -339,7 +378,10 @@ namespace opengm{
                   OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
 #endif
                for (typename std::list<IndexType>::const_iterator it=result.begin();it!=result.end();++it)
-                  DilateMask(gm,*it,&mask); //BSD: do not need to do this in the new version
+                  if (_parameter.singleReparametrization_) //BSD: expanding the mask
+                     DilateMask(gm,*it,&mask);
+                  else
+                     mask[*it]=true;
             }
          }
 
@@ -554,23 +596,18 @@ namespace opengm{
       trws_base::transform_inplace(initialmask.begin(),initialmask.end(),std::logical_not<bool>());
 
       MaskType mask;
-      combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);//BSD: do not need to dilate it in the new approach
-
-      //fout << "Initial mask size="<<std::count(initialmask.begin(),initialmask.end(),true) <<std::endl;
+      if (_parameter.singleReparametrization_) //BSD: do not need to dilate it in the new approach
+       combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);
+      else mask=initialmask;
 
       visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
       InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis);
-      //InferenceTermination terminationVal=_base.infer(mask,labeling_lp,trws_base::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> >(&visitor,this));
       if ( (terminationVal==NORMAL) || (terminationVal==CONVERGENCE) )
       {
          _value=_base.value();
          _bound=_base.bound();
          _base.arg(_labeling);
       }
-      /*else{
-         visitor.end(*this);
-         return ;  
-         }*/
 
       visitor.end(*this);
       //return terminationVal;
