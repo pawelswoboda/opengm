@@ -133,6 +133,7 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   parameter_.saveProblemMasks_=parameter_saveProblemMasks;
 	   parameter_.maskFileNamePre_=parameter_maskFileNamePre;
 	   parameter_.maxNumberOfILPCycles_=parameter_maxNumberOfILPCycles;
+	   parameter_.singleReparametrization_=!param_multipleRepa;
 	   parameter_.lpsolverParameter_=lpsolverParameter_;
 	   this-> template infer<CombiLPType, TimingVisitorType, typename CombiLPType::Parameter>(model, output, verbose, parameter_);
    }else if (lpsolvertype=="ADSal")
