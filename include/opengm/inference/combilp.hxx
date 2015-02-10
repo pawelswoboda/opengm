@@ -374,6 +374,7 @@ namespace opengm{
                 }
 
                 ACC::iop(_bound,newbound,_bound);
+                //vis();
 
     #ifdef TRWS_DEBUG_OUTPUT
                 _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
