@@ -380,7 +380,7 @@ namespace opengm{
     #ifdef TRWS_DEBUG_OUTPUT
                 _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
                 _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
-                //_fout << "new gap="<<gap<<std::endl;
+                _fout << "new gap="<<gap<<std::endl;
     #endif
             }
 
@@ -388,7 +388,7 @@ namespace opengm{
             {
                startILP=false;
 	       _labeling=labeling;
-               _value=_bound=gm.evaluate(_labeling);//_lpparametrizer.graphicalModel().evaluate(_labeling);//BSD: why not gm was used here in the old code???
+               _value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
                terminationId=NORMAL;
 #ifdef TRWS_DEBUG_OUTPUT
                _fout <<"Solved! Optimal energy="<<value()<<std::endl;
