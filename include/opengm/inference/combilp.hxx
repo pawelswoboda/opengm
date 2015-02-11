@@ -340,11 +340,12 @@ namespace opengm{
             terminationILP=_PerformILPInference(modelManipulator,&labeling);
             if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE))
             {
-               //_labeling=lp_labeling;
 #ifdef TRWS_DEBUG_OUTPUT
                _fout << "ILP solver failed to solve the problem. Best attained results will be saved." <<std::endl;
 #endif
-               
+		if (_parameter.singleReparametrization_)  //TODO: BSD: check that in this case the resulting labeling is the best one attained and not obligatory lp_labeling             
+		  _labeling=lp_labeling;               
+
                //return NORMAL;
                return terminationILP;
             }
@@ -378,14 +379,15 @@ namespace opengm{
     #ifdef TRWS_DEBUG_OUTPUT
                 _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
                 _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
-                //_fout << "new gap="<<gap<<std::endl;
+                _fout << "new gap="<<gap<<std::endl;
     #endif
             }
 
             if (optimalityFlag || (fabs(_value-_bound)<= std::numeric_limits<ValueType>::epsilon()*_value) )
             {
                startILP=false;
-               //_value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
+	       _labeling=labeling;
+               _value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
                terminationId=NORMAL;
 #ifdef TRWS_DEBUG_OUTPUT
                _fout <<"Solved! Optimal energy="<<value()<<std::endl;
