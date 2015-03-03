@@ -104,6 +104,11 @@ if(LINK_RT)
 endif(LINK_RT)
 add_test(test-movemaker ${CMAKE_CURRENT_BINARY_DIR}/test-movemaker)
 
+add_executable(test-labelcollapse test_labelcollapse.cxx ${headers})
+add_test(test-labelcollapse ${CMAKE_CURRENT_BINARY_DIR}/test-labelcollapse)
+if(WITH_CPLEX)
+  target_link_libraries(test-labelcollapse ${CPLEX_LIBRARIES} ${HDF5_LIBRARIES})
+endif()
 
 add_executable(test-dualdecomposition test_dualdecomposition.cxx ${headers})
 add_test(test-dualdecomposition ${CMAKE_CURRENT_BINARY_DIR}/test-dualdecomposition)
