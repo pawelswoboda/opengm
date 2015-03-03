@@ -509,6 +509,7 @@ ModelBuilder<GM, ACC>::uncollapse
 	const IndexType idx
 )
 {
+	bool foundAnyFactor = false;
 	IndexType bestFactor = 0;
 	ValueType bestEpsilon = ACC::template neutral<ValueType>();
 	ValueType bestEpsilonDiff = ACC::template neutral<ValueType>();
@@ -519,15 +520,20 @@ ModelBuilder<GM, ACC>::uncollapse
 		ValueType epsilon = calculateNewEpsilon(factor);
 		ValueType epsilonDiff = epsilon - epsilons_[factor];
 
-		if (epsilonDiff < bestEpsilonDiff) {
+		if ((! foundAnyFactor) || (epsilonDiff < bestEpsilonDiff)) {
+			foundAnyFactor = true;
 			bestFactor = factor;
 			bestEpsilon = epsilon;
 			bestEpsilonDiff = epsilonDiff;
 		}
 	}
 
-	epsilons_[bestFactor] = bestEpsilon;
-	rebuildNecessary_ = true;
+	// If the variable is not the first variable of any factor, then we
+	// should not update any factor. :-)
+	if (foundAnyFactor) {
+		epsilons_[bestFactor] = bestEpsilon;
+		rebuildNecessary_ = true;
+	}
 }
 
 template<class GM, class ACC>
@@ -555,6 +561,7 @@ ModelBuilder<GM, ACC>::updateMappings()
 	typedef NonCollapsedFactorFunctor<FunctionFunctor> FactorFunctor;
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		bool foundAnyFactor = false;
 		LabelVec nonCollapsed;
 		Inserter inserter(nonCollapsed);
 
@@ -573,13 +580,29 @@ ModelBuilder<GM, ACC>::updateMappings()
 			FunctionFunctor functionFunctor(varIdx, epsilons_[f], inserter);
 			FactorFunctor factorFunctor(functionFunctor);
 			factor.callFunctor(factorFunctor);
+			foundAnyFactor = true;
 		}
-
 
 		MappingType &m = mappings_[i];
 		m = MappingType(original_.numberOfLabels(i));
-		for (Iterator it = nonCollapsed.begin(); it != nonCollapsed.end(); ++it) {
-			m.insert(*it);
+
+		// If there are no factors where our variable is the first variable,
+		// there are no corresponding epsilon values for this variable. We have
+		// no information and cannot distinguish the labels of this variable.
+		//
+		// The only reasonable action is to include all labels for this
+		// variable (make mapping full bijection).
+		//
+		// In all other cases we introduce the labels for which found some
+		// epsilon which is larger. The mapping class will automatically
+		// convert itself into a full bijection if it detects that it is
+		// necessary.
+		if (foundAnyFactor) {
+			for (Iterator it = nonCollapsed.begin(); it != nonCollapsed.end(); ++it) {
+				m.insert(*it);
+			}
+		} else {
+			m.makeFull();
 		}
 	}
 
@@ -618,14 +641,13 @@ public:
 	}
 
 	void insert(LabelType origLabel);
+	void makeFull();
 	bool full() const { return full_; }
 	LabelType auxiliary(LabelType origLabel) const;
 	LabelType original(LabelType auxLabel) const;
 	LabelType size() const;
 
 private:
-	void makeFull();
-
 	LabelType numLabels_;
 	bool full_;
 	std::vector<LabelType> mapOrigToAux_;
