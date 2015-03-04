@@ -616,9 +616,11 @@ ModelBuilder<GM, ACC>::reset()
 	epsilons_.assign(original_.numberOfFactors(), ACC::template ineutral<ValueType>());
 	rebuildNecessary_ = true;
 
-	for (IndexType f = 0; f < original_.numberOfFactors(); ++f) {
+	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
 		epsilons_[f] = calculateNewEpsilon(f);
-	}
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+		uncollapse(i);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -799,7 +801,7 @@ public:
 	template<class INPUT_ITERATOR>
 	void operator()(const VALUE_TYPE v, INPUT_ITERATOR it)
 	{
-		if (! ACC::ibop(v, epsilon_))
+		if (ACC::bop(v, epsilon_))
 			*iterator_++ = it[variable_];
 	}
 
