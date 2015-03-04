@@ -292,15 +292,19 @@ Inference<GM, INF>::infer
 		result = inf.infer(proxy_visitor);
 		bound_ = inf.bound();
 		value_ = inf.value();
-		termination_ = inf.arg(labeling_, 1);
+		std::vector<LabelType> labeling;
+		termination_ = inf.arg(labeling, 1);
 
 		// If the labeling is valid, we are done.
-		if (builder_.isValidLabeling(labeling_.begin()))
+		if (builder_.isValidLabeling(labeling.begin())) {
 			exitInf = true;
+
+			builder_.originalLabeling(labeling, labeling_);
+		}
 
 		// Update the model. This will try to make more labels available where
 		// the current labeling is invalid.
-		builder_.uncollapseLabeling(labeling_.begin());
+		builder_.uncollapseLabeling(labeling.begin());
 
 		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf)
 			exitInf = true;
@@ -375,7 +379,8 @@ public:
 		return auxiliary_;
 	}
 
-	template<class ITERATOR> bool isValidLabeling(ITERATOR);
+	template<class ITERATOR> bool isValidLabeling(ITERATOR) const;
+	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
 	void uncollapse(const IndexType);
 
@@ -444,12 +449,29 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 }
 
 template<class GM, class ACC>
+void
+ModelBuilder<GM, ACC>::originalLabeling
+(
+	const std::vector<LabelType> &auxiliary,
+	std::vector<LabelType> &original
+) const
+{
+	OPENGM_ASSERT(isValidLabeling(auxiliary.begin()));
+	OPENGM_ASSERT(auxiliary.size() == original_.numberOfVariables());
+
+	original.assign(auxiliary.size(), 0);
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		original[i] = mappings_[i].original(auxiliary[i]);
+	}
+}
+
+template<class GM, class ACC>
 template<class ITERATOR>
 bool
 ModelBuilder<GM, ACC>::isValidLabeling
 (
 	ITERATOR it
-)
+) const
 {
 	OPENGM_ASSERT(!rebuildNecessary_);
 
