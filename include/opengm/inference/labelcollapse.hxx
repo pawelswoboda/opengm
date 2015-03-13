@@ -274,8 +274,12 @@ Inference<GM, INF>::infer
 	PROXY_VISITOR& proxy_visitor
 )
 {
+	termination_ = UNKNOWN;
+	labeling_.resize(0);
+	bound_ = AccumulationType::template neutral<ValueType>();
+	value_ = AccumulationType::template neutral<ValueType>();
+
 	visitor.begin(*this);
-	InferenceTermination result = UNKNOWN;
 
 	bool exitInf = false;
 	while (!exitInf) {
@@ -284,21 +288,24 @@ Inference<GM, INF>::infer
 		const AuxiliaryModelType gm = builder_.getAuxiliaryModel();
 
 		// Run inference on auxiliary model and cache the results.
-		//
-		// FIXME: Probably we should set our bound to the inferred value of the
-		// proxy method. Otherwise the our inferred value is increasing step
-		// by step. Seems wrong.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
-		result = inf.infer(proxy_visitor);
-		bound_ = inf.bound();
-		value_ = inf.value();
+		InferenceTermination result = inf.infer(proxy_visitor);
+
+		// If the proxy inference method returns an error, we pass it upwards.
+		if (result != NORMAL) {
+			termination_ = result;
+			break;
+		}
+
+		bound_ = inf.value();
 		std::vector<LabelType> labeling;
-		termination_ = inf.arg(labeling, 1);
+		inf.arg(labeling, 1); // FIXME: Check result value.
 
 		// If the labeling is valid, we are done.
 		if (builder_.isValidLabeling(labeling.begin())) {
 			exitInf = true;
-
+			termination_ = NORMAL;
+			value_ = inf.value();
 			builder_.originalLabeling(labeling, labeling_);
 		}
 
@@ -311,7 +318,7 @@ Inference<GM, INF>::infer
 	}
 
 	visitor.end(*this);
-	return result;
+	return termination_;
 }
 
 template<class GM, class INF>
