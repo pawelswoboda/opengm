@@ -9,9 +9,7 @@
 #define COMBILP_CALLER_HXX_
 
 #include <opengm/opengm.hxx>
-#include <opengm/inference/trws/trws_trws.hxx>
-#include <opengm/inference/trws/trws_adsal.hxx>
-#include <opengm/inference/combilp.hxx>
+#include <opengm/inference/combilp_default.hxx>
 
 #include "inference_caller_base.hxx"
 #include "../argument/argument.hxx"
@@ -109,14 +107,16 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 
    if (lpsolvertype=="TRWSi")
    {
-	   typedef TRWSi<GM,ACC> LPSOLVER;
+       typedef CombiLP_TRWSi_Gen<GM, ACC> Gen;
+       typedef typename Gen::LPSolverType LPSolverType;
+       typedef typename Gen::ILPSolverType ILPSolverType;
+       typedef typename Gen::CombiLPType CombiLPType;
 
-	   typedef CombiLP<GM, ACC, LPSOLVER> CombiLPType;
 	   typedef typename CombiLPType::VerboseVisitorType VerboseVisitorType;
 	   typedef typename CombiLPType::EmptyVisitorType EmptyVisitorType;
 	   typedef typename CombiLPType::TimingVisitorType TimingVisitorType;
 	   typename CombiLPType::Parameter parameter_;
-	   typename LPSOLVER::Parameter lpsolverParameter_(trwsParameter_);
+	   typename LPSolverType::Parameter lpsolverParameter_(trwsParameter_);
 
 	   lpsolverParameter_.setTreeAgreeMaxStableIter(trwsParameter_treeAgreeMaxStableIter);
 	   lpsolverParameter_.maxNumberOfIterations_=LPSolver_maxNumberOfIterations;
@@ -138,9 +138,11 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   this-> template infer<CombiLPType, TimingVisitorType, typename CombiLPType::Parameter>(model, output, verbose, parameter_);
    }else if (lpsolvertype=="ADSal")
    {
-	   typedef ADSal<GM,ACC> LPSOLVER;
+       typedef CombiLP_ADSal_Gen<GM, ACC> Gen;
+       typedef typename Gen::LPSolverType LPSolverType;
+       typedef typename Gen::ILPSolverType ILPSolverType;
+       typedef typename Gen::CombiLPType CombiLPType;
 
-	   typedef CombiLP<GM, ACC, LPSOLVER> CombiLPType;
 	   typedef typename CombiLPType::VerboseVisitorType VerboseVisitorType;
 	   typedef typename CombiLPType::EmptyVisitorType EmptyVisitorType;
 	   typedef typename CombiLPType::TimingVisitorType TimingVisitorType;
@@ -150,7 +152,7 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   adsalParameter_.lazyDerivativeComputation()=(adsalParameter_lazyLPPrimalBoundComputation==1);
 	   adsalParameter_.setStartSmoothingValue(adsalParameter_startSmoothingValue);
 
-	   typename LPSOLVER::Parameter lpsolverParameter_(adsalParameter_);
+	   typename LPSolverType::Parameter lpsolverParameter_(adsalParameter_);
 
 	   lpsolverParameter_.maxNumberOfIterations()=LPSolver_maxNumberOfIterations;
 	   lpsolverParameter_.setPrecision(LPSolver_parameter_precision);
