@@ -45,27 +45,27 @@ namespace opengm {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace labelcollapse {
+// Main class implementing the inference method. This class is intended to be
+// used by the user.
+template<class GM, class INF>
+class LabelCollapse;
 
 // This is a type generator for generating the template parameter for
 // the underlying proxy inference method.
 //
-// Access is possible by “AuxiliaryModelTypeGenerator<GM>::GraphicalModelType”.
+// Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
 template<class GM>
-struct AuxiliaryModelTypeGenerator;
+struct LabelCollapseAuxTypeGen;
 
-// Main class implementing the inference method. This class is intended to be
-// used by the user.
-template<class GM, class INF>
-class Inference;
+//
+// Namespace for internal implementation details.
+//
+namespace labelcollapse {
 
 // Builds the auxiliary model given the original model.
 template<class GM, class INF>
 class ModelBuilder;
 
-//
-// Internal implementation details.
-//
 
 // A (potentially partial) mapping of orignal labels to auxiliary labels
 // (and vice versa) for a given variable.
@@ -101,32 +101,21 @@ class NonCollapsedFunctionFunctor;
 
 } // namespace labelcollapse
 
-// Sorry, the following handy type aliases need C++11.
-#if __cplusplus >= 201103L
-template<class GM, class INF>
-typedef labelcollapse::Inference<GM, INF> LabelCollapse<GM, INF>;
-
-template<class GM>
-typedef labelcollapse::AuxiliaryModelTypeGenerator LabelCollapseAuxTypeGen;
-#endif
-
-namespace labelcollapse {
-
 ////////////////////////////////////////////////////////////////////////////////
 //
-// struct AuxiliaryModelTypeGenerator
+// struct LabelCollapseAuxTypeGen
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 template<class GM>
-struct AuxiliaryModelTypeGenerator {
+struct LabelCollapseAuxTypeGen {
 	typedef typename GM::OperatorType OperatorType;
 	typedef typename GM::IndexType IndexType;
 	typedef typename GM::LabelType LabelType;
 	typedef typename GM::ValueType ValueType;
 
 	typedef typename opengm::DiscreteSpace<IndexType, LabelType> SpaceType;
-	typedef typename meta::TypeListGenerator< EpsilonFunction<GM> >::type FunctionTypeList;
+	typedef typename meta::TypeListGenerator< labelcollapse::EpsilonFunction<GM> >::type FunctionTypeList;
 
 	typedef GraphicalModel<ValueType, OperatorType, FunctionTypeList, SpaceType>
 	GraphicalModelType;
@@ -134,12 +123,12 @@ struct AuxiliaryModelTypeGenerator {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class Inference
+// class LabelCollapse
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 template<class GM, class INF>
-class Inference : public opengm::Inference<GM, typename INF::AccumulationType>
+class LabelCollapse : public opengm::Inference<GM, typename INF::AccumulationType>
 {
 public:
 	//
@@ -163,14 +152,14 @@ public:
 
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
-	typedef typename AuxiliaryModelTypeGenerator<GM>::GraphicalModelType
+	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
 	AuxiliaryModelType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
-	typedef visitors::EmptyVisitor< Inference<GM, INF> > EmptyVisitorType;
-	typedef visitors::VerboseVisitor< Inference<GM, INF> > VerboseVisitorType;
-	typedef visitors::TimingVisitor< Inference<GM, INF> > TimingVisitorType;
+	typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
+	typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
+	typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
 	struct Parameter {
@@ -189,8 +178,8 @@ public:
 	//
 	// Methods
 	//
-	Inference(const GraphicalModelType&);
-	Inference(const GraphicalModelType&, const Parameter&);
+	LabelCollapse(const GraphicalModelType&);
+	LabelCollapse(const GraphicalModelType&, const Parameter&);
 	std::string name() const;
 	const GraphicalModelType& graphicalModel() const { return gm_; }
 	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
@@ -205,7 +194,7 @@ public:
 
 private:
 	const GraphicalModelType &gm_;
-	ModelBuilder<GraphicalModelType, AccumulationType> builder_;
+	labelcollapse::ModelBuilder<GraphicalModelType, AccumulationType> builder_;
 	const Parameter parameter_;
 
 	InferenceTermination termination_;
@@ -215,7 +204,7 @@ private:
 };
 
 template<class GM, class INF>
-Inference<GM, INF>::Inference
+LabelCollapse<GM, INF>::LabelCollapse
 (
 	const GraphicalModelType &gm
 )
@@ -225,7 +214,7 @@ Inference<GM, INF>::Inference
 }
 
 template<class GM, class INF>
-Inference<GM, INF>::Inference
+LabelCollapse<GM, INF>::LabelCollapse
 (
 	const GraphicalModelType &gm,
 	const Parameter &parameter
@@ -238,16 +227,16 @@ Inference<GM, INF>::Inference
 
 template<class GM, class INF>
 std::string
-Inference<GM, INF>::name() const
+LabelCollapse<GM, INF>::name() const
 {
 	AuxiliaryModelType gm;
 	typename Proxy::Inference inf(gm, parameter_.proxy);
-	return "labelcollapse::Inference(" + inf.name() + ")";
+	return "LabelCollapse(" + inf.name() + ")";
 }
 
 template<class GM, class INF>
 InferenceTermination
-Inference<GM, INF>::infer()
+LabelCollapse<GM, INF>::infer()
 {
 	EmptyVisitorType visitor;
 	return infer(visitor);
@@ -256,7 +245,7 @@ Inference<GM, INF>::infer()
 template<class GM, class INF>
 template<class VISITOR>
 InferenceTermination
-Inference<GM, INF>::infer
+LabelCollapse<GM, INF>::infer
 (
 	VISITOR &visitor
 )
@@ -268,7 +257,7 @@ Inference<GM, INF>::infer
 template<class GM, class INF>
 template<class VISITOR, class PROXY_VISITOR>
 InferenceTermination
-Inference<GM, INF>::infer
+LabelCollapse<GM, INF>::infer
 (
 	VISITOR& visitor,
 	PROXY_VISITOR& proxy_visitor
@@ -323,14 +312,14 @@ Inference<GM, INF>::infer
 
 template<class GM, class INF>
 void
-Inference<GM, INF>::reset()
+LabelCollapse<GM, INF>::reset()
 {
 	builder_.reset();
 }
 
 template<class GM, class INF>
 InferenceTermination
-Inference<GM, INF>::arg
+LabelCollapse<GM, INF>::arg
 (
 	std::vector<LabelType>& label,
 	const size_t idx
@@ -343,6 +332,10 @@ Inference<GM, INF>::arg
 		return UNKNOWN;
 	}
 }
+
+
+// Namespace for implementation details.
+namespace labelcollapse {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -369,7 +362,7 @@ public:
 	typedef GM OriginalModelType;
 
 	// Auxiliary model types
-	typedef typename AuxiliaryModelTypeGenerator<GM>::GraphicalModelType
+	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
 	AuxiliaryModelType;
 
 	//

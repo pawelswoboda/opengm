@@ -17,7 +17,7 @@
 int main()
 {
 	typedef opengm::GraphicalModel<double, opengm::Adder> OriginalModelType;
-	typedef opengm::labelcollapse::AuxiliaryModelTypeGenerator<OriginalModelType>::GraphicalModelType AuxiliaryModelType;
+	typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType>::GraphicalModelType AuxiliaryModelType;
 	typedef opengm::BlackBoxTestGrid<OriginalModelType> GridTest;
 	typedef opengm::BlackBoxTestFull<OriginalModelType> FullTest;
 	typedef opengm::BlackBoxTestStar<OriginalModelType> StarTest;
@@ -59,7 +59,7 @@ int main()
 	std::cout << "  * Test Min-Sum with Bruteforce" << std::endl;
 	{
 		typedef opengm::Bruteforce<AuxiliaryModelType, opengm::Minimizer> Proxy;
-		typedef opengm::labelcollapse::Inference<OriginalModelType, Proxy> Inference;
+		typedef opengm::LabelCollapse<OriginalModelType, Proxy> Inference;
 		Inference::Parameter parameter;
 		allTester.test<Inference>(parameter);
 		bruteforceTester.test<Inference>(parameter);
@@ -69,7 +69,7 @@ int main()
 	std::cout << "  * Test Min-Sum with CPLEX" << std::endl;
 	{
 		typedef opengm::LPCplex<AuxiliaryModelType, opengm::Minimizer> Proxy;
-		typedef opengm::labelcollapse::Inference<OriginalModelType, Proxy> Inference;
+		typedef opengm::LabelCollapse<OriginalModelType, Proxy> Inference;
 
 		Proxy::Parameter proxy_parameter;
 		proxy_parameter.integerConstraint_ = true;
