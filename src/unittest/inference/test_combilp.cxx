@@ -53,6 +53,9 @@ int main() {
 	   typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, opengm::Minimizer>::CombiLPType CombiLPType;
 	   CombiLPType::Parameter param;
 	   param.lpsolverParameter_.maxNumberOfIterations_=100;
+	   param.ilpsolverParameter_.integerConstraint_ = true;
+	   param.ilpsolverParameter_.timeLimit_ = 3600;
+	   param.ilpsolverParameter_.workMem_= 1024*6;
 	   minTester.test<CombiLPType>(param);
    }
 
