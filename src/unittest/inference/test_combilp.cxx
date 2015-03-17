@@ -47,8 +47,7 @@ int main() {
    minTester2.addTest(new StarTest2(6,    5, randomLabelSize, true,  StarTest2::RANDOM, opengm::OPTIMAL, 3));
 
 
-   std::cout << "Test CombiLP ..." << std::endl;
-
+   std::cout << "Test CombiLP + TRWSi + CPLEX ..." << std::endl;
    {
 	   typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, opengm::Minimizer>::CombiLPType CombiLPType;
 	   CombiLPType::Parameter param;
@@ -57,6 +56,17 @@ int main() {
 	   param.ilpsolverParameter_.timeLimit_ = 3600;
 	   param.ilpsolverParameter_.workMem_= 1024*6;
 	   minTester.test<CombiLPType>(param);
+   }
+
+   std::cout << "Test CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
+   {
+		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, opengm::Minimizer>::CombiLPType CombiLPType;
+		CombiLPType::Parameter param;
+	   param.lpsolverParameter_.maxNumberOfIterations_=100;
+	   param.ilpsolverParameter_.proxy.integerConstraint_ = true;
+	   param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
+	   param.ilpsolverParameter_.proxy.workMem_= 1024*6;
+		minTester.test<CombiLPType>(param);
    }
 
 //   {
