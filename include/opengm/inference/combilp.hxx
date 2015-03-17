@@ -192,7 +192,7 @@ namespace opengm{
          typedef typename TypeGen::GMManipulatorType GMManipulatorType;
          typedef typename TypeGen::ReparametrizedGMType ReparametrizedGMType;
 
-         CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param
+         CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param, const typename ILPSolver::Parameter &ilpsolverParameter
 #ifdef TRWS_DEBUG_OUTPUT
                       , std::ostream& fout=std::cout
 #endif
@@ -217,6 +217,7 @@ namespace opengm{
          void _Reparametrize(typename ReparametrizerType::ReparametrizedGMType* pgm,const MaskType& mask);
          InferenceTermination _PerformILPInference(GMManipulatorType& modelManipulator,std::vector<LabelType>* plabeling);
          Parameter _parameter;
+	 typename ILPSolver::Parameter _ilpsolverParemeter;
          ReparametrizerType& _lpparametrizer;
          std::vector<LabelType> _labeling;
          ValueType _value;
@@ -227,12 +228,13 @@ namespace opengm{
       };
 
       template<class GM, class ACC, class LPREPARAMETRIZER, class ILPSOLVER>
-      CombiLP_base<GM,ACC,LPREPARAMETRIZER,ILPSOLVER>::CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param
+      CombiLP_base<GM,ACC,LPREPARAMETRIZER,ILPSOLVER>::CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param, const typename ILPSolver::Parameter &ilpsolverParameter
 #ifdef TRWS_DEBUG_OUTPUT
                                                           , std::ostream& fout
 #endif
          )
    :  _parameter(param)
+   , _ilpsolverParemeter(ilpsolverParameter)
    ,_lpparametrizer(reparametrizer)
    ,_labeling(_lpparametrizer.graphicalModel().numberOfVariables(),std::numeric_limits<LabelType>::max())
    ,_value(ACC::template neutral<ValueType>())
@@ -254,14 +256,7 @@ namespace opengm{
          {
             const typename GMManipulatorType::MGM& model=modelManipulator.getModifiedSubModel(modelIndex);
             submodelLabelings[modelIndex].resize(model.numberOfVariables());
-            // TODO: The ILPSOLVER type is passed as template argument.
-            //       The parameter values should not be hard coded in this method!
-            typename ILPSOLVER::Parameter param;
-            param.integerConstraint_=true;
-            param.numberOfThreads_= _parameter.threads_;
-            param.timeLimit_ = 3600;                       // TODO: Make this a parameter (1h)
-            param.workMem_= 1024*6;                        // TODO: Make this a parameter (6GB)
-            ILPSOLVER ilpSolver(model,param);
+            ILPSolver ilpSolver(model,_ilpsolverParemeter);
             terminationILP=ilpSolver.infer();
 
             if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE)){
@@ -441,12 +436,13 @@ namespace opengm{
 
    }//namespace combilp_base  =========================================================================
 
-   template<class LPSOLVERPARAMETERS,class REPARAMETRIZERPARAMETERS>
+   template<class LPSOLVERPARAMETERS,class REPARAMETRIZERPARAMETERS,class ILPSOLVERPARAMETERS>
    struct CombiLP_Parameter : public combilp_base::CombiLP_base_Parameter
    {
       typedef combilp_base::CombiLP_base_Parameter parent;
       CombiLP_Parameter(const LPSOLVERPARAMETERS& lpsolverParameter=LPSOLVERPARAMETERS(),
 			const REPARAMETRIZERPARAMETERS& repaParameter=REPARAMETRIZERPARAMETERS(),
+			const ILPSOLVERPARAMETERS& ilpsolverParameter=ILPSOLVERPARAMETERS(),
 			size_t maxNumberOfILPCycles=100,
 			bool verbose=false,
 			bool saveReparametrizedModel=false,
@@ -461,11 +457,13 @@ namespace opengm{
                 saveProblemMasks,
                 maskFileNamePre),
          lpsolverParameter_(lpsolverParameter),
-         repaParameter_(repaParameter)
+         repaParameter_(repaParameter),
+         ilpsolverParameter_(ilpsolverParameter)
          {
          };
       LPSOLVERPARAMETERS lpsolverParameter_;
       REPARAMETRIZERPARAMETERS repaParameter_;
+      ILPSOLVERPARAMETERS ilpsolverParameter_;
 
 #ifdef TRWS_DEBUG_OUTPUT
       void print(std::ostream& fout)const
@@ -473,6 +471,7 @@ namespace opengm{
             parent::print(fout);
             fout << "== lpsolverParameters: =="<<std::endl;
             lpsolverParameter_.print(fout);
+            ilpsolverParameter_.print(fout);
          }
 #endif
    };
@@ -498,7 +497,7 @@ namespace opengm{
       typedef visitors::EmptyVisitor<CombiLP<GM, ACC, LPSOLVER, ILPSOLVER> >   EmptyVisitorType;
       typedef visitors::TimingVisitor<CombiLP<GM, ACC, LPSOLVER, ILPSOLVER> >  TimingVisitorType;
 
-      typedef CombiLP_Parameter<typename LPSOLVER::Parameter, typename ReparametrizerType::Parameter> Parameter;
+      typedef CombiLP_Parameter<typename LPSOLVER::Parameter, typename ReparametrizerType::Parameter, typename ILPSOLVER::Parameter> Parameter;
       typedef typename ReparametrizerType::MaskType MaskType;
       typedef typename BaseType::GMManipulatorType GMManipulatorType;
 
@@ -551,7 +550,7 @@ namespace opengm{
 #endif
      )
   ,_plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
-  ,_base(*_plpparametrizer, param
+  ,_base(*_plpparametrizer, param, param.ilpsolverParameter_
 #ifdef TRWS_DEBUG_OUTPUT
          ,fout
 #endif
