@@ -34,6 +34,7 @@
 #include "opengm/graphicalmodel/space/discretespace.hxx"
 #include "opengm/functions/function_properties_base.hxx"
 #include "opengm/inference/inference.hxx"
+#include "opengm/inference/labelcollapse_visitor.hxx"
 #include "opengm/inference/visitors/visitors.hxx"
 #include "opengm/utilities/metaprogramming.hxx"
 
@@ -160,6 +161,7 @@ public:
 	typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
 	typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
 	typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
+	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
 	struct Parameter {
