@@ -192,6 +192,9 @@ public:
 	virtual ValueType value() const { return value_; }
 	void reset();
 
+	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
+	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
+
 private:
 	const GraphicalModelType &gm_;
 	labelcollapse::ModelBuilder<GraphicalModelType, AccumulationType> builder_;
@@ -330,6 +333,43 @@ LabelCollapse<GM, INF>::arg
 		return termination_;
 	} else {
 		return UNKNOWN;
+	}
+}
+
+template<class GM, class INF>
+template<class OUTPUT_ITERATOR>
+void
+LabelCollapse<GM, INF>::originalNumberOfLabels
+(
+	OUTPUT_ITERATOR it
+) const
+{
+	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
+		*it = gm_.numberOfLabels(i);
+	}
+}
+
+template<class GM, class INF>
+template<class OUTPUT_ITERATOR>
+void
+LabelCollapse<GM, INF>::currentNumberOfLabels
+(
+	OUTPUT_ITERATOR it
+) const
+{
+	if (builder_.rebuildNecessary()) {
+		// If the builder needs to rebuild the model, we did not perform any
+		// inference iteration (“iterations == 0”). We just return the labels
+		// of the original model.
+		//
+		// FIXME: Ensure that we are at iteration zero! The current
+		// implementation of this aspect looks more like a hack.
+		return originalNumberOfLabels(it);
+	}
+
+	const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
+	for (IndexType i = 0; i < gm.numberOfVariables(); ++i, ++it) {
+		*it = gm.numberOfLabels(i);
 	}
 }
 
