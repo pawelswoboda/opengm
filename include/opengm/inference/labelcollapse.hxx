@@ -301,12 +301,12 @@ LabelCollapse<GM, INF>::infer
 			builder_.originalLabeling(labeling, labeling_);
 		}
 
+		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf)
+			exitInf = true;
+
 		// Update the model. This will try to make more labels available where
 		// the current labeling is invalid.
 		builder_.uncollapseLabeling(labeling.begin());
-
-		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf)
-			exitInf = true;
 	}
 
 	visitor.end(*this);
