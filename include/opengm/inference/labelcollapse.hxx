@@ -277,7 +277,7 @@ LabelCollapse<GM, INF>::infer
 	while (!exitInf) {
 		// Build auxiliary model.
 		builder_.buildAuxiliaryModel();
-		const AuxiliaryModelType gm = builder_.getAuxiliaryModel();
+		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
