@@ -411,6 +411,7 @@ public:
 	ModelBuilder(const OriginalModelType&);
 
 	void buildAuxiliaryModel();
+	bool rebuildNecessary() const { return rebuildNecessary_; }
 
 	const OriginalModelType& getOriginalModel() const { return original_; }
 	const AuxiliaryModelType& getAuxiliaryModel() const
