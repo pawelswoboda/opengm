@@ -73,6 +73,13 @@ class ModelBuilder;
 template<class GM>
 class Mapping;
 
+// This functor operates on a factor. It unwraps the underlying factor function
+// and calls the FUNCTOR on this function.
+//
+// We need this intermediate step to get C++ template inference working.
+template<class FUNCTOR>
+class UnwrapFunctionFunctor;
+
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
@@ -84,13 +91,6 @@ class EpsilonFunction;
 // (higher) than the old epsilon value.
 template<class ACC, class VALUE_TYPE>
 class EpsilonFunctor;
-
-// This functor operates on a factor. It unwraps the underlying factor function
-// and calls the NonCollapsedFunctionFunctor on this function.
-//
-// We need this intermediate step to get C++ template inference working.
-template<class FUNCTOR>
-class NonCollapsedFactorFunctor;
 
 // This functor operators on factor function values and is a coordinate functor
 // (receives value and coordinate input iterator as arguments).
@@ -601,7 +601,7 @@ ModelBuilder<GM, ACC>::updateMappings()
 	typedef typename LabelVec::iterator Iterator;
 	typedef std::back_insert_iterator<LabelVec> Inserter;
 	typedef NonCollapsedFunctionFunctor<ACC, IndexType, ValueType, Inserter> FunctionFunctor;
-	typedef NonCollapsedFactorFunctor<FunctionFunctor> FactorFunctor;
+	typedef UnwrapFunctionFunctor<FunctionFunctor> FactorFunctor;
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
 		bool foundAnyFactor = false;
@@ -774,6 +774,34 @@ Mapping<GM>::makeFull()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+//class UnwrapFunctionFunctor
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class FUNCTOR>
+class UnwrapFunctionFunctor {
+public:
+	UnwrapFunctionFunctor(FUNCTOR &functor)
+	: functor_(functor)
+	{
+	}
+
+	// We need this functor class, because the operator() is a template
+	// for a specific function type.
+	//
+	// This way we can access the underlying function object without knowing the
+	// concrete type (C++ infers the template arguments for class methods).
+	template<class FUNCTION>
+	void operator()(const FUNCTION &function) {
+		function.forAllValuesInAnyOrderWithCoordinate(functor_);
+	}
+
+private:
+	FUNCTOR &functor_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//
 // class EpsilonFunctor
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -805,31 +833,9 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class NonCollapsedFactorFunctor and NonCollapsedFunctionFunctor
+// class NonCollapsedFunctionFunctor
 //
 ////////////////////////////////////////////////////////////////////////////////
-
-template<class FUNCTOR>
-class NonCollapsedFactorFunctor {
-public:
-	NonCollapsedFactorFunctor(FUNCTOR &functor)
-	: functor_(functor)
-	{
-	}
-
-	// We need this functor class, because the operator() is a template
-	// for a specific function type.
-	//
-	// This way we can access the underlying function object without knowing the
-	// concrete type (C++ infers the template arguments for class methods).
-	template<class FUNCTION>
-	void operator()(const FUNCTION &function) {
-		function.forAllValuesInAnyOrderWithCoordinate(functor_);
-	}
-
-private:
-	FUNCTOR &functor_;
-};
 
 template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
 class NonCollapsedFunctionFunctor {
