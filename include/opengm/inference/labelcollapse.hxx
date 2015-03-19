@@ -519,7 +519,7 @@ ModelBuilder<GM, ACC>::isValidLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if ((*it == 0) && (!mappings_[i].full()))
+		if (mappings_[i].isCollapsedAuxiliary(*it))
 			return false;
 	}
 
@@ -537,11 +537,8 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if ((*it == 0) && (!mappings_[i].full())) {
-			// Zero is the label for “collapsed” labels. If it is selected during
-			// inference we need to uncollapse one label now.
+		if (mappings_[i].isCollapsedAuxiliary(*it))
 			uncollapse(i);
-		}
 	}
 }
 
@@ -688,6 +685,8 @@ public:
 	void insert(LabelType origLabel);
 	void makeFull();
 	bool full() const { return full_; }
+	bool isCollapsedAuxiliary(LabelType auxLabel) const;
+	bool isCollapsedOriginal(LabelType origLabel) const;
 	LabelType auxiliary(LabelType origLabel) const;
 	LabelType original(LabelType auxLabel) const;
 	LabelType size() const;
@@ -725,6 +724,26 @@ Mapping<GM>::insert(
 	// This is the case if all labels are uncollapsed.
 	if (mapAuxToOrig_.size() + 1 >= mapOrigToAux_.size())
 		makeFull();
+}
+
+template<class GM>
+bool
+Mapping<GM>::isCollapsedAuxiliary
+(
+	LabelType auxLabel
+) const
+{
+	return !full_ && auxLabel == 0;
+}
+
+template<class GM>
+bool
+Mapping<GM>::isCollapsedOriginal
+(
+	LabelType origLabel
+) const
+{
+	return !full_ && auxiliary(origLabel) == 0;
 }
 
 template<class GM>
