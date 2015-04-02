@@ -56,6 +56,7 @@ int main() {
 	   CombiLPType::Parameter param;
 	   param.lpsolverParameter_.maxNumberOfIterations_=100;
 	   minTester.test<CombiLPType>(param);
+
    }
 
 //   {
