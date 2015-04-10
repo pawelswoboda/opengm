@@ -32,6 +32,7 @@ int main(int argc, char **argv)
 		typedef Generator::CombiLPType CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
+		param.singleReparametrization_ = true;
 		param.lpsolverParameter_.verbose_ = true;
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_=1000;
@@ -46,7 +47,49 @@ int main(int argc, char **argv)
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
 
 	begin = Clock::now();
-	std::cout << "Benchmarking CombiLP + TRWSi + LabelCollpse + CPLEX ..." << std::endl;
+	std::cout << ":: Benchmarking CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
+	{
+		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, opengm::Minimizer> Generator;
+		typedef Generator::CombiLPType CombiLPType;
+		CombiLPType::Parameter param;
+		param.verbose_ = true;
+		param.singleReparametrization_ = true;
+		param.lpsolverParameter_.verbose_ = true;
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
+		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
+		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
+		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
+		CombiLPType inference(gm, param);
+		inference.infer();
+	}
+	end = Clock::now();
+	duration = end - begin;
+	std::cout << "=> Total elapsed time: " << duration << std::endl;
+
+	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + CPLEX ..." << std::endl;
+	begin = Clock::now();
+	{
+		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, opengm::Minimizer> Generator;
+		typedef Generator::CombiLPType CombiLPType;
+		CombiLPType::Parameter param;
+		param.verbose_ = true;
+		param.singleReparametrization_ = false;
+		param.lpsolverParameter_.verbose_ = true;
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
+		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.ilpsolverParameter_.integerConstraint_ = true;
+		param.ilpsolverParameter_.timeLimit_ = 3600;
+		param.ilpsolverParameter_.workMem_= 1024*6;
+		CombiLPType inference(gm, param);
+		inference.infer();
+	}
+	end = Clock::now();
+	duration = end - begin;
+	std::cout << "=> Total elapsed time: " << duration << std::endl;
+
+	begin = Clock::now();
+	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
 	{
 		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, opengm::Minimizer> Generator;
 		typedef Generator::CombiLPType CombiLPType;
