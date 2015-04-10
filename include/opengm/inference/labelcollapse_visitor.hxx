@@ -42,7 +42,7 @@ public:
 	typedef typename INFERENCE::LabelType LabelType;
 	typedef typename INFERENCE::ValueType ValueType;
 
-	LabelCollapseStatisticsVisitor(bool verbose = true);
+	LabelCollapseStatisticsVisitor(bool verbose = true, bool memlogging = true);
 	void begin(const INFERENCE&);
 	void end(const INFERENCE&);
 	size_t operator()(const INFERENCE&);
@@ -59,6 +59,7 @@ private:
 	void verbose(const INFERENCE&, const std::string&) const;
 
 	bool verbose_;
+	bool memlogging_;
 	unsigned int iterations_;
 	std::vector<LabelType> origNumberOfLabels_;
 	std::vector<LabelType> auxNumberOfLabels_;
@@ -67,9 +68,11 @@ private:
 template<class INFERENCE>
 LabelCollapseStatisticsVisitor<INFERENCE>::LabelCollapseStatisticsVisitor
 (
-	bool verbose
+	bool verbose,
+	bool memlogging
 )
 : verbose_(verbose)
+, memlogging_(memlogging)
 {
 }
 
@@ -101,7 +104,9 @@ LabelCollapseStatisticsVisitor<INFERENCE>::verbose
 	std::cout << " bound " << inf.bound();
 	std::cout << " labels " << labels() << " (- " << labelsReduced();
 	std::cout << ") space " << space() << " (- " << spaceReduced();
-	std::cout << ")" << std::endl;
+	std::cout << ")";
+	std::cout << " mem " << sys::MemoryInfo::usedPhysicalMemMax() / 1000.0 << " MiB";
+	std::cout << std::endl;
 }
 
 template<class INFERENCE>
