@@ -11,6 +11,7 @@
 
 #ifdef CPLEX_DUMP_SEQUENTIALLY
 #include <sstream>
+#include <iomanip>
 #endif
 
 #include <ilcplex/ilocplex.h>
@@ -517,9 +518,9 @@ LPCplex<GM, ACC>::infer
 
 #ifdef CPLEX_DUMP_SEQUENTIALLY
       std::stringstream filename;
-      filename.fill('0');
-      filename.width(4);
-      filename << "/tmp/cplex_" << hack::counter++ << ".mps";
+      filename << "/tmp/cplex_"
+               << std::setfill('0') << std::setw(4)
+               << hack::counter++ << ".mps";
       cplex_.exportModel(filename.str().c_str());
 #endif
 
