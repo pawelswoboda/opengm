@@ -29,6 +29,7 @@
 #define OPENGM_LABELCOLLAPSE_VISITOR_HXX
 
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 namespace opengm {
@@ -95,7 +96,8 @@ LabelCollapseStatisticsVisitor<INFERENCE>::verbose
 		return;
 
 	std::cout << logName;
-	std::cout << "value " << inf.value();
+	std::cout << "iteration " << iterations_;
+	std::cout << " value " << inf.value();
 	std::cout << " bound " << inf.bound();
 	std::cout << " labels " << labels() << " (- " << labelsReduced();
 	std::cout << ") space " << space() << " (- " << spaceReduced();
@@ -116,7 +118,10 @@ LabelCollapseStatisticsVisitor<INFERENCE>::begin
 	origNumberOfLabels_.resize(numberOfVariables);
 	auxNumberOfLabels_.resize(numberOfVariables);
 	update(inf);
-	verbose(inf, "begin: ");
+
+	std::stringstream str;
+	str << "begin: variables " << numberOfVariables << " ";
+	verbose(inf, str.str());
 }
 
 template<class INFERENCE>
