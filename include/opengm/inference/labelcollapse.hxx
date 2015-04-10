@@ -840,7 +840,7 @@ public:
 
 	void operator()(const VALUE_TYPE v)
 	{
-		if (v > oldValue_ && v < value_) {
+		if (ACC::ibop(v, oldValue_) && ACC::bop(v, value_)) {
 			value_ = v;
 		}
 	}
