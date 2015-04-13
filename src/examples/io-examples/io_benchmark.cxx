@@ -44,16 +44,18 @@ int main(int argc, char **argv)
 	Clock::time_point begin, end;
 	boost::chrono::duration<double> duration;
 
-	if (argc != 2) {
-		std::cerr << "Missing hdf5 filename argument." << std::endl;
+	if (argc != 3) {
+		std::cerr << "Wrong arguments." << std::endl;
 		return EXIT_FAILURE;
 	}
 
 	GraphicalModelType gm;
-	opengm::hdf5::load(gm, argv[1], "gm");
+	opengm::hdf5::load(gm, argv[2], "gm");
 
-	std::cout << ":: Benchmarking CombiLP + TRWSi + CPLEX ..." << std::endl;
+	switch (atoi(argv[1])) {
+	case 0:
 	begin = Clock::now();
+	std::cout << ":: Benchmarking CombiLP + TRWSi + CPLEX ..." << std::endl;
 	{
 		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, AccumulatorType> Generator;
 		typedef Generator::CombiLPType CombiLPType;
@@ -63,7 +65,7 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+		param.lpsolverParameter_.maxNumberOfIterations_= 1;
 #else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
@@ -79,7 +81,8 @@ int main(int argc, char **argv)
 	end = Clock::now();
 	duration = end - begin;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
-
+	break;
+	case 1:
 	begin = Clock::now();
 	std::cout << ":: Benchmarking CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
 	{
@@ -91,7 +94,7 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+		param.lpsolverParameter_.maxNumberOfIterations_= 1;
 #else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
@@ -107,9 +110,10 @@ int main(int argc, char **argv)
 	end = Clock::now();
 	duration = end - begin;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
-
-	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + CPLEX ..." << std::endl;
+	break;
+	case 2:
 	begin = Clock::now();
+	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + CPLEX ..." << std::endl;
 	{
 		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, AccumulatorType> Generator;
 		typedef Generator::CombiLPType CombiLPType;
@@ -119,7 +123,7 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+		param.lpsolverParameter_.maxNumberOfIterations_= 1;
 #else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
@@ -135,7 +139,8 @@ int main(int argc, char **argv)
 	end = Clock::now();
 	duration = end - begin;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
-
+	break;
+	case 3:
 	begin = Clock::now();
 	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
 	{
@@ -146,7 +151,7 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+		param.lpsolverParameter_.maxNumberOfIterations_= 1;
 #else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
@@ -162,4 +167,8 @@ int main(int argc, char **argv)
 	end = Clock::now();
 	duration = end - begin;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
+	break;
+	default:
+	std::cout << "Failed." << std::endl;
+	}
 }
