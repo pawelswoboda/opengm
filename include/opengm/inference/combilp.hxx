@@ -542,6 +542,12 @@ namespace opengm{
             return NORMAL;
          }
          _base.ReparametrizeAndSave();
+#ifdef	COMBILP_STOP_AFTER_REPARAMETRIZATION
+#ifdef	TRWS_DEBUG_OUTPUT
+         _fout << "SAVED REPARAMETRIZED MODEL. ABORTING."<<std::endl;
+#endif
+         exit(0);
+#endif
          if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
             visitor.end(*this);
             return NORMAL;
