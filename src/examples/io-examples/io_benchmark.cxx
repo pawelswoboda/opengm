@@ -1,4 +1,5 @@
 #define TRWS_DEBUG_OUTPUT
+#undef COMBILP_STOP_AFTER_REPARAMETRIZATION
 #undef CPLEX_DUMP_SEQUENTIALLY
 
 #include <boost/chrono.hpp>
