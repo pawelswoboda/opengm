@@ -71,8 +71,10 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*6;
+
+		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
-		inference.infer();
+		inference.infer(visitor);
 	}
 	end = Clock::now();
 	duration = end - begin;
@@ -97,8 +99,10 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
 		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
+
+		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
-		inference.infer();
+		inference.infer(visitor);
 	}
 	end = Clock::now();
 	duration = end - begin;
@@ -123,8 +127,10 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*6;
+
+		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
-		inference.infer();
+		inference.infer(visitor);
 	}
 	end = Clock::now();
 	duration = end - begin;
@@ -148,8 +154,10 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
 		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
+
+		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
-		inference.infer();
+		inference.infer(visitor);
 	}
 	end = Clock::now();
 	duration = end - begin;
