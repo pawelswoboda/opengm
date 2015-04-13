@@ -24,6 +24,17 @@
 // IN THE SOFTWARE.
 //
 
+// TODO:
+//
+// Implement LabelCollapse for unary terms in a different way:
+//
+// (1) For all variables sort the potentials according to comparison function.
+//     Keep all the labels in an sorted array.
+//
+// (2) If we need to unpack a variable, we just pop from our label stack (array).
+//
+// (3) The mapping class is not necessary anymore.
+
 #pragma once
 #ifndef OPENGM_LABELCOLLAPSE_HXX
 #define OPENGM_LABELCOLLAPSE_HXX
