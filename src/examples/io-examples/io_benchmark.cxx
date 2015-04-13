@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 		param.singleReparametrization_ = true;
 		param.lpsolverParameter_.verbose_ = true;
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*6;
@@ -82,7 +82,7 @@ int main(int argc, char **argv)
 		param.singleReparametrization_ = true;
 		param.lpsolverParameter_.verbose_ = true;
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
 		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
@@ -103,7 +103,7 @@ int main(int argc, char **argv)
 		param.singleReparametrization_ = false;
 		param.lpsolverParameter_.verbose_ = true;
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*6;
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
 		param.verbose_ = true;
 		param.lpsolverParameter_.verbose_ = true;
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
 		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
