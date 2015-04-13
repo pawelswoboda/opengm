@@ -1,4 +1,5 @@
 #define TRWS_DEBUG_OUTPUT
+#define ALREADY_REPARAMETRIZED
 #undef COMBILP_STOP_AFTER_REPARAMETRIZATION
 #undef CPLEX_DUMP_SEQUENTIALLY
 
@@ -60,8 +61,13 @@ int main(int argc, char **argv)
 		param.verbose_ = true;
 		param.singleReparametrization_ = true;
 		param.lpsolverParameter_.verbose_ = true;
+#ifdef ALREADY_REPARAMETRIZED
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
+		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+#else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
+#endif
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*6;
@@ -81,8 +87,13 @@ int main(int argc, char **argv)
 		param.verbose_ = true;
 		param.singleReparametrization_ = true;
 		param.lpsolverParameter_.verbose_ = true;
+#ifdef ALREADY_REPARAMETRIZED
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
+		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+#else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
+#endif
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
 		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
@@ -102,8 +113,13 @@ int main(int argc, char **argv)
 		param.verbose_ = true;
 		param.singleReparametrization_ = false;
 		param.lpsolverParameter_.verbose_ = true;
+#ifdef ALREADY_REPARAMETRIZED
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
+		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+#else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
+#endif
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*6;
@@ -122,8 +138,13 @@ int main(int argc, char **argv)
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
 		param.lpsolverParameter_.verbose_ = true;
+#ifdef ALREADY_REPARAMETRIZED
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
+		param.lpsolverParameter_.maxNumberOfIterations_= 0;
+#else
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_=1000;
+		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
+#endif
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
 		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
