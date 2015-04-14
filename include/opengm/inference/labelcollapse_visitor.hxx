@@ -51,8 +51,8 @@ public:
 
 	LabelType labels() const;
 	LabelType labelsReduced() const;
-	LabelType space() const;
-	LabelType spaceReduced() const;
+	double space() const;
+	double spaceReduced() const;
 
 private:
 	void update(const INFERENCE&);
@@ -204,12 +204,12 @@ LabelCollapseStatisticsVisitor<INFERENCE>::labelsReduced() const
 }
 
 template<class INFERENCE>
-typename LabelCollapseStatisticsVisitor<INFERENCE>::LabelType
+double
 LabelCollapseStatisticsVisitor<INFERENCE>::space() const
 {
 	typedef typename std::vector<LabelType>::const_iterator Iterator;
 
-	LabelType product = 1;
+	double product = 1;
 	for (Iterator it = auxNumberOfLabels_.begin(); it != auxNumberOfLabels_.end(); ++it) {
 		product *= *it;
 	}
@@ -217,12 +217,12 @@ LabelCollapseStatisticsVisitor<INFERENCE>::space() const
 }
 
 template<class INFERENCE>
-typename LabelCollapseStatisticsVisitor<INFERENCE>::LabelType
+double
 LabelCollapseStatisticsVisitor<INFERENCE>::spaceReduced() const
 {
 	typedef typename std::vector<LabelType>::const_iterator Iterator;
 
-	LabelType product = 1;
+	double product = 1;
 	for (Iterator it = origNumberOfLabels_.begin(); it != origNumberOfLabels_.end(); ++it) {
 		product *= *it;
 	}
