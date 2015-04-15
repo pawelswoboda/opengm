@@ -542,8 +542,11 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (mappings_[i].isCollapsedAuxiliary(*it))
+		if (mappings_[i].isCollapsedAuxiliary(*it)) {
+			LabelType labels = auxiliary_.numberOfLabels(i);
 			uncollapse(i);
+			*it = labels;
+		}
 	}
 }
 
