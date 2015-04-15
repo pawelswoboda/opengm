@@ -136,7 +136,7 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
 		param.ilpsolverParameter_.workMem_= 1024*16;
-      		param.ilpsolverParameter_.numberOfThreads_ = 4;
+      		param.ilpsolverParameter_.numberOfThreads_ = 1;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
