@@ -73,7 +73,8 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.verbose_ = true;
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
-		param.ilpsolverParameter_.workMem_= 1024*6;
+		param.ilpsolverParameter_.workMem_= 1024*32;
+		param.ilpsolverParameter_.numberOfThreads_ = 4;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
@@ -103,7 +104,8 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.proxy.verbose_ = true;
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
-		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
+		param.ilpsolverParameter_.proxy.workMem_= 1024*32;
+      		param.ilpsolverParameter_.proxy.numberOfThreads_ = 4;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
@@ -133,7 +135,8 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.verbose_ = true;
 		param.ilpsolverParameter_.integerConstraint_ = true;
 		param.ilpsolverParameter_.timeLimit_ = 3600;
-		param.ilpsolverParameter_.workMem_= 1024*6;
+		param.ilpsolverParameter_.workMem_= 1024*32;
+		param.ilpsolverParameter_.numberOfThreads_ = 4;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
@@ -151,6 +154,7 @@ int main(int argc, char **argv)
 		typedef Generator::CombiLPType CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
+		param.singleReparametrization_ = false;
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
@@ -162,7 +166,8 @@ int main(int argc, char **argv)
 		param.ilpsolverParameter_.proxy.verbose_ = true;
 		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
 		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
-		param.ilpsolverParameter_.proxy.workMem_= 1024*6;
+		param.ilpsolverParameter_.proxy.workMem_= 1024*32;
+		param.ilpsolverParameter_.proxy.numberOfThreads_ = 4;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
