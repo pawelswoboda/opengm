@@ -226,6 +226,18 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
+		// TODO: Consider the following:
+		//
+		// At this point we *could* modify the value behind the iterator.
+		// That would change the initial starting point for the next
+		// iterationen (warmstarting).
+		//
+		// For example we could move it to the last non-auxiliary label.
+		//
+		// For now we just let it be, so next iteration will “warmstart” at
+		// the auxiliary label.
+		//
+		// *it = doFunkyStuff();
 		if (mappings_[i].isCollapsedAuxiliary(*it))
 			uncollapse(i);
 	}
