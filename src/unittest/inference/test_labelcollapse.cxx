@@ -56,6 +56,7 @@ int main()
 
 	std::cout << "Test LabelCollapse ..." << std::endl;
 
+#if 0
 	std::cout << "  * Test Min-Sum with Bruteforce" << std::endl;
 	{
 		typedef opengm::Bruteforce<AuxiliaryModelType, opengm::Minimizer> Proxy;
@@ -64,6 +65,7 @@ int main()
 		allTester.test<Inference>(parameter);
 		bruteforceTester.test<Inference>(parameter);
 	}
+#endif
 
 #ifdef WITH_CPLEX
 	std::cout << "  * Test Min-Sum with CPLEX" << std::endl;
