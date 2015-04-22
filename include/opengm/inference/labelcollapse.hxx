@@ -282,8 +282,9 @@ LabelCollapse<GM, INF>::infer
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 
-		// FIXME: Serious hack.
+		// FIXME: Serious hack. Sorry two serios hacks.
 		parameter_.proxy.mipStartLabeling_ = warmstarting;
+		parameter_.proxy.cutUp_ = gm.evaluate(warmstarting);
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
