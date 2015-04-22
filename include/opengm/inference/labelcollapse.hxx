@@ -272,7 +272,6 @@ LabelCollapse<GM, INF>::infer
 	PROXY_VISITOR& proxy_visitor
 )
 {
-	std::vector<LabelType> warmstarting;
 	termination_ = UNKNOWN;
 	labeling_.resize(0);
 	bound_ = AccumulationType::template neutral<ValueType>();
@@ -286,11 +285,7 @@ LabelCollapse<GM, INF>::infer
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 
-		// FIXME: Serious hack. Sorry two serios hacks.
-		if (warmstarting.size() != 0) {
-			parameter_.proxy.mipStartLabeling_ = warmstarting;
-			parameter_.proxy.cutUp_ = gm.evaluate(warmstarting);
-		}
+		parameter_.proxy.mipStartLabeling_ = labeling;
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
@@ -305,7 +300,6 @@ LabelCollapse<GM, INF>::infer
 		bound_ = inf.value();
 		std::vector<LabelType> labeling;
 		inf.arg(labeling, 1); // FIXME: Check result value.
-		warmstarting = labeling;
 
 		// If the labeling is valid, we are done.
 		if (builder_.isValidLabeling(labeling.begin())) {
