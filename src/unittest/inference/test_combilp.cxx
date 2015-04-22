@@ -56,6 +56,7 @@ int main() {
 	   param.ilpsolverParameter_.timeLimit_ = 3600;
 	   param.ilpsolverParameter_.workMem_= 1024*6;
 	   minTester.test<CombiLPType>(param);
+
    }
 
    std::cout << "Test CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
