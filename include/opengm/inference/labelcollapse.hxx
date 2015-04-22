@@ -289,9 +289,7 @@ LabelCollapse<GM, INF>::infer
 		// FIXME: Serious hack. Sorry two serios hacks.
 		if (warmstarting.size() != 0) {
 			parameter_.proxy.mipStartLabeling_ = warmstarting;
-			std::cout << "BEFORE" << std::endl;
 			parameter_.proxy.cutUp_ = gm.evaluate(warmstarting);
-			std::cout << "AFTER" << std::endl;
 		}
 
 		// Run inference on auxiliary model and cache the results.
