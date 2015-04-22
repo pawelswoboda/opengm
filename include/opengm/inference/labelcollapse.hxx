@@ -298,10 +298,10 @@ LabelCollapse<GM, INF>::infer
 		inf.cplex_.setParam(IloCplex::RootAlg, 2);
 
 		for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
-			inf.cplex_.setPriority(inf.lpNodeVi(i, 0), 10);
+			inf.cplex_.setPriority(inf.x_[inf.lpNodeVi(i, 0)], 10);
 
 			if (old_labeling[i] == 0) {
-				inf.cplex_.setPriority(inf.lpNodeVi(i, labeling[i]), 20);
+				inf.cplex_.setPriority(inf.x_[inf.lpNodeVi(i, labeling[i])], 20);
 			}
 		}
 
