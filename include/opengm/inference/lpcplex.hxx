@@ -171,7 +171,6 @@ public:
    template<class LPVariableIndexIterator, class CoefficientIterator>
    void addConstraint(LPVariableIndexIterator, LPVariableIndexIterator, CoefficientIterator,const ValueType&, const ValueType&, const char * name=0);
 
-private:
    const GraphicalModelType& gm_;
    Parameter parameter_;
    std::vector<size_t> idNodesBegin_; 
