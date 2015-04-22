@@ -2,7 +2,6 @@
 #ifndef OPENGM_TEST_INFERENCE_BLACKBOXTESTER_HXX
 #define OPENGM_TEST_INFERENCE_BLACKBOXTESTER_HXX
 
-
 #ifdef OPENGM_TESTFILE
 #define OPENGM_TESTFILE_FILENAME "/tmp/model.h5"
 #include <opengm/graphicalmodel/graphicalmodel_hdf5.hxx>
