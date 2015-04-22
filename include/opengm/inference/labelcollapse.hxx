@@ -287,8 +287,12 @@ LabelCollapse<GM, INF>::infer
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 
 		// FIXME: Serious hack. Sorry two serios hacks.
-		parameter_.proxy.mipStartLabeling_ = warmstarting;
-		parameter_.proxy.cutUp_ = gm.evaluate(warmstarting);
+		if (warmstarting.size() != 0) {
+			parameter_.proxy.mipStartLabeling_ = warmstarting;
+			std::cout << "BEFORE" << std::endl;
+			parameter_.proxy.cutUp_ = gm.evaluate(warmstarting);
+			std::cout << "AFTER" << std::endl;
+		}
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
