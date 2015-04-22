@@ -214,7 +214,7 @@ public:
 private:
 	const GraphicalModelType &gm_;
 	labelcollapse::ModelBuilder<GraphicalModelType, AccumulationType> builder_;
-	const Parameter parameter_;
+	Parameter parameter_;
 
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
@@ -272,6 +272,7 @@ LabelCollapse<GM, INF>::infer
 	PROXY_VISITOR& proxy_visitor
 )
 {
+	std::vector<LabelType> warmstarting;
 	termination_ = UNKNOWN;
 	labeling_.resize(0);
 	bound_ = AccumulationType::template neutral<ValueType>();
@@ -284,6 +285,10 @@ LabelCollapse<GM, INF>::infer
 		// Build auxiliary model.
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
+
+		// FIXME: Serious hack. Sorry two serios hacks.
+		parameter_.proxy.mipStartLabeling_ = warmstarting;
+		parameter_.proxy.cutUp_ = gm.evaluate(warmstarting);
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
@@ -298,6 +303,7 @@ LabelCollapse<GM, INF>::infer
 		bound_ = inf.value();
 		std::vector<LabelType> labeling;
 		inf.arg(labeling, 1); // FIXME: Check result value.
+		warmstarting = labeling;
 
 		// If the labeling is valid, we are done.
 		if (builder_.isValidLabeling(labeling.begin())) {
@@ -542,8 +548,11 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (mappings_[i].isCollapsedAuxiliary(*it))
+		if (mappings_[i].isCollapsedAuxiliary(*it)) {
+			LabelType labels = auxiliary_.numberOfLabels(i);
 			uncollapse(i);
+			*it = labels;
+		}
 	}
 }
 
