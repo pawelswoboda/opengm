@@ -278,6 +278,7 @@ LabelCollapse<GM, INF>::infer
 	value_ = AccumulationType::template neutral<ValueType>();
 
 	visitor.begin(*this);
+	std::vector<LabelType> labeling;
 
 	bool exitInf = false;
 	while (!exitInf) {
@@ -298,7 +299,6 @@ LabelCollapse<GM, INF>::infer
 		}
 
 		bound_ = inf.value();
-		std::vector<LabelType> labeling;
 		inf.arg(labeling, 1); // FIXME: Check result value.
 
 		// If the labeling is valid, we are done.
