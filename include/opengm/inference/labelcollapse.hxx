@@ -278,7 +278,7 @@ LabelCollapse<GM, INF>::infer
 	value_ = AccumulationType::template neutral<ValueType>();
 
 	visitor.begin(*this);
-	std::vector<LabelType> labeling;
+	std::vector<LabelType> labeling, old_labeling;
 
 	bool exitInf = false;
 	while (!exitInf) {
@@ -290,6 +290,21 @@ LabelCollapse<GM, INF>::infer
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
+
+		// FIXME: HACK
+		inf.cplex_.setParam(IloCplex::VarSel, 3);
+		inf.cplex_.setParam(IloCplex::FracCuts, 2);
+		inf.cplex_.setParam(IloCplex::DPriInd, 5);
+		inf.cplex_.setParam(IloCplex::RootAlg, 2);
+
+		for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
+			inf.cplex_.setPriority(inf.lpNodeVi(i, 0), 10);
+
+			if (old_labeling[i] == 0) {
+				inf.cplex_.setPriority(inf.lpNodeVi(i, labeling[i]), 20);
+			}
+		}
+
 		InferenceTermination result = inf.infer(proxy_visitor);
 
 		// If the proxy inference method returns an error, we pass it upwards.
@@ -300,6 +315,7 @@ LabelCollapse<GM, INF>::infer
 
 		bound_ = inf.value();
 		inf.arg(labeling, 1); // FIXME: Check result value.
+		old_labeling = labeling;
 
 		// If the labeling is valid, we are done.
 		if (builder_.isValidLabeling(labeling.begin())) {
