@@ -220,6 +220,7 @@ namespace opengm{
 	 typename ILPSolver::Parameter _ilpsolverParemeter;
          ReparametrizerType& _lpparametrizer;
          std::vector<LabelType> _labeling;
+         std::vector<LabelType> _targetShape;
          ValueType _value;
          ValueType _bound;
 #ifdef TRWS_DEBUG_OUTPUT
@@ -239,6 +240,7 @@ namespace opengm{
    ,_labeling(_lpparametrizer.graphicalModel().numberOfVariables(),std::numeric_limits<LabelType>::max())
    ,_value(ACC::template neutral<ValueType>())
    ,_bound(ACC::template ineutral<ValueType>())
+   ,_targetShape(_lpparametrizer.graphicalModel().numberOfVariables(), 0)
 #ifdef TRWS_DEBUG_OUTPUT
    ,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
 #endif
@@ -251,12 +253,37 @@ namespace opengm{
          InferenceTermination terminationILP=NORMAL;
          modelManipulator.buildModifiedSubModels();
 
+         std::cout << "_targetShape";
+         for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
+            std::cout << " " << _targetShape[i];
+         }
+         std::cout << std::endl;
+
          std::vector<std::vector<LabelType> > submodelLabelings(modelManipulator.numberOfSubmodels());
          for (size_t modelIndex=0;modelIndex<modelManipulator.numberOfSubmodels();++modelIndex)
          {
             const typename GMManipulatorType::MGM& model=modelManipulator.getModifiedSubModel(modelIndex);
             submodelLabelings[modelIndex].resize(model.numberOfVariables());
+            
+            std::vector<LabelType> targetShape(model.numberOfVariables());
+            for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
+               if (modelManipulator.fixVariable_[i] &&
+                   (modelManipulator.var2subProblem_[i] != modelIndex))
+               {
+                  continue;
+               }
+
+               targetShape[ modelManipulator.varMap_[i] ] = _targetShape[i];
+            }
+
+            std::cout << "targetShape[" << modelIndex << "]";
+            for (IndexType i = 0; i < model.numberOfVariables(); ++i) {
+               std::cout << " " << targetShape[i];
+            }
+            std::cout << std::endl;
+
             ILPSolver ilpSolver(model,_ilpsolverParemeter);
+            ilpSolver.populate(targetShape.begin());
             terminationILP=ilpSolver.infer();
 
             if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE)){
@@ -266,6 +293,17 @@ namespace opengm{
             }
             else
                ilpSolver.arg(submodelLabelings[modelIndex]);
+
+	    ilpSolver.currentNumberOfLabels(targetShape.begin());
+            for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
+               if (modelManipulator.fixVariable_[i] &&
+                   (modelManipulator.var2subProblem_[i] != modelIndex))
+               {
+                  continue;
+               }
+
+               _targetShape[i] = targetShape[ modelManipulator.varMap_[i] ];
+            }
          }
 
          modelManipulator.modifiedSubStates2OriginalState(submodelLabelings,*plabeling);
