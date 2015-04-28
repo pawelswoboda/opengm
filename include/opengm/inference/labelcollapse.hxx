@@ -134,10 +134,11 @@ public:
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
-	typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
-	typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
-	typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
-	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
+	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
+	//typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
+	//typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
+	//typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
+	//typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
 	struct Parameter {
@@ -156,8 +157,7 @@ public:
 	//
 	// Methods
 	//
-	LabelCollapse(const GraphicalModelType&);
-	LabelCollapse(const GraphicalModelType&, const Parameter&);
+	LabelCollapse(const GraphicalModelType&, const Parameter& = Parameter());
 	std::string name() const;
 	const GraphicalModelType& graphicalModel() const { return gm_; }
 	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
@@ -184,16 +184,6 @@ private:
 	ValueType value_;
 	ValueType bound_;
 };
-
-template<class GM, class INF>
-LabelCollapse<GM, INF>::LabelCollapse
-(
-	const GraphicalModelType &gm
-)
-: gm_(gm)
-, builder_(gm)
-{
-}
 
 template<class GM, class INF>
 LabelCollapse<GM, INF>::LabelCollapse
