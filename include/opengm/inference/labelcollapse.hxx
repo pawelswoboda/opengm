@@ -191,6 +191,7 @@ public:
 	InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const;
 	ValueType bound() const { return bound_; }
 	virtual ValueType value() const { return value_; }
+	template<class INPUT_ITERATOR> void populate(INPUT_ITERATOR);
 	void reset();
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
@@ -312,6 +313,16 @@ LabelCollapse<GM, INF>::reset()
 }
 
 template<class GM, class INF>
+template<class INPUT_ITERATOR>
+void
+LabelCollapse<GM, INF>::populate(
+	INPUT_ITERATOR it
+)
+{
+	builder_.populate(it);
+}
+
+template<class GM, class INF>
 InferenceTermination
 LabelCollapse<GM, INF>::arg
 (
@@ -415,6 +426,7 @@ public:
 	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
 	void uncollapse(const IndexType);
+	template<class ITERATOR> void populate(ITERATOR);
 
 	void reset();
 
@@ -636,6 +648,21 @@ ModelBuilder<GM, ACC>::updateMappings()
 	}
 
 	rebuildNecessary_ = true;
+}
+
+template<class GM, class ACC>
+template<class ITERATOR>
+void
+ModelBuilder<GM, ACC>::populate
+(
+	ITERATOR it
+)
+{
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+		while (uncollapsed_[i].size() < *it && collapsed_[i].size() > 0) {
+			uncollapse(i);
+		}
+	}
 }
 
 template<class GM, class ACC>
