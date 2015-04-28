@@ -13,8 +13,7 @@
 #include <opengm/unittests/blackboxtests/blackboxtestfull.hxx>
 #include <opengm/unittests/blackboxtests/blackboxteststar.hxx>
 
-#include <opengm/inference/trws/trws_trws.hxx>
-#include <opengm/inference/combilp.hxx>
+#include <opengm/inference/combilp_default.hxx>
 
 int main() {
    typedef opengm::GraphicalModel<double, opengm::Adder> GraphicalModelType;
@@ -51,10 +50,12 @@ int main() {
    std::cout << "Test CombiLP ..." << std::endl;
 
    {
-	   typedef opengm::TRWSi<GraphicalModelType,opengm::Minimizer> TRWSiSolverType;
-	   typedef opengm::CombiLP<GraphicalModelType,opengm::Minimizer,TRWSiSolverType> CombiLPType;
+	   typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, opengm::Minimizer>::CombiLPType CombiLPType;
 	   CombiLPType::Parameter param;
 	   param.lpsolverParameter_.maxNumberOfIterations_=100;
+	   param.ilpsolverParameter_.integerConstraint_ = true;
+	   param.ilpsolverParameter_.timeLimit_ = 3600;
+	   param.ilpsolverParameter_.workMem_= 1024*6;
 	   minTester.test<CombiLPType>(param);
    }
 

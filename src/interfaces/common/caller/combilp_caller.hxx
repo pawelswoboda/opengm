@@ -9,9 +9,7 @@
 #define COMBILP_CALLER_HXX_
 
 #include <opengm/opengm.hxx>
-#include <opengm/inference/trws/trws_trws.hxx>
-#include <opengm/inference/trws/trws_adsal.hxx>
-#include <opengm/inference/combilp.hxx>
+#include <opengm/inference/combilp_default.hxx>
 
 #include "inference_caller_base.hxx"
 #include "../argument/argument.hxx"
@@ -40,6 +38,7 @@ protected:
    bool parameter_saveProblemMasks;
    std::string parameter_maskFileNamePre;
    size_t parameter_maxNumberOfILPCycles;
+   bool param_multipleRepa;
 
    size_t LPSolver_maxNumberOfIterations;
    double LPSolver_parameter_precision;
@@ -73,7 +72,7 @@ inline CombiLPCaller<IO, GM, ACC>::CombiLPCaller(IO& ioIn)
 	addArgument(StringArgument<>(parameter_maskFileNamePre, "", "maskFileNamePre", "Path and filename prefix of the subproblem masks, see parameter saveProblemMasks", std::string("")));
 	//addArgument(Size_TArgument<>(parameter_maxNumberOfILPCycles, "", "maxNumberOfILPCycles", "Max number of ILP solver cycles",false));
 	addArgument(Size_TArgument<>(parameter_maxNumberOfILPCycles, "", "maxNumberOfILPCycles", "Max number of ILP solver cycles",(size_t)100));
-
+	addArgument(BoolArgument(param_multipleRepa, "", "mulRepa", "If set the reparametrization on each ILP iteration will be updated"));
 
 	//LP solver parameters:
 	addArgument(Size_TArgument<>(LPSolver_maxNumberOfIterations, "", "maxIt", "Maximum number of iterations.",true));
@@ -108,14 +107,16 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 
    if (lpsolvertype=="TRWSi")
    {
-	   typedef TRWSi<GM,ACC> LPSOLVER;
+       typedef CombiLP_TRWSi_Gen<GM, ACC> Gen;
+       typedef typename Gen::LPSolverType LPSolverType;
+       typedef typename Gen::ILPSolverType ILPSolverType;
+       typedef typename Gen::CombiLPType CombiLPType;
 
-	   typedef CombiLP<GM, ACC, LPSOLVER> CombiLPType;
 	   typedef typename CombiLPType::VerboseVisitorType VerboseVisitorType;
 	   typedef typename CombiLPType::EmptyVisitorType EmptyVisitorType;
 	   typedef typename CombiLPType::TimingVisitorType TimingVisitorType;
 	   typename CombiLPType::Parameter parameter_;
-	   typename LPSOLVER::Parameter lpsolverParameter_(trwsParameter_);
+	   typename LPSolverType::Parameter lpsolverParameter_(trwsParameter_);
 
 	   lpsolverParameter_.setTreeAgreeMaxStableIter(trwsParameter_treeAgreeMaxStableIter);
 	   lpsolverParameter_.maxNumberOfIterations_=LPSolver_maxNumberOfIterations;
@@ -132,13 +133,16 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   parameter_.saveProblemMasks_=parameter_saveProblemMasks;
 	   parameter_.maskFileNamePre_=parameter_maskFileNamePre;
 	   parameter_.maxNumberOfILPCycles_=parameter_maxNumberOfILPCycles;
+	   parameter_.singleReparametrization_=!param_multipleRepa;
 	   parameter_.lpsolverParameter_=lpsolverParameter_;
 	   this-> template infer<CombiLPType, TimingVisitorType, typename CombiLPType::Parameter>(model, output, verbose, parameter_);
    }else if (lpsolvertype=="ADSal")
    {
-	   typedef ADSal<GM,ACC> LPSOLVER;
+       typedef CombiLP_ADSal_Gen<GM, ACC> Gen;
+       typedef typename Gen::LPSolverType LPSolverType;
+       typedef typename Gen::ILPSolverType ILPSolverType;
+       typedef typename Gen::CombiLPType CombiLPType;
 
-	   typedef CombiLP<GM, ACC, LPSOLVER> CombiLPType;
 	   typedef typename CombiLPType::VerboseVisitorType VerboseVisitorType;
 	   typedef typename CombiLPType::EmptyVisitorType EmptyVisitorType;
 	   typedef typename CombiLPType::TimingVisitorType TimingVisitorType;
@@ -148,7 +152,7 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   adsalParameter_.lazyDerivativeComputation()=(adsalParameter_lazyLPPrimalBoundComputation==1);
 	   adsalParameter_.setStartSmoothingValue(adsalParameter_startSmoothingValue);
 
-	   typename LPSOLVER::Parameter lpsolverParameter_(adsalParameter_);
+	   typename LPSolverType::Parameter lpsolverParameter_(adsalParameter_);
 
 	   lpsolverParameter_.maxNumberOfIterations()=LPSolver_maxNumberOfIterations;
 	   lpsolverParameter_.setPrecision(LPSolver_parameter_precision);
@@ -163,6 +167,7 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   parameter_.saveProblemMasks_=parameter_saveProblemMasks;
 	   parameter_.maskFileNamePre_=parameter_maskFileNamePre;
 	   parameter_.maxNumberOfILPCycles_=parameter_maxNumberOfILPCycles;
+	   parameter_.singleReparametrization_=!param_multipleRepa;
 	   parameter_.lpsolverParameter_=lpsolverParameter_;
 	   this-> template infer<CombiLPType, TimingVisitorType, typename CombiLPType::Parameter>(model, output, verbose, parameter_);
    }else throw RuntimeError("Unknown local polytope solver!");
