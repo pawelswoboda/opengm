@@ -231,8 +231,11 @@ namespace opengm{
             
             std::vector<LabelType> targetShape(model.numberOfVariables());
             for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
-               if (modelManipulator.var2subProblem_[i] != modelIndex)
+               if (modelManipulator.fixVariable_[i] &&
+                   (modelManipulator.var2subProblem_[i] != modelIndex))
+               {
                   continue;
+               }
 
                targetShape[ modelManipulator.varMap_[i] ] = _targetShape[i];
             }
@@ -257,8 +260,11 @@ namespace opengm{
 
 	    ilpSolver.currentNumberOfLabels(targetShape.begin());
             for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
-               if (modelManipulator.var2subProblem_[i] != modelIndex)
+               if (modelManipulator.fixVariable_[i] &&
+                   (modelManipulator.var2subProblem_[i] != modelIndex))
+               {
                   continue;
+               }
 
                _targetShape[i] = targetShape[ modelManipulator.varMap_[i] ];
             }
