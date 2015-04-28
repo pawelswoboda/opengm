@@ -391,8 +391,14 @@ namespace opengm{
       void print(std::ostream& fout)const
          {
             parent::print(fout);
-            fout << "== lpsolverParameters: =="<<std::endl;
-            lpsolverParameter_.print(fout);
+            // FIXME: Previously we printed the solver parameters, but this
+            // is not going to work with the recent changes.
+            //
+            // Previous code was something like this:
+            //
+            // fout << "== lpsolverParameters: ==" << std::endl;
+            // lpsolverParameter_.print(fout);
+            // ilpsolverParameter_.print(fout);
          }
 #endif
    };
