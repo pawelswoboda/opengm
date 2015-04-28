@@ -95,6 +95,7 @@ public:
       MIP_CUT flowpathCutLevel_; //Determines whether or not to generate flow path cuts for the problem and how aggressively.
       MIP_CUT disjunctCutLevel_; // Determines whether or not to generate disjunctive cuts for the problem and how aggressively.
       MIP_CUT gomoryCutLevel_; // Determines whether or not to generate gomory fractional cuts for the problem and how aggressively. 
+      std::vector<LabelType> mipStartLabeling_;
 
       /// constructor
       /// \param cutUp upper cutoff - assume that: min_x f(x) <= cutUp 
@@ -191,6 +192,9 @@ private:
     
    IloEnv env_;
    IloModel model_;
+   IloNum numberOfElements_;
+   IloNum numberOfVariableElements_;
+   IloNum numberOfFactorElements_;
    IloNumVarArray x_;
    IloRangeArray c_;
    IloObjective obj_;
@@ -215,14 +219,14 @@ LPCplex<GM, ACC>::LPCplex
    unaryFactors_.resize(gm_.numberOfVariables());
    idFactorsBegin_.resize(gm_.numberOfFactors());
   
-   // temporal variables
-   IloInt numberOfElements = 0;
-   IloInt numberOfVariableElements = 0;
-   IloInt numberOfFactorElements   = 0;
+   // temporal variables, no global variables, anyway
+   numberOfElements_ = 0;
+   numberOfVariableElements_ = 0;
+   numberOfFactorElements_   = 0;
    // enumerate variables
    size_t idCounter = 0;
    for(size_t node = 0; node < gm_.numberOfVariables(); ++node) {
-      numberOfVariableElements += gm_.numberOfLabels(node);
+      numberOfVariableElements_ += gm_.numberOfLabels(node);
       idNodesBegin_[node] = idCounter;
       idCounter += gm_.numberOfLabels(node);
    }
@@ -241,10 +245,10 @@ LPCplex<GM, ACC>::LPCplex
       else {
          idFactorsBegin_[f] = idCounter;
          idCounter += gm_[f].size();
-         numberOfFactorElements += gm_[f].size();
+         numberOfFactorElements_ += gm_[f].size();
       }
    }
-   numberOfElements = numberOfVariableElements + numberOfFactorElements;
+   numberOfElements_ = numberOfVariableElements_ + numberOfFactorElements_;
    // build LP
    model_ = IloModel(env_);
    x_ = IloNumVarArray(env_);
@@ -260,13 +264,13 @@ LPCplex<GM, ACC>::LPCplex
    }     
    // set variables and objective
    if(parameter_.integerConstraint_) {
-      x_.add(IloNumVarArray(env_, numberOfVariableElements, 0, 1, ILOBOOL));
+      x_.add(IloNumVarArray(env_, numberOfVariableElements_, 0, 1, ILOBOOL));
    }
    else {
-      x_.add(IloNumVarArray(env_, numberOfVariableElements, 0, 1));
+      x_.add(IloNumVarArray(env_, numberOfVariableElements_, 0, 1));
    }
-   x_.add(IloNumVarArray(env_, numberOfFactorElements, 0, 1));
-   IloNumArray obj(env_, numberOfElements);
+   x_.add(IloNumVarArray(env_, numberOfFactorElements_, 0, 1));
+   IloNumArray obj(env_, numberOfElements_);
 
    for(size_t node = 0; node < gm_.numberOfVariables(); ++node) {
       for(size_t i = 0; i < gm_.numberOfLabels(node); ++i) {
@@ -274,7 +278,7 @@ LPCplex<GM, ACC>::LPCplex
          for(size_t n=0; n<unaryFactors_[node].size();++n) {
             t += gm_[unaryFactors_[node][n]](&i); 
          }
-         OPENGM_ASSERT_OP(idNodesBegin_[node]+i,<,numberOfElements);
+         OPENGM_ASSERT_OP(idNodesBegin_[node]+i,<,numberOfElements_);
          obj[idNodesBegin_[node]+i] = t;
       } 
    }
@@ -523,6 +527,45 @@ LPCplex<GM, ACC>::infer
                << hack::counter++ << ".mps";
       cplex_.exportModel(filename.str().c_str());
 #endif
+
+      // Clearing previosly set MIP starts.
+      if (cplex_.getNMIPStarts() > 0) {
+         cplex_.deleteMIPStarts(0, cplex_.getNMIPStarts());
+      }
+
+      // Setting  MIP start.
+      if (! parameter_.mipStartLabeling_.empty()) {
+         OPENGM_ASSERT(parameter_.mipStartLabeling_.size() == gm_.numberOfVariables());
+
+         // We initialize all variables to zero and then we pick the specific
+         // variables and bump them to 1.
+         IloNumVarArray startVar(env_, numberOfElements_);
+         IloNumArray startVal(env_, numberOfElements_);
+         for (size_t i = 0; i < numberOfElements_; ++i) {
+            startVar[i] = x_[i];
+            startVal[i] = 0;
+         }
+
+         // Set respective variables for variables to 1.
+         for (size_t node = 0; node < gm_.numberOfVariables(); ++node) {
+            size_t idx = lpNodeVi(node, parameter_.mipStartLabeling_[node]);
+            startVal[idx] = 1;
+         }
+
+         // Set variables for (non-unary) factors.
+         for (size_t f = 0; f < gm_.numberOfFactors(); ++f) {
+            if (gm_[f].numberOfVariables() > 1) {
+               std::vector<LabelType> factorLabeling(gm_[f].numberOfVariables());
+               for (size_t i = 0; i < gm_[f].numberOfVariables(); ++i) {
+                  factorLabeling[i] = parameter_.mipStartLabeling_[ gm_[f].variableIndex(i) ];
+               }
+               size_t idx = lpFactorVi(f, factorLabeling.begin(), factorLabeling.end());
+               startVal[idx] = 1;
+            }
+         }
+
+         cplex_.addMIPStart(startVar, startVal, IloCplex::MIPStartCheckFeas);
+      }
 
       // solve problem
       if(!cplex_.solve()) {
