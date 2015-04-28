@@ -44,109 +44,14 @@ int main(int argc, char **argv)
 	Clock::time_point begin, end;
 	boost::chrono::duration<double> duration;
 
-	if (argc != 3) {
+	if (argc != 2) {
 		std::cerr << "Wrong arguments." << std::endl;
 		return EXIT_FAILURE;
 	}
 
 	GraphicalModelType gm;
-	opengm::hdf5::load(gm, argv[2], "gm");
+	opengm::hdf5::load(gm, argv[1], "gm");
 
-	switch (atoi(argv[1])) {
-	case 0:
-	begin = Clock::now();
-	std::cout << ":: Benchmarking CombiLP + TRWSi + CPLEX ..." << std::endl;
-	{
-		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, AccumulatorType> Generator;
-		typedef Generator::CombiLPType CombiLPType;
-		CombiLPType::Parameter param;
-		param.verbose_ = true;
-		param.singleReparametrization_ = true;
-		param.lpsolverParameter_.verbose_ = true;
-#ifdef ALREADY_REPARAMETRIZED
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 1;
-#else
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
-#endif
-		param.ilpsolverParameter_.verbose_ = true;
-		param.ilpsolverParameter_.integerConstraint_ = true;
-		param.ilpsolverParameter_.timeLimit_ = 3600;
-		param.ilpsolverParameter_.workMem_= 1024*32;
-		param.ilpsolverParameter_.numberOfThreads_ = 4;
-
-		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
-		CombiLPType inference(gm, param);
-		inference.infer(visitor);
-	}
-	end = Clock::now();
-	duration = end - begin;
-	std::cout << "=> Total elapsed time: " << duration << std::endl;
-	break;
-	case 1:
-	begin = Clock::now();
-	std::cout << ":: Benchmarking CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
-	{
-		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, AccumulatorType> Generator;
-		typedef Generator::CombiLPType CombiLPType;
-		CombiLPType::Parameter param;
-		param.verbose_ = true;
-		param.singleReparametrization_ = true;
-		param.lpsolverParameter_.verbose_ = true;
-#ifdef ALREADY_REPARAMETRIZED
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 1;
-#else
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
-#endif
-		param.ilpsolverParameter_.proxy.verbose_ = true;
-		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
-		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
-		param.ilpsolverParameter_.proxy.workMem_= 1024*32;
-      		param.ilpsolverParameter_.proxy.numberOfThreads_ = 4;
-
-		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
-		CombiLPType inference(gm, param);
-		inference.infer(visitor);
-	}
-	end = Clock::now();
-	duration = end - begin;
-	std::cout << "=> Total elapsed time: " << duration << std::endl;
-	break;
-	case 2:
-	begin = Clock::now();
-	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + CPLEX ..." << std::endl;
-	{
-		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, AccumulatorType> Generator;
-		typedef Generator::CombiLPType CombiLPType;
-		CombiLPType::Parameter param;
-		param.verbose_ = true;
-		param.singleReparametrization_ = false;
-		param.lpsolverParameter_.verbose_ = true;
-#ifdef ALREADY_REPARAMETRIZED
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
-		param.lpsolverParameter_.maxNumberOfIterations_= 1;
-#else
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
-		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
-#endif
-		param.ilpsolverParameter_.verbose_ = true;
-		param.ilpsolverParameter_.integerConstraint_ = true;
-		param.ilpsolverParameter_.timeLimit_ = 3600;
-		param.ilpsolverParameter_.workMem_= 1024*32;
-		param.ilpsolverParameter_.numberOfThreads_ = 4;
-
-		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
-		CombiLPType inference(gm, param);
-		inference.infer(visitor);
-	}
-	end = Clock::now();
-	duration = end - begin;
-	std::cout << "=> Total elapsed time: " << duration << std::endl;
-	break;
-	case 3:
 	begin = Clock::now();
 	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
 	{
@@ -176,8 +81,4 @@ int main(int argc, char **argv)
 	end = Clock::now();
 	duration = end - begin;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
-	break;
-	default:
-	std::cout << "Failed." << std::endl;
-	}
 }
