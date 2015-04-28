@@ -5,6 +5,7 @@ if(WITH_HDF5 AND HDF5_FOUND)
    else()
       target_link_libraries(example-io ${HDF5_LIBRARIES} rt)
    endif()
+
+   add_executable(example-io-benchmark io_benchmark.cxx)
+   target_link_libraries(example-io-benchmark ${CMAKE_THREAD_LIBS_INIT} ${CPLEX_LIBRARIES} ${HDF5_LIBRARIES} rt boost_system boost_chrono)
 endif()
-
-

@@ -391,8 +391,14 @@ namespace opengm{
       void print(std::ostream& fout)const
          {
             parent::print(fout);
-            fout << "== lpsolverParameters: =="<<std::endl;
-            lpsolverParameter_.print(fout);
+            // FIXME: Previously we printed the solver parameters, but this
+            // is not going to work with the recent changes.
+            //
+            // Previous code was something like this:
+            //
+            // fout << "== lpsolverParameters: ==" << std::endl;
+            // lpsolverParameter_.print(fout);
+            // ilpsolverParameter_.print(fout);
          }
 #endif
    };
@@ -536,6 +542,12 @@ namespace opengm{
             return NORMAL;
          }
          _base.ReparametrizeAndSave();
+#ifdef	COMBILP_STOP_AFTER_REPARAMETRIZATION
+#ifdef	TRWS_DEBUG_OUTPUT
+         _fout << "SAVED REPARAMETRIZED MODEL. ABORTING."<<std::endl;
+#endif
+         exit(0);
+#endif
          if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
             visitor.end(*this);
             return NORMAL;

@@ -9,6 +9,11 @@
 #include <stdexcept>
 #include <typeinfo>
 
+#ifdef CPLEX_DUMP_SEQUENTIALLY
+#include <sstream>
+#include <iomanip>
+#endif
+
 #include <ilcplex/ilocplex.h>
 
 #include "opengm/datastructures/marray/marray.hxx"
@@ -21,6 +26,12 @@
 #include "opengm/inference/visitors/visitors.hxx"
 
 namespace opengm {
+
+#ifdef CPLEX_DUMP_SEQUENTIALLY
+namespace hack {
+   unsigned int counter = 0;
+}
+#endif
 
 /// \brief Optimization by Linear Programming (LP) or Integer LP using IBM ILOG CPLEX\n\n
 /// http://www.ilog.com/products/cplex/
@@ -504,7 +515,15 @@ LPCplex<GM, ACC>::infer
       //cplex_.setParam(IloCplex::DisjCuts, parameter_.disjunctiverCutLevel_);
       //cplex_.setParam(IloCplex::Cliques, parameter_.cliqueCutLevel_);
       //cplex_.setParam(IloCplex::MIRCuts, parameter_.MIRCutLevel_);
-  
+
+#ifdef CPLEX_DUMP_SEQUENTIALLY
+      std::stringstream filename;
+      filename << "/tmp/cplex_"
+               << std::setfill('0') << std::setw(4)
+               << hack::counter++ << ".mps";
+      cplex_.exportModel(filename.str().c_str());
+#endif
+
       // solve problem
       if(!cplex_.solve()) {
          std::cout << "failed to optimize. " <<cplex_.getStatus() << std::endl;
