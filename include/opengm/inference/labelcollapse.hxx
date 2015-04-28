@@ -29,13 +29,16 @@
 #define OPENGM_LABELCOLLAPSE_HXX
 
 #include <vector>
+#include <utility>
 
+#include "opengm/datastructures/fast_sequence.hxx"
+#include "opengm/functions/function_properties_base.hxx"
 #include "opengm/graphicalmodel/graphicalmodel.hxx"
 #include "opengm/graphicalmodel/space/discretespace.hxx"
-#include "opengm/functions/function_properties_base.hxx"
 #include "opengm/inference/inference.hxx"
 #include "opengm/inference/labelcollapse_visitor.hxx"
 #include "opengm/inference/visitors/visitors.hxx"
+#include "opengm/utilities/indexing.hxx"
 #include "opengm/utilities/metaprogramming.hxx"
 
 namespace opengm {
@@ -67,41 +70,11 @@ namespace labelcollapse {
 template<class GM, class INF>
 class ModelBuilder;
 
-
-// A (potentially partial) mapping of orignal labels to auxiliary labels
-// (and vice versa) for a given variable.
-template<class GM>
-class Mapping;
-
-// This functor operates on a factor. It unwraps the underlying factor function
-// and calls the FUNCTOR on this function.
-//
-// We need this intermediate step to get C++ template inference working.
-template<class FUNCTOR>
-class UnwrapFunctionFunctor;
-
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
 template<class GM>
 class EpsilonFunction;
-
-// This functor operates on factor function values. It will determine the new
-// best (smallest for energy minimization) epsilon value which is worse
-// (higher) than the old epsilon value.
-template<class ACC, class VALUE_TYPE>
-class UnaryEpsilonFunctor;
-
-template<class GM, class ACC>
-class OtherEpsilonFunctor;
-
-// This functor operators on factor function values and is a coordinate functor
-// (receives value and coordinate input iterator as arguments).
-//
-// This functor will write all the labels to the output iterator where the
-// value is less than or equal to their variable’s epsilon value.
-template<class ACC, class VALUE_TYPE, class OUTPUT_ITERATOR>
-class NonCollapsedFunctionFunctor;
 
 } // namespace labelcollapse
 
@@ -384,7 +357,6 @@ public:
 	// Types
 	//
 	typedef ACC AccumulationType;
-	typedef Mapping<GM> MappingType;
 
 	// Shared types (Original = Modified)
 	typedef typename GM::OperatorType OperatorType;
@@ -422,15 +394,18 @@ public:
 	void reset();
 
 private:
-	void updateMappings();
-	ValueType calculateUnaryEpsilon(const IndexType);
-	ValueType calculateOtherEpsilon(const IndexType);
+	typedef std::vector<LabelType> Stack;
+	typedef std::vector<bool> Mapping;
+
+	bool isFull(IndexType) const;
+	LabelType numberOfLabels(IndexType) const;
+	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
 
 	const OriginalModelType &original_;
-
+	std::vector<Stack> uncollapsed_;
+	std::vector<Stack> collapsed_;
+	std::vector<Mapping> mappings_;
 	std::vector<ValueType> epsilons_;
-	std::vector<MappingType> mappings_;
-
 	bool rebuildNecessary_;
 	AuxiliaryModelType auxiliary_;
 };
@@ -441,7 +416,9 @@ ModelBuilder<GM, ACC>::ModelBuilder
 	const OriginalModelType &gm
 )
 : original_(gm)
-, mappings_(gm.numberOfVariables(), MappingType(0))
+, uncollapsed_(gm.numberOfVariables())
+, collapsed_(gm.numberOfVariables())
+, mappings_(gm.numberOfVariables())
 , rebuildNecessary_(true)
 {
 	reset();
@@ -454,15 +431,10 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 	if (!rebuildNecessary_)
 		return;
 
-	// TODO: We probably should update the mapping incrementally. Everything
-	// gets faster :-)
-	updateMappings();
-
-
 	// Build space.
 	std::vector<LabelType> shape(original_.numberOfVariables());
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		shape[i] = mappings_[i].size();
+		shape[i] = numberOfLabels(i);
 	}
 	typename AuxiliaryModelType::SpaceType space(shape.begin(), shape.end());
 	auxiliary_ = AuxiliaryModelType(space);
@@ -472,7 +444,7 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 		typedef EpsilonFunction<OriginalModelType> ViewFunction;
 
 		const typename OriginalModelType::FactorType &factor = original_[i];
-		const ViewFunction func(factor, mappings_, epsilons_[i]);
+		const ViewFunction func(factor, uncollapsed_, collapsed_, epsilons_[i]);
 
 		auxiliary_.addFactor(
 			auxiliary_.addFunction(func),
@@ -497,7 +469,7 @@ ModelBuilder<GM, ACC>::originalLabeling
 
 	original.assign(auxiliary.size(), 0);
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		original[i] = mappings_[i].original(auxiliary[i]);
+		original[i] = isFull(i) ? auxiliary[i] : uncollapsed_[i][auxiliary[i] - 1];
 	}
 }
 
@@ -512,7 +484,7 @@ ModelBuilder<GM, ACC>::isValidLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (mappings_[i].isCollapsedAuxiliary(*it))
+		if (!isFull(i) && *it == 0)
 			return false;
 	}
 
@@ -530,7 +502,7 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (mappings_[i].isCollapsedAuxiliary(*it))
+		if (!isFull(i) && *it == 0)
 			uncollapse(i);
 	}
 }
@@ -542,122 +514,77 @@ ModelBuilder<GM, ACC>::uncollapse
 	const IndexType idx
 )
 {
-	bool foundAnyFactor = false;
-	IndexType bestFactor = 0;
-	ValueType bestEpsilon = ACC::template neutral<ValueType>();
-	ValueType bestEpsilonDiff = ACC::template neutral<ValueType>();
+	if (collapsed_[idx].size() == 0)
+		return;
 
-	// TODO: For unary case we can reduce this!
-	for (IndexType f = 0; f < original_.numberOfFactors(idx); ++f) {
-		IndexType factor = original_.factorOfVariable(idx, f);
+	LabelType label = collapsed_[idx].back();
+	collapsed_[idx].pop_back();
+	uncollapsed_[idx].push_back(label);
+	mappings_[idx][label] = true;
 
-		if (original_.numberOfVariables(factor) > 1)
-			continue;
+	for (IndexType f2 = 0; f2 < original_.numberOfFactors(idx); ++f2) {
+		typedef typename OriginalModelType::FactorType FactorType;
+		const IndexType f = original_.factorOfVariable(idx, f2);
+		const FactorType factor = original_[f];
 
-		ValueType epsilon = calculateUnaryEpsilon(factor);
-		ValueType epsilonDiff = epsilon - epsilons_[factor];
-
-		if ((! foundAnyFactor) || (epsilonDiff < bestEpsilonDiff)) {
-			foundAnyFactor = true;
-			bestFactor = factor;
-			bestEpsilon = epsilon;
-			bestEpsilonDiff = epsilonDiff;
-		}
-	}
-
-	// If the variable is not the first variable of any factor, then we
-	// should not update any factor. :-)
-	if (foundAnyFactor) {
-		epsilons_[bestFactor] = bestEpsilon;
-		rebuildNecessary_ = true;
-	}
-}
-
-template<class GM, class ACC>
-typename ModelBuilder<GM, ACC>::ValueType
-ModelBuilder<GM, ACC>::calculateUnaryEpsilon(
-	const IndexType idx
-)
-{
-	OPENGM_ASSERT(original_.numberOfVariables(idx) == 1);
-
-	const ValueType &epsilon = epsilons_[idx];
-	const typename OriginalModelType::FactorType &factor = original_[idx];
-
-	UnaryEpsilonFunctor<ACC, ValueType> functor(epsilon);
-	factor.forAllValuesInAnyOrder(functor);
-	return functor.value();
-}
-
-template<class GM, class ACC>
-typename ModelBuilder<GM, ACC>::ValueType
-ModelBuilder<GM, ACC>::calculateOtherEpsilon(
-	const IndexType idx
-)
-{
-	OPENGM_ASSERT(original_.numberOfVariables(idx) > 1);
-
-	const ValueType &epsilon = epsilons_[idx];
-	const typename OriginalModelType::FactorType &factor = original_[idx];
-
-	typedef OtherEpsilonFunctor<OriginalModelType, AccumulationType> FunctionFunctor;
-	typedef UnwrapFunctionFunctor<FunctionFunctor> FactorFunctor;
-	FunctionFunctor functionFunctor(factor, mappings_);
-	FactorFunctor factorFunctor(functionFunctor);
-	factor.callFunctor(factorFunctor);
-	return functionFunctor.value();
-}
-
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::updateMappings()
-{
-	typedef std::vector<LabelType> LabelVec;
-	typedef typename LabelVec::iterator Iterator;
-	typedef std::back_insert_iterator<LabelVec> Inserter;
-	typedef NonCollapsedFunctionFunctor<ACC, ValueType, Inserter> FunctionFunctor;
-	typedef UnwrapFunctionFunctor<FunctionFunctor> FactorFunctor;
-
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		bool foundAnyFactor = false;
-		LabelVec nonCollapsed;
-		Inserter inserter(nonCollapsed);
-
-		for (IndexType j = 0; j < original_.numberOfFactors(i); ++j) {
-			const IndexType f = original_.factorOfVariable(i, j);
-			const typename OriginalModelType::FactorType &factor = original_[f];
-
-			// Only unary potentials are used for determining the label set.
-			if (original_.numberOfVariables(f) > 1)
-				continue;
-
-			FunctionFunctor functionFunctor(epsilons_[f], inserter);
-			FactorFunctor factorFunctor(functionFunctor);
-			factor.callFunctor(factorFunctor);
-			foundAnyFactor = true;
-		}
-
-		MappingType &m = mappings_[i];
-		m = MappingType(original_.numberOfLabels(i));
-
-		// If there are no factors where our variable is the first variable,
-		// there are no corresponding epsilon values for this variable. We have
-		// no information and cannot distinguish the labels of this variable.
-		//
-		// The only reasonable action is to include all labels for this
-		// variable (make mapping full bijection).
-		//
-		// In all other cases we introduce the labels for which found some
-		// epsilon which is larger. The mapping class will automatically
-		// convert itself into a full bijection if it detects that it is
-		// necessary.
-		if (foundAnyFactor) {
-			for (Iterator it = nonCollapsed.begin(); it != nonCollapsed.end(); ++it) {
-				m.insert(*it);
+		if (factor.numberOfVariables() == 1) {
+			// If there are no collapsed labels then the unary epsilon
+			// value will not be used. So we only update it if there are
+			// more uncollapsed labels.
+			if (collapsed_[idx].size() > 0) {
+				opengm::FastSequence<LabelType> labeling(1);
+				labeling[0] = collapsed_[idx].back();
+				epsilons_[f] = factor(labeling.begin());
 			}
-		} else {
-			m.makeFull();
+		} else if (factor.numberOfVariables() > 1) {
+			// Use ShapeWalker to iterate over all the factor transitions and
+			// determine if we need to update the binary epsilon. We keep our
+			// uncollapsed label fixed (new value can only appear for the
+			// uncollapsed label).
+			//
+			// FIXME: We should use OpenGM’s smart container for stack
+			// allocation.
+			IndexType fixedIndex = 0;
+			for (IndexType i = 0; i < factor.numberOfVariables(); ++i) {
+				if (factor.variableIndex(i) == idx) {
+					fixedIndex = i;
+					break;
+				}
+			}
+			opengm::FastSequence<IndexType> fixedVariables(1);
+			fixedVariables[0] = fixedIndex;
+			opengm::FastSequence<LabelType> fixedLabels(1);
+			fixedLabels[0] = label;
+
+			typedef ShapeWalker< typename FactorType::ShapeIteratorType> Walker;
+			Walker walker(factor.shapeBegin(), factor.numberOfVariables());
+			AccumulationType::neutral(epsilons_[f]);
+			for (IndexType i = 0; i < factor.size(); ++i, ++walker) {
+				bool next = true;
+				for (IndexType j = 0; j < factor.numberOfVariables(); ++j) {
+					IndexType varIdx = factor.variableIndex(j);
+					if (!mappings_[varIdx][walker.coordinateTuple()[j]]) {
+						next = false;
+						break;
+					}
+				}
+
+				if (next)
+					continue;
+
+				ValueType v = factor(walker.coordinateTuple().begin());
+				if (AccumulationType::bop(v, epsilons_[f])) {
+					epsilons_[f] = v;
+				}
+			}
 		}
+	}
+
+	// If there is just one collapsed label left, all the auxiliary unaries
+	// and binaries are equal to the original potentials. We can just
+	// uncollapse it.
+	if (collapsed_[idx].size() == 1) {
+		uncollapse(idx);
 	}
 
 	rebuildNecessary_ = true;
@@ -670,279 +597,74 @@ ModelBuilder<GM, ACC>::reset()
 	epsilons_.assign(original_.numberOfFactors(), ACC::template ineutral<ValueType>());
 	rebuildNecessary_ = true;
 
-	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
-		if (original_.numberOfVariables(f) == 1)
-			epsilons_[f] = calculateUnaryEpsilon(f);
-
-	updateMappings();
-
-	// FIXME: This is just a hack. We need to move this to another location!
-	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
-		if (original_.numberOfVariables(f) > 1)
-			epsilons_[f] = calculateOtherEpsilon(f);
-
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
-		uncollapse(i);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class Mapping
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class GM>
-class Mapping {
-public:
-	typedef typename GM::LabelType LabelType;
-
-	Mapping(LabelType numLabels)
-	: numLabels_(numLabels)
-	, full_(false)
-	, mapOrigToAux_(numLabels)
-	, mapAuxToOrig_()
-	{
-	}
-
-	void insert(LabelType origLabel);
-	void makeFull();
-	bool full() const { return full_; }
-	bool isCollapsedAuxiliary(LabelType auxLabel) const;
-	bool isCollapsedOriginal(LabelType origLabel) const;
-	LabelType auxiliary(LabelType origLabel) const;
-	LabelType original(LabelType auxLabel) const;
-	LabelType size() const;
-
-private:
-	LabelType numLabels_;
-	bool full_;
-	std::vector<LabelType> mapOrigToAux_;
-	std::vector<LabelType> mapAuxToOrig_;
-};
-
-template<class GM>
-void
-Mapping<GM>::insert(
-	LabelType origLabel
-)
-{
-	// If this mapping is a full bijection, then we don’t need to insert
-	// anything.
-	if (full_)
-		return;
-
-	// If the label is already mapped, then we don’t need to insert anything.
-	if (mapOrigToAux_[origLabel] != 0)
-		return;
-
-	// In all other cases, we update our mappings. The zeroth auxiliary label
-	// is reserved.
-	mapAuxToOrig_.push_back(origLabel);
-	mapOrigToAux_[origLabel] = mapAuxToOrig_.size();
-
-	OPENGM_ASSERT(original(auxiliary(origLabel)) == origLabel);
-
-	// Check whether we can convert this mapping to a full bijection.
-	// This is the case if all labels are uncollapsed.
-	if (mapAuxToOrig_.size() + 1 >= mapOrigToAux_.size())
-		makeFull();
-}
-
-template<class GM>
-bool
-Mapping<GM>::isCollapsedAuxiliary
-(
-	LabelType auxLabel
-) const
-{
-	return !full_ && auxLabel == 0;
-}
-
-template<class GM>
-bool
-Mapping<GM>::isCollapsedOriginal
-(
-	LabelType origLabel
-) const
-{
-	return !full_ && auxiliary(origLabel) == 0;
-}
-
-template<class GM>
-typename Mapping<GM>::LabelType
-Mapping<GM>::auxiliary
-(
-	LabelType origLabel
-) const
-{
-	if (full_)
-		return origLabel;
-
-	OPENGM_ASSERT(origLabel < mapOrigToAux_.size());
-	return mapOrigToAux_[origLabel];
-}
-
-template<class GM>
-typename Mapping<GM>::LabelType
-Mapping<GM>::original
-(
-	LabelType auxLabel
-) const
-{
-	if (full_)
-		return auxLabel;
-
-	OPENGM_ASSERT(auxLabel > 0);
-	OPENGM_ASSERT(auxLabel - 1 < mapAuxToOrig_.size());
-	return mapAuxToOrig_[auxLabel - 1];
-}
-
-template<class GM>
-typename Mapping<GM>::LabelType
-Mapping<GM>::size() const
-{
-	return full_ ? numLabels_ : mapAuxToOrig_.size() + 1;
-}
-
-template<class GM>
-void
-Mapping<GM>::makeFull()
-{
-	full_ = true;
-	mapOrigToAux_.clear();
-	mapAuxToOrig_.clear();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-//
-//class UnwrapFunctionFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class FUNCTOR>
-class UnwrapFunctionFunctor {
-public:
-	UnwrapFunctionFunctor(FUNCTOR &functor)
-	: functor_(functor)
-	{
-	}
-
-	// We need this functor class, because the operator() is a template
-	// for a specific function type.
-	//
-	// This way we can access the underlying function object without knowing the
-	// concrete type (C++ infers the template arguments for class methods).
-	template<class FUNCTION>
-	void operator()(const FUNCTION &function) {
-		function.forAllValuesInAnyOrderWithCoordinate(functor_);
-	}
-
-private:
-	FUNCTOR &functor_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class UnaryEpsilonFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class ACC, class VALUE_TYPE>
-class UnaryEpsilonFunctor {
-public:
-	UnaryEpsilonFunctor(VALUE_TYPE oldValue)
-	: oldValue_(oldValue)
-	, value_(ACC::template neutral<VALUE_TYPE>())
-	{
-	}
-
-	VALUE_TYPE value() const {
-		return value_;
-	}
-
-	void operator()(const VALUE_TYPE v)
-	{
-		if (ACC::ibop(v, oldValue_) && ACC::bop(v, value_)) {
-			value_ = v;
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		// We look up the unary factor.
+		bool found = false;
+		IndexType f;
+		for (IndexType j = 0; j < original_.numberOfFactors(i); ++j) {
+			f = original_.factorOfVariable(i, j);
+			if (original_[f].numberOfVariables() == 1) {
+				found = true;
+				break;
+			}
 		}
+		// TODO: Maybe we should throw exception?
+		OPENGM_ASSERT(found);
+
+		mappings_[i].assign(original_.numberOfLabels(i), false);
+		collapsed_[i].clear();
+		uncollapsed_[i].clear();
+
+		std::vector< std::pair<LabelType, ValueType> > pairs(original_.numberOfLabels(i));
+		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
+			opengm::FastSequence<LabelType> labeling(1);
+			labeling[0] = j;
+			ValueType v = original_[f](labeling.begin());
+			pairs[j] = std::make_pair(j, v);
+		}
+
+		std::sort(pairs.begin(), pairs.end(), &compare);
+
+		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
+			collapsed_[i].push_back(pairs[j].first);
+		}
+
+		uncollapse(i);
 	}
-
-private:
-	VALUE_TYPE oldValue_;
-	VALUE_TYPE value_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class OtherEpsilonFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
+}
 
 template<class GM, class ACC>
-class OtherEpsilonFunctor {
-public:
-	typedef typename GM::FactorType FactorType;
-	typedef typename GM::IndexType IndexType;
-	typedef typename GM::LabelType LabelType;
-	typedef typename GM::ValueType ValueType;
+bool
+ModelBuilder<GM, ACC>::isFull
+(
+	IndexType idx
+) const
+{
+	return collapsed_[idx].size() == 0;
+}
 
-	OtherEpsilonFunctor(const FactorType &factor, const std::vector< Mapping<GM> > &mappings)
-	: value_(ACC::template neutral<ValueType>())
-	, factor_(&factor)
-	, mappings_(&mappings)
-	{
-	}
+template<class GM, class ACC>
+typename ModelBuilder<GM, ACC>::LabelType
+ModelBuilder<GM, ACC>::numberOfLabels
+(
+	IndexType idx
+) const
+{
+	return uncollapsed_[idx].size() + (isFull(idx) ? 0 : 1);
+}
 
-	ValueType value() const {
-		return value_;
-	}
-
-	template<class INPUT_ITERATOR>
-	void operator()(const ValueType v, INPUT_ITERATOR it)
-	{
-		for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
-			IndexType varIdx = factor_->variableIndex(i);
-
-			if (! (*mappings_)[varIdx].isCollapsedOriginal(*it))
-				return;
-		}
-
-		if (ACC::bop(v, value_))
-			value_ = v;
-	}
-
-private:
-	ValueType value_;
-	const FactorType *factor_;
-	const std::vector< Mapping<GM> > *mappings_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class NonCollapsedFunctionFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class ACC, class VALUE_TYPE, class OUTPUT_ITERATOR>
-class NonCollapsedFunctionFunctor {
-public:
-	NonCollapsedFunctionFunctor(VALUE_TYPE epsilon, OUTPUT_ITERATOR iterator)
-	: iterator_(iterator)
-	, epsilon_(epsilon)
-	{
-	}
-
-	template<class INPUT_ITERATOR>
-	void operator()(const VALUE_TYPE v, INPUT_ITERATOR it)
-	{
-		if (ACC::bop(v, epsilon_))
-			*iterator_++ = *it;
-	}
-
-private:
-	OUTPUT_ITERATOR iterator_;
-	VALUE_TYPE epsilon_;
-};
+template<class GM, class ACC>
+bool
+ModelBuilder<GM, ACC>::compare
+(
+	const std::pair<LabelType, ValueType> &pair1,
+	const std::pair<LabelType, ValueType> &pair2
+)
+{
+	// We reverse the ordering, because we use a std::vector as a stack. The
+	// smallest element should be the last one.
+	return AccumulationType::bop(pair2.second, pair1.second);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -956,7 +678,6 @@ class EpsilonFunction
                       typename GM::ValueType, typename GM::IndexType, typename GM::LabelType>
 {
 public:
-	typedef Mapping<GM> MappingType;
 	typedef typename GM::FactorType FactorType;
 	typedef typename GM::IndexType IndexType;
 	typedef typename GM::LabelType LabelType;
@@ -964,11 +685,13 @@ public:
 
 	EpsilonFunction(
 		const FactorType &factor,
-		const std::vector<MappingType> &mappings,
+		const std::vector< std::vector<LabelType> > &uncollapsed,
+		const std::vector< std::vector<LabelType> > &collapsed,
 		ValueType epsilon
 	)
 	: factor_(&factor)
-	, mappings_(&mappings)
+	, uncollapsed_(&uncollapsed)
+	, collapsed_(&collapsed)
 	, epsilon_(epsilon)
 	{
 	}
@@ -980,7 +703,7 @@ public:
 
 private:
 	const FactorType *factor_;
-	const std::vector<MappingType> *mappings_;
+	const std::vector< std::vector<LabelType> > *uncollapsed_, *collapsed_;
 	ValueType epsilon_;
 };
 
@@ -998,14 +721,14 @@ EpsilonFunction<GM>::operator()
 		LabelType auxLabel = *it;
 		LabelType origLabel;
 
-		if ((*mappings_)[varIdx].full()) {
+		if ((*collapsed_)[varIdx].size() == 0) {
 			origLabel = auxLabel;
 		} else {
 			if (auxLabel == 0) {
 				return epsilon_;
 			}
 
-			origLabel = (*mappings_)[varIdx].original(auxLabel);
+			origLabel = (*uncollapsed_)[varIdx][auxLabel - 1];
 		}
 
 		modified[i] = origLabel;
@@ -1022,7 +745,7 @@ EpsilonFunction<GM>::shape
 ) const
 {
 	IndexType varIdx = factor_->variableIndex(idx);
-	return (*mappings_)[varIdx].size();
+	return (*uncollapsed_)[varIdx].size() + ((*collapsed_)[varIdx].size() > 0 ? 1 : 0);
 }
 
 template<class GM>
