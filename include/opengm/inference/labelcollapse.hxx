@@ -335,19 +335,8 @@ LabelCollapse<GM, INF>::currentNumberOfLabels
 	OUTPUT_ITERATOR it
 ) const
 {
-	if (builder_.rebuildNecessary()) {
-		// If the builder needs to rebuild the model, we did not perform any
-		// inference iteration (“iterations == 0”). We just return the labels
-		// of the original model.
-		//
-		// FIXME: Ensure that we are at iteration zero! The current
-		// implementation of this aspect looks more like a hack.
-		return originalNumberOfLabels(it);
-	}
-
-	const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
-	for (IndexType i = 0; i < gm.numberOfVariables(); ++i, ++it) {
-		*it = gm.numberOfLabels(i);
+	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
+		*it = builder_.numberOfLabels(i);
 	}
 }
 
@@ -399,6 +388,7 @@ public:
 
 	template<class ITERATOR> bool isValidLabeling(ITERATOR) const;
 	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
+	LabelType numberOfLabels(IndexType) const;
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
 	void uncollapse(const IndexType);
 	template<class ITERATOR> void populate(ITERATOR);
@@ -410,7 +400,6 @@ private:
 	typedef std::vector<bool> Mapping;
 
 	bool isFull(IndexType) const;
-	LabelType numberOfLabels(IndexType) const;
 	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
 
 	const OriginalModelType &original_;
@@ -611,7 +600,7 @@ ModelBuilder<GM, ACC>::populate
 )
 {
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		while (uncollapsed_[i].size() < *it && collapsed_[i].size() > 0) {
+		while (numberOfLabels(i) < *it && collapsed_[i].size() > 0) {
 			uncollapse(i);
 		}
 	}
