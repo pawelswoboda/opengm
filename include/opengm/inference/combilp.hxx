@@ -16,6 +16,207 @@
 
 namespace opengm{
 
+namespace combilp_base {
+	template<class GM, class ACC, class REPA>
+	class CombiLP_base;
+
+	template<class GM>
+	void DilateMask(const GM&, typename GM::IndexType, std::vector<bool>*);
+
+	template<class GM>
+	void DilateMask(const GM&,const std::vector<bool>&, std::vector<bool>*);
+}
+
+template<class LP, class REPA> class CombiLP_Parameter;
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+/// \brief CombiLP\n\n
+/// Savchynskyy, B. and Kappes, J. H. and Swoboda, P. and Schnoerr, C.:
+/// "Global MAP-Optimality by Shrinking the Combinatorial Search Area with Convex Relaxation".
+/// In NIPS, 2013.
+/// \ingroup inference
+template<class GM, class ACC, class LPSOLVER>//TODO: remove default ILP solver
+class CombiLP : public Inference<GM, ACC>
+{
+public:
+	//
+	// Types
+	//
+	typedef typename LPSOLVER::ReparametrizerType ReparametrizerType;
+	typedef combilp_base::CombiLP_base<GM,ACC,ReparametrizerType> BaseType;
+
+	typedef ACC AccumulationType;
+	typedef GM GraphicalModelType;
+
+	OPENGM_GM_TYPE_TYPEDEFS;
+	typedef visitors::VerboseVisitor<CombiLP<GM, ACC, LPSOLVER> > VerboseVisitorType;
+	typedef visitors::EmptyVisitor<CombiLP<GM, ACC, LPSOLVER> >   EmptyVisitorType;
+	typedef visitors::TimingVisitor<CombiLP<GM, ACC, LPSOLVER> >  TimingVisitorType;
+
+	typedef CombiLP_Parameter<typename LPSOLVER::Parameter,typename ReparametrizerType::Parameter> Parameter;
+	typedef typename ReparametrizerType::MaskType MaskType;
+	typedef typename BaseType::GMManipulatorType GMManipulatorType;
+
+	typedef LPCplex<typename GMManipulatorType::MGM, ACC> LPCPLEX;//TODO: move to template parameters
+
+	//
+	// Methods
+	//
+	CombiLP(const GraphicalModelType& gm, const Parameter& param
+#ifdef TRWS_DEBUG_OUTPUT
+				  , std::ostream& fout=std::cout
+#endif
+		);
+	virtual ~CombiLP(){if (_plpparametrizer!=0) delete _plpparametrizer;};
+	std::string name() const{ return "CombiLP"; }
+	const GraphicalModelType& graphicalModel() const { return _lpsolver.graphicalModel(); }
+	InferenceTermination infer()
+		{
+			EmptyVisitorType vis;
+			return infer(vis);
+		};
+
+	template<class VISITOR> InferenceTermination infer(VISITOR & visitor);
+
+	InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
+		{
+			out = _labeling;
+			return opengm::NORMAL;
+		}
+	virtual ValueType bound() const{return _bound;};
+	virtual ValueType value() const{return _value;};
+private:
+	Parameter _parameter;
+	LPSOLVER _lpsolver;
+	ReparametrizerType* _plpparametrizer;
+	BaseType _base;
+	std::vector<LabelType> _labeling;
+	ValueType _value;
+	ValueType _bound;
+#ifdef TRWS_DEBUG_OUTPUT
+	std::ostream& _fout;
+#endif
+};
+
+template<class GM, class ACC, class LPSOLVER>
+CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter& param
+#ifdef TRWS_DEBUG_OUTPUT
+											 , std::ostream& fout
+#endif
+	)
+: _parameter(param)
+,_lpsolver(gm,param.lpsolverParameter_
+#ifdef TRWS_DEBUG_OUTPUT
+			 ,(param.lpsolverParameter_.verbose_ ? fout : *OUT::nullstream::Instance())//fout
+#endif
+  )
+,_plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
+,_base(*_plpparametrizer, param
+#ifdef TRWS_DEBUG_OUTPUT
+		,fout
+#endif
+  )
+,_labeling(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
+,_value(_lpsolver.value())
+,_bound(_lpsolver.bound())
+#ifdef TRWS_DEBUG_OUTPUT
+,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
+#endif
+{
+#ifdef TRWS_DEBUG_OUTPUT
+	_fout << "Parameters of the "<< name() <<" algorithm:"<<std::endl;
+	param.print(_fout);
+#endif
+};
+
+template<class GM, class ACC, class LPSOLVER>
+template<class VISITOR>
+InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
+{
+#ifdef TRWS_DEBUG_OUTPUT
+	_fout <<"Running LP solver "<<_lpsolver.name()<<std::endl;
+#endif
+	visitor.begin(*this);
+
+	_lpsolver.infer();
+	_value=_lpsolver.value();
+	_bound=_lpsolver.bound();
+	_lpsolver.arg(_labeling);
+
+	if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
+		visitor.end(*this);
+		return NORMAL;
+	}
+
+	std::vector<LabelType> labeling_lp;
+	MaskType initialmask;
+	_plpparametrizer->reparametrize();
+	//_plpparametrizer->getArcConsistency(&initialmask,&labeling_lp);
+	_lpsolver.getTreeAgreement(initialmask,&labeling_lp);
+
+#ifdef TRWS_DEBUG_OUTPUT
+	_fout <<"Energy of the labeling consistent with the arc consistency ="<<_lpsolver.graphicalModel().evaluate(labeling_lp)<<std::endl;
+	_fout <<"Arc inconsistent set size ="<<std::count(initialmask.begin(),initialmask.end(),false)<<std::endl;
+#endif
+
+#ifdef TRWS_DEBUG_OUTPUT
+	_fout << "Trivializing."<<std::endl;
+#endif
+
+#ifdef  WITH_HDF5
+	if (_parameter.reparametrizedModelFileName_.compare("")!=0)
+	{
+#ifdef  TRWS_DEBUG_OUTPUT
+		_fout << "Saving reparametrized model..."<<std::endl;
+#endif
+		if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
+			visitor.end(*this);
+			return NORMAL;
+		}
+		_base.ReparametrizeAndSave();
+		if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
+			visitor.end(*this);
+			return NORMAL;
+		}
+	}
+#endif
+
+	if (std::count(initialmask.begin(),initialmask.end(),false)==0)
+		return NORMAL;
+
+	trws_base::transform_inplace(initialmask.begin(),initialmask.end(),std::logical_not<bool>());
+
+	MaskType mask;
+	if (_parameter.singleReparametrization_) //BSD: do not need to dilate it in the new approach
+	 combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);
+	else mask=initialmask;
+
+	visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
+	InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis,value(),bound());
+	if ( (terminationVal==NORMAL) || (terminationVal==CONVERGENCE) )
+	{
+		_value=_base.value();
+		_bound=_base.bound();
+		_base.arg(_labeling);
+	}
+
+	visitor.end(*this);
+	//return terminationVal;
+	return NORMAL;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
 	namespace combilp_base{
 
 		template<class FACTOR>
@@ -469,175 +670,6 @@ namespace opengm{
 #endif
 	};
 
-	/// \brief CombiLP\n\n
-	/// Savchynskyy, B. and Kappes, J. H. and Swoboda, P. and Schnoerr, C.:
-	/// "Global MAP-Optimality by Shrinking the Combinatorial Search Area with Convex Relaxation".
-	/// In NIPS, 2013.
-	/// \ingroup inference
-
-	template<class GM, class ACC, class LPSOLVER>//TODO: remove default ILP solver
-	class CombiLP : public Inference<GM, ACC>
-	{
-	public:
-		typedef typename LPSOLVER::ReparametrizerType ReparametrizerType;
-		typedef combilp_base::CombiLP_base<GM,ACC,ReparametrizerType> BaseType;
-
-		typedef ACC AccumulationType;
-		typedef GM GraphicalModelType;
-
-		OPENGM_GM_TYPE_TYPEDEFS;
-		typedef visitors::VerboseVisitor<CombiLP<GM, ACC, LPSOLVER> > VerboseVisitorType;
-		typedef visitors::EmptyVisitor<CombiLP<GM, ACC, LPSOLVER> >   EmptyVisitorType;
-		typedef visitors::TimingVisitor<CombiLP<GM, ACC, LPSOLVER> >  TimingVisitorType;
-
-		typedef CombiLP_Parameter<typename LPSOLVER::Parameter,typename ReparametrizerType::Parameter> Parameter;
-		typedef typename ReparametrizerType::MaskType MaskType;
-		typedef typename BaseType::GMManipulatorType GMManipulatorType;
-
-		typedef LPCplex<typename GMManipulatorType::MGM, ACC> LPCPLEX;//TODO: move to template parameters
-
-		CombiLP(const GraphicalModelType& gm, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-				  , std::ostream& fout=std::cout
-#endif
-			);
-		virtual ~CombiLP(){if (_plpparametrizer!=0) delete _plpparametrizer;};
-		std::string name() const{ return "CombiLP"; }
-		const GraphicalModelType& graphicalModel() const { return _lpsolver.graphicalModel(); }
-		InferenceTermination infer()
-			{
-				EmptyVisitorType vis;
-				return infer(vis);
-			};
-
-		template<class VISITOR> InferenceTermination infer(VISITOR & visitor);
-
-		InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
-			{
-				out = _labeling;
-				return opengm::NORMAL;
-			}
-		virtual ValueType bound() const{return _bound;};
-		virtual ValueType value() const{return _value;};
-	private:
-		Parameter _parameter;
-		LPSOLVER _lpsolver;
-		ReparametrizerType* _plpparametrizer;
-		BaseType _base;
-		std::vector<LabelType> _labeling;
-		ValueType _value;
-		ValueType _bound;
-#ifdef TRWS_DEBUG_OUTPUT
-		std::ostream& _fout;
-#endif
-	};
-
-	template<class GM, class ACC, class LPSOLVER>
-	CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-												 , std::ostream& fout
-#endif
-		)
-  : _parameter(param)
-  ,_lpsolver(gm,param.lpsolverParameter_
-#ifdef TRWS_DEBUG_OUTPUT
-				 ,(param.lpsolverParameter_.verbose_ ? fout : *OUT::nullstream::Instance())//fout
-#endif
-	  )
-  ,_plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
-  ,_base(*_plpparametrizer, param
-#ifdef TRWS_DEBUG_OUTPUT
-			,fout
-#endif
-	  )
-  ,_labeling(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
-  ,_value(_lpsolver.value())
-  ,_bound(_lpsolver.bound())
-#ifdef TRWS_DEBUG_OUTPUT
-  ,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
-#endif
-	{
-#ifdef TRWS_DEBUG_OUTPUT
-		_fout << "Parameters of the "<< name() <<" algorithm:"<<std::endl;
-		param.print(_fout);
-#endif
-	};
-
-	template<class GM, class ACC, class LPSOLVER>
-	template<class VISITOR>
-	InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
-	{
-#ifdef TRWS_DEBUG_OUTPUT
-		_fout <<"Running LP solver "<<_lpsolver.name()<<std::endl;
-#endif
-		visitor.begin(*this);
-
-		_lpsolver.infer();
-		_value=_lpsolver.value();
-		_bound=_lpsolver.bound();
-		_lpsolver.arg(_labeling);
-
-		if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
-			visitor.end(*this);
-			return NORMAL;
-		}
-
-		std::vector<LabelType> labeling_lp;
-		MaskType initialmask;
-		_plpparametrizer->reparametrize();
-		//_plpparametrizer->getArcConsistency(&initialmask,&labeling_lp);
-		_lpsolver.getTreeAgreement(initialmask,&labeling_lp);
-
-#ifdef TRWS_DEBUG_OUTPUT
-		_fout <<"Energy of the labeling consistent with the arc consistency ="<<_lpsolver.graphicalModel().evaluate(labeling_lp)<<std::endl;
-		_fout <<"Arc inconsistent set size ="<<std::count(initialmask.begin(),initialmask.end(),false)<<std::endl;
-#endif
-
-#ifdef TRWS_DEBUG_OUTPUT
-		_fout << "Trivializing."<<std::endl;
-#endif
-
-#ifdef  WITH_HDF5
-		if (_parameter.reparametrizedModelFileName_.compare("")!=0)
-		{
-#ifdef  TRWS_DEBUG_OUTPUT
-			_fout << "Saving reparametrized model..."<<std::endl;
-#endif
-			if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
-				visitor.end(*this);
-				return NORMAL;
-			}
-			_base.ReparametrizeAndSave();
-			if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
-				visitor.end(*this);
-				return NORMAL;
-			}
-		}
-#endif
-
-		if (std::count(initialmask.begin(),initialmask.end(),false)==0)
-			return NORMAL;
-
-		trws_base::transform_inplace(initialmask.begin(),initialmask.end(),std::logical_not<bool>());
-
-		MaskType mask;
-		if (_parameter.singleReparametrization_) //BSD: do not need to dilate it in the new approach
-		 combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);
-		else mask=initialmask;
-
-		visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
-		InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis,value(),bound());
-		if ( (terminationVal==NORMAL) || (terminationVal==CONVERGENCE) )
-		{
-			_value=_base.value();
-			_bound=_base.bound();
-			_base.arg(_labeling);
-		}
-
-		visitor.end(*this);
-		//return terminationVal;
-		return NORMAL;
-	}
 
 }
 
