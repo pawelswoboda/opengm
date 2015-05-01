@@ -86,6 +86,7 @@ public:
 		}
 	virtual ValueType bound() const{return _bound;};
 	virtual ValueType value() const{return _value;};
+
 private:
 	Parameter _parameter;
 	LPSOLVER _lpsolver;
@@ -97,15 +98,18 @@ private:
 };
 
 template<class GM, class ACC, class LPSOLVER>
-CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter& param)
+CombiLP<GM, ACC, LPSOLVER>::CombiLP
+(
+	const GraphicalModelType& gm,
+	const Parameter& param
+)
 : _parameter(param)
-,_lpsolver(gm,param.lpsolverParameter_
-  )
-,_plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
-,_base(*_plpparametrizer, param)
-,_labeling(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
-,_value(_lpsolver.value())
-,_bound(_lpsolver.bound())
+, _lpsolver(gm,param.lpsolverParameter_)
+, _plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
+, _base(*_plpparametrizer, param)
+, _labeling(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
+, _value(_lpsolver.value())
+, _bound(_lpsolver.bound())
 {
 #ifdef TRWS_DEBUG_OUTPUT
 	std::cout << "Parameters of the " << name() << " algorithm:" << std::endl;
@@ -115,7 +119,11 @@ CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter&
 
 template<class GM, class ACC, class LPSOLVER>
 template<class VISITOR>
-InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
+InferenceTermination
+CombiLP<GM, ACC, LPSOLVER>::infer
+(
+	VISITOR &visitor
+)
 {
 #ifdef TRWS_DEBUG_OUTPUT
 	std::cout << "Running LP solver "<< _lpsolver.name() << std::endl;
@@ -185,7 +193,6 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 	}
 
 	visitor.end(*this);
-	//return terminationVal;
 	return NORMAL;
 }
 
