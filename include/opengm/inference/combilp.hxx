@@ -67,11 +67,7 @@ public:
 	//
 	// Methods
 	//
-	CombiLP(const GraphicalModelType& gm, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-				  , std::ostream& fout=std::cout
-#endif
-		);
+	CombiLP(const GraphicalModelType& gm, const Parameter& param);
 	virtual ~CombiLP(){if (_plpparametrizer!=0) delete _plpparametrizer;};
 	std::string name() const{ return "CombiLP"; }
 	const GraphicalModelType& graphicalModel() const { return _lpsolver.graphicalModel(); }
@@ -98,39 +94,22 @@ private:
 	std::vector<LabelType> _labeling;
 	ValueType _value;
 	ValueType _bound;
-#ifdef TRWS_DEBUG_OUTPUT
-	std::ostream& _fout;
-#endif
 };
 
 template<class GM, class ACC, class LPSOLVER>
-CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-											 , std::ostream& fout
-#endif
-	)
+CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter& param)
 : _parameter(param)
 ,_lpsolver(gm,param.lpsolverParameter_
-#ifdef TRWS_DEBUG_OUTPUT
-			 ,(param.lpsolverParameter_.verbose_ ? fout : *OUT::nullstream::Instance())//fout
-#endif
   )
 ,_plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
-,_base(*_plpparametrizer, param
-#ifdef TRWS_DEBUG_OUTPUT
-		,fout
-#endif
-  )
+,_base(*_plpparametrizer, param)
 ,_labeling(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
 ,_value(_lpsolver.value())
 ,_bound(_lpsolver.bound())
-#ifdef TRWS_DEBUG_OUTPUT
-,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
-#endif
 {
 #ifdef TRWS_DEBUG_OUTPUT
-	_fout << "Parameters of the "<< name() <<" algorithm:"<<std::endl;
-	param.print(_fout);
+	std::cout << "Parameters of the " << name() << " algorithm:" << std::endl;
+	param.print();
 #endif
 };
 
@@ -139,7 +118,7 @@ template<class VISITOR>
 InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 {
 #ifdef TRWS_DEBUG_OUTPUT
-	_fout <<"Running LP solver "<<_lpsolver.name()<<std::endl;
+	std::cout << "Running LP solver "<< _lpsolver.name() << std::endl;
 #endif
 	visitor.begin(*this);
 
@@ -160,19 +139,19 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 	_lpsolver.getTreeAgreement(initialmask,&labeling_lp);
 
 #ifdef TRWS_DEBUG_OUTPUT
-	_fout <<"Energy of the labeling consistent with the arc consistency ="<<_lpsolver.graphicalModel().evaluate(labeling_lp)<<std::endl;
-	_fout <<"Arc inconsistent set size ="<<std::count(initialmask.begin(),initialmask.end(),false)<<std::endl;
+	std::cout <<"Energy of the labeling consistent with the arc consistency ="<<_lpsolver.graphicalModel().evaluate(labeling_lp)<<std::endl;
+	std::cout <<"Arc inconsistent set size ="<<std::count(initialmask.begin(),initialmask.end(),false)<<std::endl;
 #endif
 
 #ifdef TRWS_DEBUG_OUTPUT
-	_fout << "Trivializing."<<std::endl;
+	std::cout << "Trivializing."<<std::endl;
 #endif
 
 #ifdef  WITH_HDF5
 	if (_parameter.reparametrizedModelFileName_.compare("")!=0)
 	{
 #ifdef  TRWS_DEBUG_OUTPUT
-		_fout << "Saving reparametrized model..."<<std::endl;
+		std::cout << "Saving reparametrized model..."<<std::endl;
 #endif
 		if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
 			visitor.end(*this);
@@ -356,14 +335,14 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 			size_t threads_;
 
 #ifdef TRWS_DEBUG_OUTPUT
-			virtual void print(std::ostream& fout)const
+			virtual void print()const
 				{
-					fout <<"maxNumberOfILPCycles="<<maxNumberOfILPCycles_<<std::endl;
-					fout <<"verbose"<<verbose_<<std::endl;
-					fout <<"reparametrizedModelFileName="<<reparametrizedModelFileName_<<std::endl;
-					fout <<"singleReparametrization="<<singleReparametrization_<<std::endl;
-					fout <<"saveProblemMasks="<<saveProblemMasks_<<std::endl;
-					fout <<"maskFileNamePre="<<maskFileNamePre_<<std::endl;
+					std::cout <<"maxNumberOfILPCycles="<<maxNumberOfILPCycles_<<std::endl;
+					std::cout <<"verbose"<<verbose_<<std::endl;
+					std::cout <<"reparametrizedModelFileName="<<reparametrizedModelFileName_<<std::endl;
+					std::cout <<"singleReparametrization="<<singleReparametrization_<<std::endl;
+					std::cout <<"saveProblemMasks="<<saveProblemMasks_<<std::endl;
+					std::cout <<"maskFileNamePre="<<maskFileNamePre_<<std::endl;
 				}
 #endif
 		};
@@ -387,11 +366,7 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 
 			typedef LPCplex<typename GMManipulatorType::MGM, Minimizer> LPCPLEX;//TODO: move to template parameters
 
-			CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-							 , std::ostream& fout=std::cout
-#endif
-				);
+			CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param);
 			virtual ~CombiLP_base(){};
 
 			const GraphicalModelType& graphicalModel() const { return _lpparametrizer->graphicalModel(); }
@@ -416,25 +391,15 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 			std::vector<LabelType> _labeling;
 			ValueType _value;
 			ValueType _bound;
-#ifdef TRWS_DEBUG_OUTPUT
-			std::ostream& _fout;
-#endif
 		};
 
 		template<class GM, class ACC, class LPREPARAMETRIZER>
-		CombiLP_base<GM,ACC,LPREPARAMETRIZER>::CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-																			 , std::ostream& fout
-#endif
-			)
+		CombiLP_base<GM,ACC,LPREPARAMETRIZER>::CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param)
 	:	_parameter(param)
 	,_lpparametrizer(reparametrizer)
 	,_labeling(_lpparametrizer.graphicalModel().numberOfVariables(),std::numeric_limits<LabelType>::max())
 	,_value(ACC::template neutral<ValueType>())
 	,_bound(ACC::template ineutral<ValueType>())
-#ifdef TRWS_DEBUG_OUTPUT
-	,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
-#endif
 		{
 		};
 
@@ -478,11 +443,11 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 			 _bound=bound_;
 #ifdef TRWS_DEBUG_OUTPUT
 			if (!_parameter.singleReparametrization_)
-				_fout << "Applying reparametrization for each ILP run ..."<<std::endl;
+				std::cout << "Applying reparametrization for each ILP run ..."<<std::endl;
 			else
-				_fout << "Applying a single uniform reparametrization..."<<std::endl;
+				std::cout << "Applying a single uniform reparametrization..."<<std::endl;
 
-			_fout <<"Switching to ILP."<<std::endl;
+			std::cout <<"Switching to ILP."<<std::endl;
 #endif
 
 			bool startILP=true;
@@ -498,7 +463,7 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 				}
 
 #ifdef TRWS_DEBUG_OUTPUT
-				_fout << "Subproblem "<<i<<" size="<<std::count(mask.begin(),mask.end(),true)<<std::endl;
+				std::cout << "Subproblem "<<i<<" size="<<std::count(mask.begin(),mask.end(),true)<<std::endl;
 #endif
 
 				MaskType boundmask(mask.size());
@@ -515,7 +480,7 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 				if (_parameter.singleReparametrization_ && (!reparametrizedFlag) )
 				{
 #ifdef TRWS_DEBUG_OUTPUT
-					_fout << "Reparametrizing..."<<std::endl;
+					std::cout << "Reparametrizing..."<<std::endl;
 #endif
 					_Reparametrize(&gm,MaskType(mask.size(),true));
 					reparametrizedFlag=true;
@@ -523,7 +488,7 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 				else if (!_parameter.singleReparametrization_)
 				{
 #ifdef TRWS_DEBUG_OUTPUT
-					_fout << "Reparametrizing..."<<std::endl;
+					std::cout << "Reparametrizing..."<<std::endl;
 #endif
 					_Reparametrize(&gm,mask);
 				}
@@ -543,7 +508,7 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 				if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE))
 				{
 #ifdef TRWS_DEBUG_OUTPUT
-					_fout << "ILP solver failed to solve the problem. Best attained results will be saved." <<std::endl;
+					std::cout << "ILP solver failed to solve the problem. Best attained results will be saved." <<std::endl;
 #endif
 					 if (_parameter.singleReparametrization_)  //TODO: BSD: check that in this case the resulting labeling is the best one attained and not obligatory lp_labeling
 						_labeling=lp_labeling;
@@ -553,7 +518,7 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 				}
 
 #ifdef TRWS_DEBUG_OUTPUT
-				_fout <<"Boundary size="<<std::count(boundmask.begin(),boundmask.end(),true)<<std::endl;
+				std::cout <<"Boundary size="<<std::count(boundmask.begin(),boundmask.end(),true)<<std::endl;
 #endif
 
 				std::list<IndexType> result;
@@ -580,9 +545,9 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 					 //vis();
 
 	 #ifdef TRWS_DEBUG_OUTPUT
-					 _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
-					 _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
-					 _fout << "new gap="<<gap<<std::endl;
+					 std::cout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
+					 std::cout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
+					 std::cout << "new gap="<<gap<<std::endl;
 	 #endif
 				}
 
@@ -593,13 +558,13 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 					_value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
 					terminationId=NORMAL;
 #ifdef TRWS_DEBUG_OUTPUT
-					_fout <<"Solved! Optimal energy="<<value()<<std::endl;
+					std::cout <<"Solved! Optimal energy="<<value()<<std::endl;
 #endif
 				}
 				else
 				{
 #ifdef TRWS_DEBUG_OUTPUT
-					_fout <<"Adding "<<result.size()<<" nodes."<<std::endl;
+					std::cout <<"Adding "<<result.size()<<" nodes."<<std::endl;
 					if (_parameter.saveProblemMasks_)
 						OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
 #endif
@@ -661,11 +626,11 @@ InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
 		REPARAMETRIZERPARAMETERS repaParameter_;
 
 #ifdef TRWS_DEBUG_OUTPUT
-		void print(std::ostream& fout)const
+		void print()const
 			{
-				parent::print(fout);
-				fout << "== lpsolverParameters: =="<<std::endl;
-				lpsolverParameter_.print(fout);
+				parent::print();
+				std::cout << "== lpsolverParameters: =="<<std::endl;
+				lpsolverParameter_.print(std::cout);
 			}
 #endif
 	};
