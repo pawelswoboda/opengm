@@ -150,19 +150,16 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 	lpsolver_.getTreeAgreement(initialmask,&labeling_lp);
 
 #ifdef OPENGM_COMBILP_DEBUG
-	std::cout <<"Energy of the labeling consistent with the arc consistency ="<<lpsolver_.graphicalModel().evaluate(labeling_lp)<<std::endl;
-	std::cout <<"Arc inconsistent set size ="<<std::count(initialmask.begin(),initialmask.end(),false)<<std::endl;
-#endif
-
-#ifdef OPENGM_COMBILP_DEBUG
-	std::cout << "Trivializing."<<std::endl;
+	std::cout << "Energy of the labeling consistent with the arc consistency =" << lpsolver_.graphicalModel().evaluate(labeling_lp) << std::endl;
+	std::cout << "Arc inconsistent set size =" << std::count(initialmask.begin(),initialmask.end(),false) << std::endl;
+	std::cout << "Trivializing." << std::endl;
 #endif
 
 #ifdef  WITH_HDF5
 	if (parameter_.reparametrizedModelFileName_.compare("")!=0)
 	{
 #ifdef OPENGM_COMBILP_DEBUG
-		std::cout << "Saving reparametrized model..."<<std::endl;
+		std::cout << "Saving reparametrized model..." << std::endl;
 #endif
 		if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
 			visitor.end(*this);
@@ -347,12 +344,12 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 #ifdef OPENGM_COMBILP_DEBUG
 			virtual void print()const
 				{
-					std::cout <<"maxNumberOfILPCycles="<<maxNumberOfILPCycles_<<std::endl;
-					std::cout <<"verbose"<<verbose_<<std::endl;
-					std::cout <<"reparametrizedModelFileName="<<reparametrizedModelFileName_<<std::endl;
-					std::cout <<"singleReparametrization="<<singleReparametrization_<<std::endl;
-					std::cout <<"saveProblemMasks="<<saveProblemMasks_<<std::endl;
-					std::cout <<"maskFileNamePre="<<maskFileNamePre_<<std::endl;
+					std::cout << "maxNumberOfILPCycles=" << maxNumberOfILPCycles_ << std::endl;
+					std::cout << "verbose" << verbose_ << std::endl;
+					std::cout << "reparametrizedModelFileName=" << reparametrizedModelFileName_ << std::endl;
+					std::cout << "singleReparametrization=" << singleReparametrization_ << std::endl;
+					std::cout << "saveProblemMasks=" << saveProblemMasks_ << std::endl;
+					std::cout << "maskFileNamePre=" << maskFileNamePre_ << std::endl;
 				}
 #endif
 		};
@@ -434,7 +431,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 
 				if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE)){
 					return terminationILP;
-					//std::cout << "WARNING: solving ILP failed!"<<std::endl;
+					//std::cout << "WARNING: solving ILP failed!" << std::endl;
 					//return NORMAL;
 				}
 				else
@@ -453,11 +450,11 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 			 bound_=bound_;
 #ifdef OPENGM_COMBILP_DEBUG
 			if (!parameter_.singleReparametrization_)
-				std::cout << "Applying reparametrization for each ILP run ..."<<std::endl;
+				std::cout << "Applying reparametrization for each ILP run ..." << std::endl;
 			else
-				std::cout << "Applying a single uniform reparametrization..."<<std::endl;
+				std::cout << "Applying a single uniform reparametrization..." << std::endl;
 
-			std::cout <<"Switching to ILP."<<std::endl;
+			std::cout << "Switching to ILP." << std::endl;
 #endif
 
 			bool startILP=true;
@@ -473,7 +470,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 				}
 
 #ifdef OPENGM_COMBILP_DEBUG
-				std::cout << "Subproblem "<<i<<" size="<<std::count(mask.begin(),mask.end(),true)<<std::endl;
+				std::cout << "Subproblem " << i << " size=" << std::count(mask.begin(),mask.end(),true) << std::endl;
 #endif
 
 				MaskType boundmask(mask.size());
@@ -490,7 +487,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 				if (parameter_.singleReparametrization_ && (!reparametrizedFlag) )
 				{
 #ifdef OPENGM_COMBILP_DEBUG
-					std::cout << "Reparametrizing..."<<std::endl;
+					std::cout << "Reparametrizing..." << std::endl;
 #endif
 					Reparametrize_(&gm,MaskType(mask.size(),true));
 					reparametrizedFlag=true;
@@ -498,7 +495,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 				else if (!parameter_.singleReparametrization_)
 				{
 #ifdef OPENGM_COMBILP_DEBUG
-					std::cout << "Reparametrizing..."<<std::endl;
+					std::cout << "Reparametrizing..." << std::endl;
 #endif
 					Reparametrize_(&gm,mask);
 				}
@@ -518,7 +515,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 				if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE))
 				{
 #ifdef OPENGM_COMBILP_DEBUG
-					std::cout << "ILP solver failed to solve the problem. Best attained results will be saved." <<std::endl;
+					std::cout << "ILP solver failed to solve the problem. Best attained results will be saved." << std::endl;
 #endif
 					 if (parameter_.singleReparametrization_)  //TODO: BSD: check that in this case the resulting labeling is the best one attained and not obligatory lp_labeling
 						labeling_=lp_labeling;
@@ -528,7 +525,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 				}
 
 #ifdef OPENGM_COMBILP_DEBUG
-				std::cout <<"Boundary size="<<std::count(boundmask.begin(),boundmask.end(),true)<<std::endl;
+				std::cout << "Boundary size=" << std::count(boundmask.begin(),boundmask.end(),true) << std::endl;
 #endif
 
 				std::list<IndexType> result;
@@ -554,11 +551,11 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 					 ACC::iop(bound_,newbound,bound_);
 					 //vis();
 
-	 #ifdef OPENGM_COMBILP_DEBUG
-					 std::cout <<"newvalue="<<newvalue<<"; best value="<<value_<<std::endl;
-					 std::cout <<"newbound="<<newbound<<"; best bound="<<bound_<<std::endl;
-					 std::cout << "new gap="<<gap<<std::endl;
-	 #endif
+#ifdef OPENGM_COMBILP_DEBUG
+					 std::cout << "newvalue=" << newvalue << "; best value=" << value_ << std::endl;
+					 std::cout << "newbound=" << newbound << "; best bound=" << bound_ << std::endl;
+					 std::cout << "new gap=" << gap << std::endl;
+#endif
 				}
 
 				if (optimalityFlag || (fabs(value_-bound_)<= std::numeric_limits<ValueType>::epsilon()*value_) )
@@ -568,13 +565,13 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 					value_=bound_=lpparametrizer_.graphicalModel().evaluate(labeling_);
 					terminationId=NORMAL;
 #ifdef OPENGM_COMBILP_DEBUG
-					std::cout <<"Solved! Optimal energy="<<value()<<std::endl;
+					std::cout << "Solved! Optimal energy=" << value() << std::endl;
 #endif
 				}
 				else
 				{
 #ifdef OPENGM_COMBILP_DEBUG
-					std::cout <<"Adding "<<result.size()<<" nodes."<<std::endl;
+					std::cout << "Adding " << result.size() << " nodes." << std::endl;
 					if (parameter_.saveProblemMasks_)
 						OUT::saveContainer(std::string(parameter_.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
 #endif
@@ -639,7 +636,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 		void print()const
 			{
 				parent::print();
-				std::cout << "== lpsolverParameters: =="<<std::endl;
+				std::cout << "== lpsolverParameters: ==" << std::endl;
 				lpsolverParameter_.print(std::cout);
 			}
 #endif
