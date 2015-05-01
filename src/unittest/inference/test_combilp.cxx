@@ -51,8 +51,9 @@ int main() {
    std::cout << "Test CombiLP ..." << std::endl;
 
    {
-	   typedef opengm::TRWSi<GraphicalModelType,opengm::Minimizer> TRWSiSolverType;
-	   typedef opengm::CombiLP<GraphicalModelType,opengm::Minimizer,TRWSiSolverType> CombiLPType;
+	   typedef opengm::TRWSi<GraphicalModelType,opengm::Minimizer> LPSolverType;
+	   typedef opengm::Bruteforce<opengm::CombiLP_ILP_TypeGen<LPSolverType>::GraphicalModelType,opengm::Minimizer> ILPSolverType;
+	   typedef opengm::CombiLP<GraphicalModelType,opengm::Minimizer,LPSolverType,ILPSolverType> CombiLPType;
 	   CombiLPType::Parameter param;
 	   param.lpsolverParameter_.maxNumberOfIterations_=100;
 	   minTester.test<CombiLPType>(param);
