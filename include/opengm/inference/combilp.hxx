@@ -21,7 +21,7 @@
 
 namespace opengm{
 
-namespace combilp_base {
+namespace combilp {
 	template<class GM, class ACC, class REPA>
 	class CombiLP_base;
 
@@ -53,7 +53,7 @@ public:
 	// Types
 	//
 	typedef typename LPSOLVER::ReparametrizerType ReparametrizerType;
-	typedef combilp_base::CombiLP_base<GM,ACC,ReparametrizerType> BaseType;
+	typedef combilp::CombiLP_base<GM,ACC,ReparametrizerType> BaseType;
 
 	typedef ACC AccumulationType;
 	typedef GM GraphicalModelType;
@@ -180,7 +180,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 
 	MaskType mask;
 	if (parameter_.singleReparametrization_) //BSD: do not need to dilate it in the new approach
-	 combilp_base::DilateMask(lpsolver_.graphicalModel(),initialmask,&mask);
+	 combilp::DilateMask(lpsolver_.graphicalModel(),initialmask,&mask);
 	else mask=initialmask;
 
 	visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
@@ -216,7 +216,7 @@ CombiLP<GM, ACC, LPSOLVER>::arg(
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-	namespace combilp_base{
+	namespace combilp{
 
 		template<class FACTOR>
 		void MakeFactorVariablesTrue(const FACTOR& f,std::vector<bool>* pmask)
@@ -617,12 +617,12 @@ CombiLP<GM, ACC, LPSOLVER>::arg(
 			store_into_explicit(gm, parameter_.reparametrizedModelFileName_);
 		}
 
-	}//namespace combilp_base	=========================================================================
+	}//namespace combilp	=========================================================================
 
 	template<class LPSOLVERPARAMETERS,class REPARAMETRIZERPARAMETERS>
-	struct CombiLP_Parameter : public combilp_base::CombiLP_base_Parameter
+	struct CombiLP_Parameter : public combilp::CombiLP_base_Parameter
 	{
-		typedef combilp_base::CombiLP_base_Parameter parent;
+		typedef combilp::CombiLP_base_Parameter parent;
 		CombiLP_Parameter(const LPSOLVERPARAMETERS& lpsolverParameter=LPSOLVERPARAMETERS(),
 								const REPARAMETRIZERPARAMETERS& repaParameter=REPARAMETRIZERPARAMETERS(),
 								size_t maxNumberOfILPCycles=100,
