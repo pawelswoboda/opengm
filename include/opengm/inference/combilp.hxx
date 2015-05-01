@@ -11,6 +11,8 @@
 // To enable detailed debug output enable the following preprocessor macro:
 // #define OPENGM_COMBILP_DEBUG
 
+#include <boost/scoped_ptr.hpp>
+
 #include <opengm/graphicalmodel/graphicalmodel_manipulator.hxx>
 #include <opengm/inference/lpcplex.hxx>
 #include <opengm/inference/auxiliary/lp_reparametrization.hxx>
@@ -71,7 +73,6 @@ public:
 	// Methods
 	//
 	CombiLP(const GraphicalModelType& gm, const Parameter& param);
-	virtual ~CombiLP(){if (plpparametrizer_!=0) delete plpparametrizer_;};
 	std::string name() const{ return "CombiLP"; }
 	const GraphicalModelType& graphicalModel() const { return lpsolver_.graphicalModel(); }
 
@@ -84,7 +85,7 @@ public:
 private:
 	Parameter parameter_;
 	LPSOLVER lpsolver_;
-	ReparametrizerType* plpparametrizer_;
+	boost::scoped_ptr<ReparametrizerType> plpparametrizer_;
 	BaseType base_;
 	std::vector<LabelType> labeling_;
 	ValueType value_;
