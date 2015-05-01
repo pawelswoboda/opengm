@@ -30,9 +30,11 @@ namespace combilp {
 
 	template<class GM>
 	void DilateMask(const GM&,const std::vector<bool>&, std::vector<bool>*);
+
+	template<class LP, class REPA>
+	class Parameter;
 }
 
-template<class LP, class REPA> class CombiLP_Parameter;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -53,7 +55,7 @@ public:
 	// Types
 	//
 	typedef typename LPSOLVER::ReparametrizerType ReparametrizerType;
-	typedef combilp::CombiLP_base<GM,ACC,ReparametrizerType> BaseType;
+	typedef combilp::CombiLP_base<GM,ACC,LPSOLVER> BaseType;
 
 	typedef ACC AccumulationType;
 	typedef GM GraphicalModelType;
@@ -63,7 +65,7 @@ public:
 	typedef visitors::EmptyVisitor<CombiLP<GM, ACC, LPSOLVER> >   EmptyVisitorType;
 	typedef visitors::TimingVisitor<CombiLP<GM, ACC, LPSOLVER> >  TimingVisitorType;
 
-	typedef CombiLP_Parameter<typename LPSOLVER::Parameter,typename ReparametrizerType::Parameter> Parameter;
+	typedef combilp::Parameter<typename LPSOLVER::Parameter,typename ReparametrizerType::Parameter> Parameter;
 	typedef typename ReparametrizerType::MaskType MaskType;
 	typedef typename BaseType::GMManipulatorType GMManipulatorType;
 
@@ -216,6 +218,66 @@ CombiLP<GM, ACC, LPSOLVER>::arg(
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace combilp {
+
+	template<class LPSOLVERPARAMETERS, class REPARAMETRIZERPARAMETERS>
+	struct Parameter
+	{
+		Parameter
+		(
+			LPSOLVERPARAMETERS lpsolverParameter = LPSOLVERPARAMETERS(),
+			REPARAMETRIZERPARAMETERS repaParameter = REPARAMETRIZERPARAMETERS(),
+			size_t maxNumberOfILPCycles = 100,
+			bool verbose = false,
+			std::string reparametrizedModelFileName = "",
+			bool singleReparametrization = true,
+			bool saveProblemMasks = false,
+			std::string maskFileNamePre = "",
+			size_t threads = 1
+		)
+		: maxNumberOfILPCycles_(maxNumberOfILPCycles)
+		, verbose_(verbose)
+		, reparametrizedModelFileName_(reparametrizedModelFileName)
+		, singleReparametrization_(singleReparametrization)
+		, saveProblemMasks_(saveProblemMasks)
+		, maskFileNamePre_(maskFileNamePre)
+		, threads_(threads)
+		{
+		}
+
+		size_t maxNumberOfILPCycles_;
+		bool verbose_;
+		std::string reparametrizedModelFileName_;
+		bool singleReparametrization_;
+		bool saveProblemMasks_;
+		std::string maskFileNamePre_;
+		size_t threads_;
+
+		LPSOLVERPARAMETERS lpsolverParameter_;
+		REPARAMETRIZERPARAMETERS repaParameter_;
+
+#ifdef OPENGM_COMBILP_DEBUG
+		void
+		print() const
+		{
+			std::cout << "maxNumberOfILPCycles=" << maxNumberOfILPCycles_ << std::endl;
+			std::cout << "verbose" << verbose_ << std::endl;
+			std::cout << "reparametrizedModelFileName=" << reparametrizedModelFileName_ << std::endl;
+			std::cout << "singleReparametrization=" << singleReparametrization_ << std::endl;
+			std::cout << "saveProblemMasks=" << saveProblemMasks_ << std::endl;
+			std::cout << "maskFileNamePre=" << maskFileNamePre_ << std::endl;
+			std::cout << "== lpsolverParameters: ==" << std::endl;
+			lpsolverParameter_.print(std::cout);
+		}
+#endif
+	};
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
 	namespace combilp{
 
 		template<class FACTOR>
@@ -328,48 +390,7 @@ CombiLP<GM, ACC, LPSOLVER>::arg(
 			}
 		}
 
-//template<class LPREPARAMETRIZERPARAMETERS>
-		struct CombiLP_base_Parameter{
-
-			CombiLP_base_Parameter(size_t maxNumberOfILPCycles=100,
-										  bool verbose=false,
-										  const std::string& reparametrizedModelFileName="",//will not be saved if empty
-										  bool singleReparametrization=true,
-										  bool saveProblemMasks=false,
-										  std::string maskFileNamePre=""):
-				maxNumberOfILPCycles_(maxNumberOfILPCycles),
-				verbose_(verbose),
-				reparametrizedModelFileName_(reparametrizedModelFileName),
-				singleReparametrization_(singleReparametrization),
-				saveProblemMasks_(saveProblemMasks),
-				maskFileNamePre_(maskFileNamePre),
-				threads_(1)
-				{};
-			virtual ~CombiLP_base_Parameter(){};
-			size_t maxNumberOfILPCycles_;
-			bool verbose_;
-			std::string reparametrizedModelFileName_;
-			bool singleReparametrization_;
-			bool saveProblemMasks_;
-			std::string maskFileNamePre_;
-			size_t threads_;
-
-#ifdef OPENGM_COMBILP_DEBUG
-			virtual void print()const
-				{
-					std::cout << "maxNumberOfILPCycles=" << maxNumberOfILPCycles_ << std::endl;
-					std::cout << "verbose" << verbose_ << std::endl;
-					std::cout << "reparametrizedModelFileName=" << reparametrizedModelFileName_ << std::endl;
-					std::cout << "singleReparametrization=" << singleReparametrization_ << std::endl;
-					std::cout << "saveProblemMasks=" << saveProblemMasks_ << std::endl;
-					std::cout << "maskFileNamePre=" << maskFileNamePre_ << std::endl;
-				}
-#endif
-		};
-
-
-
-		template<class GM, class ACC, class LPREPARAMETRIZER>//TODO: remove default ILP solver
+		template<class GM, class ACC, class LPSOLVER>
 		class CombiLP_base
 		{
 		public:
@@ -378,8 +399,10 @@ CombiLP<GM, ACC, LPSOLVER>::arg(
 
 			OPENGM_GM_TYPE_TYPEDEFS;
 
-			typedef CombiLP_base_Parameter Parameter;
-			typedef LPREPARAMETRIZER ReparametrizerType;
+			typedef typename LPSOLVER::ReparametrizerType ReparametrizerType;
+			typedef typename LPSOLVER::ReparametrizerType LPREPARAMETRIZER;
+
+			typedef combilp::Parameter<typename LPSOLVER::Parameter,typename ReparametrizerType::Parameter> Parameter;
 			typedef typename ReparametrizerType::MaskType MaskType;
 
 			typedef typename opengm::GraphicalModelManipulator<typename ReparametrizerType::ReparametrizedGMType> GMManipulatorType;
@@ -619,41 +642,6 @@ CombiLP<GM, ACC, LPSOLVER>::arg(
 
 	}//namespace combilp	=========================================================================
 
-	template<class LPSOLVERPARAMETERS,class REPARAMETRIZERPARAMETERS>
-	struct CombiLP_Parameter : public combilp::CombiLP_base_Parameter
-	{
-		typedef combilp::CombiLP_base_Parameter parent;
-		CombiLP_Parameter(const LPSOLVERPARAMETERS& lpsolverParameter=LPSOLVERPARAMETERS(),
-								const REPARAMETRIZERPARAMETERS& repaParameter=REPARAMETRIZERPARAMETERS(),
-								size_t maxNumberOfILPCycles=100,
-								bool verbose=false,
-								bool saveReparametrizedModel=false,
-								const std::string& reparametrizedModelFileName="",
-								bool singleReparametrization=true,
-								bool saveProblemMasks=false,
-								std::string maskFileNamePre=""):
-			parent(maxNumberOfILPCycles,
-					 verbose,
-					 reparametrizedModelFileName,
-					 singleReparametrization,
-					 saveProblemMasks,
-					 maskFileNamePre),
-			lpsolverParameter_(lpsolverParameter),
-			repaParameter_(repaParameter)
-			{
-			};
-		LPSOLVERPARAMETERS lpsolverParameter_;
-		REPARAMETRIZERPARAMETERS repaParameter_;
-
-#ifdef OPENGM_COMBILP_DEBUG
-		void print()const
-			{
-				parent::print();
-				std::cout << "== lpsolverParameters: ==" << std::endl;
-				lpsolverParameter_.print(std::cout);
-			}
-#endif
-	};
 
 
 }
