@@ -84,10 +84,10 @@ public:
 
 	InferenceTermination infer();
 	template<class VISITOR> InferenceTermination infer(VISITOR &visitor);
-	template<class VISITORWRAPPER> InferenceTermination infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis,ValueType value, ValueType bound);
+	template<class VISITORWRAPPER> InferenceTermination infer(MaskType& mask, const std::vector<LabelType>& lp_labeling, VISITORWRAPPER& vis, ValueType value, ValueType bound);
 	InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const;
-	ValueType bound() const{return bound_;};
-	ValueType value() const{return value_;};
+	ValueType bound() const { return bound_; }
+	ValueType value() const { return value_; }
 
 private:
 	//
@@ -102,7 +102,7 @@ private:
 	//
 	Parameter parameter_;
 	LPSOLVER lpsolver_;
-	boost::scoped_ptr<ReparametrizerType> plpparametrizer_;
+	boost::scoped_ptr<ReparametrizerType> reparametrizer_;
 	std::vector<LabelType> labeling_;
 	ValueType value_;
 	ValueType bound_;
@@ -116,15 +116,10 @@ CombiLP<GM, ACC, LPSOLVER>::CombiLP
 )
 : parameter_(param)
 , lpsolver_(gm,param.lpsolverParameter_)
-, plpparametrizer_(lpsolver_.getReparametrizer(parameter_.repaParameter_))//TODO: parameters of the reparametrizer come here
+, reparametrizer_(lpsolver_.getReparametrizer(parameter_.repaParameter_))//TODO: parameters of the reparametrizer come here
 , labeling_(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
-, value_(lpsolver_.value())
-, bound_(lpsolver_.bound())
-// FROM BASE CLASS:
-#if 0
 , value_(ACC::template neutral<ValueType>())
 , bound_(ACC::template ineutral<ValueType>())
-#endif
 {
 #ifdef OPENGM_COMBILP_DEBUG
 	std::cout << "Parameters of the " << name() << " algorithm:" << std::endl;
@@ -154,19 +149,19 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 	visitor.begin(*this);
 
 	lpsolver_.infer();
-	value_=lpsolver_.value();
-	bound_=lpsolver_.bound();
+	value_ = lpsolver_.value();
+	bound_ = lpsolver_.bound();
 	lpsolver_.arg(labeling_);
 
-	if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
+	if(visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) {
 		visitor.end(*this);
 		return NORMAL;
 	}
 
 	std::vector<LabelType> labeling_lp;
 	MaskType initialmask;
-	plpparametrizer_->reparametrize();
-	//plpparametrizer_->getArcConsistency(&initialmask,&labeling_lp);
+	reparametrizer_->reparametrize();
+	//reparametrizer_->getArcConsistency(&initialmask,&labeling_lp);
 	lpsolver_.getTreeAgreement(initialmask,&labeling_lp);
 
 #ifdef OPENGM_COMBILP_DEBUG
@@ -306,7 +301,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer(
 #endif
 
 		MaskType boundmask(mask.size());
-		combilp::GetMaskBoundary(plpparametrizer_->graphicalModel(),mask, boundmask);
+		combilp::GetMaskBoundary(reparametrizer_->graphicalModel(),mask, boundmask);
 
 #ifdef OPENGM_COMBILP_DEBUG
 		if (parameter_.saveProblemMasks_) {
@@ -391,7 +386,7 @@ CombiLP<GM, ACC, LPSOLVER>::infer(
 		if (optimalityFlag || (fabs(value_-bound_)<= std::numeric_limits<ValueType>::epsilon()*value_)) {
 			startILP=false;
 			labeling_=labeling;
-			value_=bound_=plpparametrizer_->graphicalModel().evaluate(labeling_);
+			value_=bound_=reparametrizer_->graphicalModel().evaluate(labeling_);
 			terminationId=NORMAL;
 #ifdef OPENGM_COMBILP_DEBUG
 			std::cout << "Solved! Optimal energy=" << value() << std::endl;
@@ -421,8 +416,8 @@ CombiLP<GM, ACC, LPSOLVER>::Reparametrize_(
 	const MaskType& mask
 )
 {
-	plpparametrizer_->reparametrize(&mask);
-	plpparametrizer_->getReparametrizedModel(pgm);
+	reparametrizer_->reparametrize(&mask);
+	reparametrizer_->getReparametrizedModel(pgm);
 }
 
 template<class GM, class ACC, class LPSOLVER>
@@ -430,7 +425,7 @@ void
 CombiLP<GM, ACC, LPSOLVER>::ReparametrizeAndSave()
 {
 	typename ReparametrizerType::ReparametrizedGMType gm;
-	Reparametrize_(gm,MaskType(plpparametrizer_->graphicalModel().numberOfVariables(),true));
+	Reparametrize_(gm,MaskType(reparametrizer_->graphicalModel().numberOfVariables(),true));
 	store_into_explicit(gm, parameter_.reparametrizedModelFileName_);
 }
 
