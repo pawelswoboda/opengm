@@ -74,21 +74,12 @@ public:
 	virtual ~CombiLP(){if (plpparametrizer_!=0) delete plpparametrizer_;};
 	std::string name() const{ return "CombiLP"; }
 	const GraphicalModelType& graphicalModel() const { return lpsolver_.graphicalModel(); }
-	InferenceTermination infer()
-		{
-			EmptyVisitorType vis;
-			return infer(vis);
-		};
 
-	template<class VISITOR> InferenceTermination infer(VISITOR & visitor);
-
-	InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
-		{
-			out = labeling_;
-			return opengm::NORMAL;
-		}
-	virtual ValueType bound() const{return bound_;};
-	virtual ValueType value() const{return value_;};
+	InferenceTermination infer();
+	template<class VISITOR> InferenceTermination infer(VISITOR &visitor);
+	InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const;
+	ValueType bound() const{return bound_;};
+	ValueType value() const{return value_;};
 
 private:
 	Parameter parameter_;
@@ -118,6 +109,14 @@ CombiLP<GM, ACC, LPSOLVER>::CombiLP
 	std::cout << "Parameters of the " << name() << " algorithm:" << std::endl;
 	param.print();
 #endif
+};
+
+template<class GM, class ACC, class LPSOLVER>
+InferenceTermination
+CombiLP<GM, ACC, LPSOLVER>::infer()
+{
+	EmptyVisitorType visitor;
+	return infer(visitor);
 };
 
 template<class GM, class ACC, class LPSOLVER>
@@ -196,6 +195,19 @@ CombiLP<GM, ACC, LPSOLVER>::infer
 	return NORMAL;
 }
 
+template<class GM, class ACC, class LPSOLVER>
+InferenceTermination
+CombiLP<GM, ACC, LPSOLVER>::arg(
+	std::vector<LabelType>& labeling,
+	const size_t idx
+) const
+{
+	if (idx != 1)
+		return UNKNOWN;
+
+	labeling = labeling_;
+	return NORMAL;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
