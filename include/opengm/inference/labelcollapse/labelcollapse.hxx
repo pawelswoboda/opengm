@@ -95,10 +95,7 @@ public:
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
-	typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
-	typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
-	typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
-	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
+	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
 	struct Parameter {
