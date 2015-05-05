@@ -3,7 +3,7 @@
 #define OPENGM_COMBILP_DEFAULT_HXX
 
 #include "opengm/inference/combilp.hxx"
-#include "opengm/inference/labelcollapse.hxx"
+#include "opengm/inference/labelcollapse/labelcollapse.hxx"
 #include "opengm/inference/lpcplex.hxx"
 #include "opengm/inference/trws/trws_adsal.hxx"
 #include "opengm/inference/trws/trws_trws.hxx"
