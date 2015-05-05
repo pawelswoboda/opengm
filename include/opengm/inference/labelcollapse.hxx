@@ -539,24 +539,7 @@ ModelBuilder<GM, ACC>::uncollapse
 			}
 		} else if (factor.numberOfVariables() > 1) {
 			// Use ShapeWalker to iterate over all the factor transitions and
-			// determine if we need to update the binary epsilon. We keep our
-			// uncollapsed label fixed (new value can only appear for the
-			// uncollapsed label).
-			//
-			// FIXME: We should use OpenGM’s smart container for stack
-			// allocation.
-			IndexType fixedIndex = 0;
-			for (IndexType i = 0; i < factor.numberOfVariables(); ++i) {
-				if (factor.variableIndex(i) == idx) {
-					fixedIndex = i;
-					break;
-				}
-			}
-			opengm::FastSequence<IndexType> fixedVariables(1);
-			fixedVariables[0] = fixedIndex;
-			opengm::FastSequence<LabelType> fixedLabels(1);
-			fixedLabels[0] = label;
-
+			// determine if we need to update the binary epsilon.
 			typedef ShapeWalker< typename FactorType::ShapeIteratorType> Walker;
 			Walker walker(factor.shapeBegin(), factor.numberOfVariables());
 			AccumulationType::neutral(epsilons_[f]);
