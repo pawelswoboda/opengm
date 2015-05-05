@@ -42,7 +42,12 @@ public:
 	typedef typename INFERENCE::LabelType LabelType;
 	typedef typename INFERENCE::ValueType ValueType;
 
-	LabelCollapseStatisticsVisitor(bool verbose = true, bool memlogging = true);
+	LabelCollapseStatisticsVisitor(
+		bool verbose = true,
+		bool memlogging = true,
+		bool depthStats = false
+	);
+
 	void begin(const INFERENCE&);
 	void end(const INFERENCE&);
 	size_t operator()(const INFERENCE&);
@@ -57,9 +62,11 @@ public:
 private:
 	void update(const INFERENCE&);
 	void verbose(const INFERENCE&, const std::string&) const;
+	void printDepth(const INFERENCE&) const;
 
 	bool verbose_;
 	bool memlogging_;
+	bool depthStats_;
 	unsigned int iterations_;
 	std::vector<LabelType> origNumberOfLabels_;
 	std::vector<LabelType> auxNumberOfLabels_;
@@ -69,10 +76,12 @@ template<class INFERENCE>
 LabelCollapseStatisticsVisitor<INFERENCE>::LabelCollapseStatisticsVisitor
 (
 	bool verbose,
-	bool memlogging
+	bool memlogging,
+	bool depthStats
 )
 : verbose_(verbose)
 , memlogging_(memlogging)
+, depthStats_(depthStats)
 {
 }
 
@@ -111,12 +120,43 @@ LabelCollapseStatisticsVisitor<INFERENCE>::verbose
 
 template<class INFERENCE>
 void
+LabelCollapseStatisticsVisitor<INFERENCE>::printDepth
+(
+	const INFERENCE &inf
+) const
+{
+	std::cout << "-- BEGIN DEPTH STATS --" << std::endl;
+	std::cout << "OUTPUT FORMAT: node / depth / space / origSpace" << std::endl;
+
+	const typename INFERENCE::GraphicalModelType &gm = inf.graphicalModel();
+	std::vector<LabelType> depth(gm.numberOfVariables());
+	std::vector<LabelType> currentShape(gm.numberOfVariables());
+	std::vector<LabelType> originalShape(gm.numberOfVariables());
+	inf.depth(depth.begin());
+	inf.currentNumberOfLabels(currentShape.begin());
+	inf.originalNumberOfLabels(originalShape.begin());
+
+	for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
+		std::cout << i
+		          << " / "
+		          << depth[i]
+		          << " / "
+		          << currentShape[i]
+		          << " / "
+		          << originalShape[i]
+		          << std::endl;
+	}
+
+	std::cout << "-- END DEPTH STATS --" << std::endl;
+}
+
+template<class INFERENCE>
+void
 LabelCollapseStatisticsVisitor<INFERENCE>::begin
 (
 	const INFERENCE &inf
 )
 {
-
 	iterations_ = 0;
 
 	IndexType numberOfVariables = inf.graphicalModel().numberOfVariables();
@@ -151,6 +191,9 @@ LabelCollapseStatisticsVisitor<INFERENCE>::end
 {
 	update(inf);
 	verbose(inf, "end: ");
+
+	if (depthStats_)
+		printDepth(inf);
 }
 
 template<class INFERENCE>
@@ -166,7 +209,8 @@ LabelCollapseStatisticsVisitor<INFERENCE>::addLog
 
 template<class INFERENCE>
 void
-LabelCollapseStatisticsVisitor<INFERENCE>::log(
+LabelCollapseStatisticsVisitor<INFERENCE>::log
+(
 	const std::string &logName,
 	const double logValue
 ) const
