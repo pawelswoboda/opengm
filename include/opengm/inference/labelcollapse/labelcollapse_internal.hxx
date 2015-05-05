@@ -1,5 +1,5 @@
 //
-// File: labelcollapse.hxx
+// File: labelcollapse_internal.hxx
 //
 // This file is part of OpenGM.
 //
@@ -25,8 +25,8 @@
 //
 
 #pragma once
-#ifndef OPENGM_LABELCOLLAPSE_HXX
-#define OPENGM_LABELCOLLAPSE_HXX
+#ifndef OPENGM_LABELCOLLAPSE_INTERNAL_HXX
+#define OPENGM_LABELCOLLAPSE_INTERNAL_HXX
 
 #include <vector>
 #include <utility>
@@ -35,320 +35,34 @@
 #include "opengm/functions/function_properties_base.hxx"
 #include "opengm/graphicalmodel/graphicalmodel.hxx"
 #include "opengm/graphicalmodel/space/discretespace.hxx"
-#include "opengm/inference/inference.hxx"
-#include "opengm/inference/labelcollapse_visitor.hxx"
 #include "opengm/inference/visitors/visitors.hxx"
 #include "opengm/utilities/indexing.hxx"
 #include "opengm/utilities/metaprogramming.hxx"
 
+#include "labelcollapse_declarations.hxx"
+
 namespace opengm {
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// Forward declarations and a little typeclassopedia.
-//
-////////////////////////////////////////////////////////////////////////////////
-
-// Main class implementing the inference method. This class is intended to be
-// used by the user.
-template<class GM, class INF>
-class LabelCollapse;
-
-// This is a type generator for generating the template parameter for
-// the underlying proxy inference method.
-//
-// Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
-template<class GM>
-struct LabelCollapseAuxTypeGen;
-
-//
-// Namespace for internal implementation details.
-//
 namespace labelcollapse {
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// forward declarations
+//
+////////////////////////////////////////////////////////////////////////////////
 
 // Builds the auxiliary model given the original model.
 template<class GM, class INF>
 class ModelBuilder;
+
+// Reorders labels according to their unary potentials.
+template<class GM, class ACC>
+class Reordering;
 
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
 template<class GM>
 class EpsilonFunction;
-
-} // namespace labelcollapse
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// struct LabelCollapseAuxTypeGen
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class GM>
-struct LabelCollapseAuxTypeGen {
-	typedef typename GM::OperatorType OperatorType;
-	typedef typename GM::IndexType IndexType;
-	typedef typename GM::LabelType LabelType;
-	typedef typename GM::ValueType ValueType;
-
-	typedef typename opengm::DiscreteSpace<IndexType, LabelType> SpaceType;
-	typedef typename meta::TypeListGenerator< labelcollapse::EpsilonFunction<GM> >::type FunctionTypeList;
-
-	typedef GraphicalModel<ValueType, OperatorType, FunctionTypeList, SpaceType>
-	GraphicalModelType;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class LabelCollapse
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class GM, class INF>
-class LabelCollapse : public opengm::Inference<GM, typename INF::AccumulationType>
-{
-public:
-	//
-	// Types
-	//
-	struct Proxy {
-		// This namespace contains all the types of the underlying inference
-		// method. Many are identical with our types, but for sake of
-		// completeness all are mentioned here.
-		typedef INF Inference;
-		typedef typename INF::AccumulationType AccumulationType;
-		typedef typename INF::GraphicalModelType GraphicalModelType;
-		OPENGM_GM_TYPE_TYPEDEFS;
-
-		typedef typename INF::EmptyVisitorType EmptyVisitorType;
-		typedef typename INF::VerboseVisitorType VerboseVisitorType;
-		typedef typename INF::TimingVisitorType TimingVisitorType;
-		typedef typename std::vector<LabelType>::const_iterator LabelIterator;
-		typedef typename INF::Parameter Parameter;
-	};
-
-	typedef typename INF::AccumulationType AccumulationType;
-	typedef GM GraphicalModelType;
-	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
-	AuxiliaryModelType;
-
-	OPENGM_GM_TYPE_TYPEDEFS;
-
-	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
-	//typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
-	//typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
-	//typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
-	//typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
-	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
-
-	struct Parameter {
-		Parameter()
-		: proxy()
-		{}
-
-		Parameter(const typename Proxy::Parameter &proxy)
-		: proxy(proxy)
-		{}
-
-		typename Proxy::Parameter proxy;
-	};
-
-
-	//
-	// Methods
-	//
-	LabelCollapse(const GraphicalModelType&, const Parameter& = Parameter());
-	std::string name() const;
-	const GraphicalModelType& graphicalModel() const { return gm_; }
-	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
-
-	InferenceTermination infer();
-	template<class VISITOR> InferenceTermination infer(VISITOR&);
-	template<class VISITOR, class PROXY_VISITOR> InferenceTermination infer(VISITOR&, PROXY_VISITOR&);
-	InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const;
-	ValueType bound() const { return bound_; }
-	virtual ValueType value() const { return value_; }
-	template<class INPUT_ITERATOR> void populate(INPUT_ITERATOR);
-	void reset();
-
-	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
-	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
-
-private:
-	const GraphicalModelType &gm_;
-	labelcollapse::ModelBuilder<GraphicalModelType, AccumulationType> builder_;
-	Parameter parameter_;
-
-	InferenceTermination termination_;
-	std::vector<LabelType> labeling_;
-	ValueType value_;
-	ValueType bound_;
-};
-
-template<class GM, class INF>
-LabelCollapse<GM, INF>::LabelCollapse
-(
-	const GraphicalModelType &gm,
-	const Parameter &parameter
-)
-: gm_(gm)
-, builder_(gm)
-, parameter_(parameter)
-{
-}
-
-template<class GM, class INF>
-std::string
-LabelCollapse<GM, INF>::name() const
-{
-	AuxiliaryModelType gm;
-	typename Proxy::Inference inf(gm, parameter_.proxy);
-	return "LabelCollapse(" + inf.name() + ")";
-}
-
-template<class GM, class INF>
-InferenceTermination
-LabelCollapse<GM, INF>::infer()
-{
-	EmptyVisitorType visitor;
-	return infer(visitor);
-}
-
-template<class GM, class INF>
-template<class VISITOR>
-InferenceTermination
-LabelCollapse<GM, INF>::infer
-(
-	VISITOR &visitor
-)
-{
-	typename Proxy::EmptyVisitorType proxy_visitor;
-	return infer(visitor, proxy_visitor);
-}
-
-template<class GM, class INF>
-template<class VISITOR, class PROXY_VISITOR>
-InferenceTermination
-LabelCollapse<GM, INF>::infer
-(
-	VISITOR& visitor,
-	PROXY_VISITOR& proxy_visitor
-)
-{
-	std::vector<LabelType> warmstarting;
-	termination_ = UNKNOWN;
-	labeling_.resize(0);
-	bound_ = AccumulationType::template neutral<ValueType>();
-	value_ = AccumulationType::template neutral<ValueType>();
-
-	visitor.begin(*this);
-
-	bool exitInf = false;
-	while (!exitInf) {
-		// Build auxiliary model.
-		builder_.buildAuxiliaryModel();
-		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
-
-		// FIXME: Serious hack.
-		parameter_.proxy.mipStartLabeling_ = warmstarting;
-
-		// Run inference on auxiliary model and cache the results.
-		typename Proxy::Inference inf(gm, parameter_.proxy);
-		InferenceTermination result = inf.infer(proxy_visitor);
-
-		// If the proxy inference method returns an error, we pass it upwards.
-		if (result != NORMAL) {
-			termination_ = result;
-			break;
-		}
-
-		bound_ = inf.value();
-		std::vector<LabelType> labeling;
-		inf.arg(labeling, 1); // FIXME: Check result value.
-		warmstarting = labeling;
-
-		// If the labeling is valid, we are done.
-		if (builder_.isValidLabeling(labeling.begin())) {
-			exitInf = true;
-			termination_ = NORMAL;
-			value_ = inf.value();
-			builder_.originalLabeling(labeling, labeling_);
-		}
-
-		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf)
-			exitInf = true;
-
-		// Update the model. This will try to make more labels available where
-		// the current labeling is invalid.
-		builder_.uncollapseLabeling(labeling.begin());
-	}
-
-	visitor.end(*this);
-	return termination_;
-}
-
-template<class GM, class INF>
-void
-LabelCollapse<GM, INF>::reset()
-{
-	builder_.reset();
-}
-
-template<class GM, class INF>
-template<class INPUT_ITERATOR>
-void
-LabelCollapse<GM, INF>::populate(
-	INPUT_ITERATOR it
-)
-{
-	builder_.populate(it);
-}
-
-template<class GM, class INF>
-InferenceTermination
-LabelCollapse<GM, INF>::arg
-(
-	std::vector<LabelType>& label,
-	const size_t idx
-) const
-{
-	if (idx == 1) {
-		label = labeling_;
-		return termination_;
-	} else {
-		return UNKNOWN;
-	}
-}
-
-template<class GM, class INF>
-template<class OUTPUT_ITERATOR>
-void
-LabelCollapse<GM, INF>::originalNumberOfLabels
-(
-	OUTPUT_ITERATOR it
-) const
-{
-	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
-		*it = gm_.numberOfLabels(i);
-	}
-}
-
-template<class GM, class INF>
-template<class OUTPUT_ITERATOR>
-void
-LabelCollapse<GM, INF>::currentNumberOfLabels
-(
-	OUTPUT_ITERATOR it
-) const
-{
-	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
-		*it = builder_.numberOfLabels(i);
-	}
-}
-
-
-// Namespace for implementation details.
-namespace labelcollapse {
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -406,7 +120,6 @@ private:
 	typedef std::vector<bool> Mapping;
 
 	bool isFull(IndexType) const;
-	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
 
 	const OriginalModelType &original_;
 	std::vector<Stack> uncollapsed_;
@@ -545,24 +258,7 @@ ModelBuilder<GM, ACC>::uncollapse
 			}
 		} else if (factor.numberOfVariables() > 1) {
 			// Use ShapeWalker to iterate over all the factor transitions and
-			// determine if we need to update the binary epsilon. We keep our
-			// uncollapsed label fixed (new value can only appear for the
-			// uncollapsed label).
-			//
-			// FIXME: We should use OpenGM’s smart container for stack
-			// allocation.
-			IndexType fixedIndex = 0;
-			for (IndexType i = 0; i < factor.numberOfVariables(); ++i) {
-				if (factor.variableIndex(i) == idx) {
-					fixedIndex = i;
-					break;
-				}
-			}
-			opengm::FastSequence<IndexType> fixedVariables(1);
-			fixedVariables[0] = fixedIndex;
-			opengm::FastSequence<LabelType> fixedLabels(1);
-			fixedLabels[0] = label;
-
+			// determine if we need to update the binary epsilon.
 			typedef ShapeWalker< typename FactorType::ShapeIteratorType> Walker;
 			Walker walker(factor.shapeBegin(), factor.numberOfVariables());
 			AccumulationType::neutral(epsilons_[f]);
@@ -619,37 +315,16 @@ ModelBuilder<GM, ACC>::reset()
 	epsilons_.assign(original_.numberOfFactors(), ACC::template ineutral<ValueType>());
 	rebuildNecessary_ = true;
 
+	Reordering<OriginalModelType, AccumulationType> reordering(original_);
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		// We look up the unary factor.
-		bool found = false;
-		IndexType f;
-		for (IndexType j = 0; j < original_.numberOfFactors(i); ++j) {
-			f = original_.factorOfVariable(i, j);
-			if (original_[f].numberOfVariables() == 1) {
-				found = true;
-				break;
-			}
-		}
-		// TODO: Maybe we should throw exception?
-		OPENGM_ASSERT(found);
-
 		mappings_[i].assign(original_.numberOfLabels(i), false);
-		collapsed_[i].clear();
+		collapsed_[i].resize(original_.numberOfLabels(i));
 		uncollapsed_[i].clear();
 
-		std::vector< std::pair<LabelType, ValueType> > pairs(original_.numberOfLabels(i));
-		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
-			opengm::FastSequence<LabelType> labeling(1);
-			labeling[0] = j;
-			ValueType v = original_[f](labeling.begin());
-			pairs[j] = std::make_pair(j, v);
-		}
-
-		std::sort(pairs.begin(), pairs.end(), &compare);
-
-		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
-			collapsed_[i].push_back(pairs[j].first);
-		}
+		// We reverse the ordering and use .rbegin(), because we use the
+		// std::vector as a stack. The smallest element should be the last one.
+		reordering.reorder(i);
+		reordering.getOrdered(collapsed_[i].rbegin());
 
 		uncollapse(i);
 	}
@@ -675,17 +350,109 @@ ModelBuilder<GM, ACC>::numberOfLabels
 	return uncollapsed_[idx].size() + (isFull(idx) ? 0 : 1);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// class Reordering
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM, class ACC>
+class Reordering {
+public:
+	typedef GM GraphicalModelType;
+	typedef ACC AccumulationType;
+	OPENGM_GM_TYPE_TYPEDEFS;
+
+	Reordering(const GraphicalModelType&);
+	void reorder(IndexType i);
+	template<class OUTPUT_ITERATOR> void getOrdered(OUTPUT_ITERATOR);
+	template<class RANDOM_ACCESS_ITERATOR> void getMapping(RANDOM_ACCESS_ITERATOR);
+
+private:
+	typedef std::pair<LabelType, ValueType> Pair;
+	typedef std::vector<Pair> Pairs;
+	typedef typename Pairs::const_iterator Iterator;
+
+	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
+
+	const GraphicalModelType &gm_;
+	Pairs pairs_;
+};
+
+template<class GM, class ACC>
+Reordering<GM, ACC>::Reordering
+(
+	const GraphicalModelType &gm
+)
+: gm_(gm)
+{
+}
+
+template<class GM, class ACC>
+void
+Reordering<GM, ACC>::reorder
+(
+	IndexType idx
+)
+{
+	// We look up the unary factor.
+	bool found_unary = false;
+	IndexType f;
+	for (IndexType i = 0; i < gm_.numberOfFactors(idx); ++i) {
+		f = gm_.factorOfVariable(idx, i);
+		if (gm_[f].numberOfVariables() == 1) {
+			found_unary = true;
+			break;
+		}
+	}
+	// TODO: Maybe we should throw exception?
+	OPENGM_ASSERT(found_unary);
+
+	pairs_.resize(gm_.numberOfLabels(idx));
+	for (LabelType i = 0; i < gm_.numberOfLabels(idx); ++i) {
+		opengm::FastSequence<LabelType> labeling(1);
+		labeling[0] = i;
+		ValueType v = gm_[f](labeling.begin());
+		pairs_[i] = std::make_pair(i, v);
+	}
+
+	std::sort(pairs_.begin(), pairs_.end(), &compare);
+}
+
+template<class GM, class ACC>
+template<class OUTPUT_ITERATOR>
+void
+Reordering<GM, ACC>::getOrdered
+(
+	OUTPUT_ITERATOR out
+)
+{
+	for (Iterator in = pairs_.begin(); in != pairs_.end(); ++in, ++out)
+		*out = in->first;
+}
+
+template<class GM, class ACC>
+template<class RANDOM_ACCESS_ITERATOR>
+void
+Reordering<GM, ACC>::getMapping
+(
+	RANDOM_ACCESS_ITERATOR out
+)
+{
+	LabelType l = 0;
+	for (Iterator in = pairs_.begin(); in != pairs_.end(); ++in, ++l)
+		out[ in->first ] = l;
+}
+
 template<class GM, class ACC>
 bool
-ModelBuilder<GM, ACC>::compare
+Reordering<GM, ACC>::compare
 (
 	const std::pair<LabelType, ValueType> &pair1,
 	const std::pair<LabelType, ValueType> &pair2
 )
 {
-	// We reverse the ordering, because we use a std::vector as a stack. The
-	// smallest element should be the last one.
-	return AccumulationType::bop(pair2.second, pair1.second);
+	return AccumulationType::bop(pair1.second, pair2.second);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

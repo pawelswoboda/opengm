@@ -32,6 +32,8 @@
 #include <sstream>
 #include <vector>
 
+#include "labelcollapse_internal.hxx"
+
 namespace opengm {
 namespace visitors {
 
@@ -42,7 +44,12 @@ public:
 	typedef typename INFERENCE::LabelType LabelType;
 	typedef typename INFERENCE::ValueType ValueType;
 
-	LabelCollapseStatisticsVisitor(bool verbose = true, bool memlogging = true);
+	LabelCollapseStatisticsVisitor(
+		bool verbose = true,
+		bool memlogging = true,
+		bool depthStats = true
+	);
+
 	void begin(const INFERENCE&);
 	void end(const INFERENCE&);
 	size_t operator()(const INFERENCE&);
@@ -57,9 +64,11 @@ public:
 private:
 	void update(const INFERENCE&);
 	void verbose(const INFERENCE&, const std::string&) const;
+	void printDepth(const INFERENCE&) const;
 
 	bool verbose_;
 	bool memlogging_;
+	bool depthStats_;
 	unsigned int iterations_;
 	std::vector<LabelType> origNumberOfLabels_;
 	std::vector<LabelType> auxNumberOfLabels_;
@@ -69,10 +78,12 @@ template<class INFERENCE>
 LabelCollapseStatisticsVisitor<INFERENCE>::LabelCollapseStatisticsVisitor
 (
 	bool verbose,
-	bool memlogging
+	bool memlogging,
+	bool depthStats
 )
 : verbose_(verbose)
 , memlogging_(memlogging)
+, depthStats_(depthStats)
 {
 }
 
@@ -111,12 +122,54 @@ LabelCollapseStatisticsVisitor<INFERENCE>::verbose
 
 template<class INFERENCE>
 void
+LabelCollapseStatisticsVisitor<INFERENCE>::printDepth(
+	const INFERENCE &inf
+) const
+{
+	typedef typename ::opengm::labelcollapse::Reordering<
+		typename INFERENCE::GraphicalModelType,
+		typename INFERENCE::AccumulationType
+	> Reordering;
+
+	std::cout << "-- BEGIN DEPTH STATS --" << std::endl;
+	std::cout << "OUTPUT FORMAT: node / label / cur_space / orig_space" << std::endl;
+
+	const typename INFERENCE::GraphicalModelType &gm = inf.graphicalModel();
+	std::vector<LabelType> labeling(gm.numberOfVariables());
+	std::vector<LabelType> currentShape(gm.numberOfVariables());
+	std::vector<LabelType> originalShape(gm.numberOfVariables());
+	inf.arg(labeling);
+	inf.currentNumberOfLabels(currentShape.begin());
+	inf.originalNumberOfLabels(originalShape.begin());
+
+	Reordering reordering(gm);
+	for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
+		std::vector<LabelType> mapping(gm.numberOfLabels(i));
+		reordering.reorder(i);
+		reordering.getMapping(mapping.begin());
+
+		OPENGM_ASSERT_OP(labeling[i], <, mapping.size());
+
+		std::cout << i
+		          << " / "
+		          << mapping[ labeling[i] ]
+		          << " / "
+		          << currentShape[i]
+		          << " / "
+		          << originalShape[i]
+		          << std::endl;
+	}
+
+	std::cout << "-- END DEPTH STATS --" << std::endl;
+}
+
+template<class INFERENCE>
+void
 LabelCollapseStatisticsVisitor<INFERENCE>::begin
 (
 	const INFERENCE &inf
 )
 {
-
 	iterations_ = 0;
 
 	IndexType numberOfVariables = inf.graphicalModel().numberOfVariables();
@@ -151,6 +204,9 @@ LabelCollapseStatisticsVisitor<INFERENCE>::end
 {
 	update(inf);
 	verbose(inf, "end: ");
+
+	if (depthStats_)
+		printDepth(inf);
 }
 
 template<class INFERENCE>
