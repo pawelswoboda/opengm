@@ -5,7 +5,7 @@
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/minimizer.hxx>
 #include <opengm/inference/bruteforce.hxx>
-#include <opengm/inference/labelcollapse.hxx>
+#include <opengm/inference/labelcollapse/labelcollapse.hxx>
 #include <opengm/inference/lpcplex.hxx>
 
 #include <opengm/unittests/blackboxtester.hxx>

@@ -32,6 +32,8 @@
 #include <sstream>
 #include <vector>
 
+#include "labelcollapse_internal.hxx"
+
 namespace opengm {
 namespace visitors {
 
