@@ -70,6 +70,10 @@ namespace labelcollapse {
 template<class GM, class INF>
 class ModelBuilder;
 
+// Reorders labels according to their unary potentials.
+template<class GM, class ACC>
+class Reordering;
+
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
@@ -400,7 +404,6 @@ private:
 	typedef std::vector<bool> Mapping;
 
 	bool isFull(IndexType) const;
-	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
 
 	const OriginalModelType &original_;
 	std::vector<Stack> uncollapsed_;
@@ -596,37 +599,16 @@ ModelBuilder<GM, ACC>::reset()
 	epsilons_.assign(original_.numberOfFactors(), ACC::template ineutral<ValueType>());
 	rebuildNecessary_ = true;
 
+	Reordering<OriginalModelType, AccumulationType> reordering(original_);
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		// We look up the unary factor.
-		bool found = false;
-		IndexType f;
-		for (IndexType j = 0; j < original_.numberOfFactors(i); ++j) {
-			f = original_.factorOfVariable(i, j);
-			if (original_[f].numberOfVariables() == 1) {
-				found = true;
-				break;
-			}
-		}
-		// TODO: Maybe we should throw exception?
-		OPENGM_ASSERT(found);
-
 		mappings_[i].assign(original_.numberOfLabels(i), false);
-		collapsed_[i].clear();
+		collapsed_[i].resize(original_.numberOfLabels(i));
 		uncollapsed_[i].clear();
 
-		std::vector< std::pair<LabelType, ValueType> > pairs(original_.numberOfLabels(i));
-		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
-			opengm::FastSequence<LabelType> labeling(1);
-			labeling[0] = j;
-			ValueType v = original_[f](labeling.begin());
-			pairs[j] = std::make_pair(j, v);
-		}
-
-		std::sort(pairs.begin(), pairs.end(), &compare);
-
-		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
-			collapsed_[i].push_back(pairs[j].first);
-		}
+		// We reverse the ordering and use .rbegin(), because we use the
+		// std::vector as a stack. The smallest element should be the last one.
+		reordering.reorder(i);
+		reordering.getOrdered(collapsed_[i].rbegin());
 
 		uncollapse(i);
 	}
@@ -652,17 +634,109 @@ ModelBuilder<GM, ACC>::numberOfLabels
 	return uncollapsed_[idx].size() + (isFull(idx) ? 0 : 1);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// class Reordering
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM, class ACC>
+class Reordering {
+public:
+	typedef GM GraphicalModelType;
+	typedef ACC AccumulationType;
+	OPENGM_GM_TYPE_TYPEDEFS;
+
+	Reordering(const GraphicalModelType&);
+	void reorder(IndexType i);
+	template<class OUTPUT_ITERATOR> void getOrdered(OUTPUT_ITERATOR);
+	template<class RANDOM_ACCESS_ITERATOR> void getMapping(RANDOM_ACCESS_ITERATOR);
+
+private:
+	typedef std::pair<LabelType, ValueType> Pair;
+	typedef std::vector<Pair> Pairs;
+	typedef typename Pairs::const_iterator Iterator;
+
+	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
+
+	const GraphicalModelType &gm_;
+	Pairs pairs_;
+};
+
+template<class GM, class ACC>
+Reordering<GM, ACC>::Reordering
+(
+	const GraphicalModelType &gm
+)
+: gm_(gm)
+{
+}
+
+template<class GM, class ACC>
+void
+Reordering<GM, ACC>::reorder
+(
+	IndexType idx
+)
+{
+	// We look up the unary factor.
+	bool found_unary = false;
+	IndexType f;
+	for (IndexType i = 0; i < gm_.numberOfFactors(idx); ++i) {
+		f = gm_.factorOfVariable(idx, i);
+		if (gm_[f].numberOfVariables() == 1) {
+			found_unary = true;
+			break;
+		}
+	}
+	// TODO: Maybe we should throw exception?
+	OPENGM_ASSERT(found_unary);
+
+	pairs_.resize(gm_.numberOfLabels(idx));
+	for (LabelType i = 0; i < gm_.numberOfLabels(idx); ++i) {
+		opengm::FastSequence<LabelType> labeling(1);
+		labeling[0] = i;
+		ValueType v = gm_[f](labeling.begin());
+		pairs_[i] = std::make_pair(i, v);
+	}
+
+	std::sort(pairs_.begin(), pairs_.end(), &compare);
+}
+
+template<class GM, class ACC>
+template<class OUTPUT_ITERATOR>
+void
+Reordering<GM, ACC>::getOrdered
+(
+	OUTPUT_ITERATOR out
+)
+{
+	for (Iterator in = pairs_.begin(); in != pairs_.end(); ++in, ++out)
+		*out = in->first;
+}
+
+template<class GM, class ACC>
+template<class RANDOM_ACCESS_ITERATOR>
+void
+Reordering<GM, ACC>::getMapping
+(
+	RANDOM_ACCESS_ITERATOR out
+)
+{
+	LabelType l = 0;
+	for (Iterator in = pairs_.begin(); in != pairs_.end(); ++in, ++l)
+		out[ in->first ] = l;
+}
+
 template<class GM, class ACC>
 bool
-ModelBuilder<GM, ACC>::compare
+Reordering<GM, ACC>::compare
 (
 	const std::pair<LabelType, ValueType> &pair1,
 	const std::pair<LabelType, ValueType> &pair2
 )
 {
-	// We reverse the ordering, because we use a std::vector as a stack. The
-	// smallest element should be the last one.
-	return AccumulationType::bop(pair2.second, pair1.second);
+	return AccumulationType::bop(pair1.second, pair2.second);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
