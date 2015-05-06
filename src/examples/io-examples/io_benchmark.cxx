@@ -2,6 +2,7 @@
 #define ALREADY_REPARAMETRIZED
 #undef COMBILP_STOP_AFTER_REPARAMETRIZATION
 #undef CPLEX_DUMP_SEQUENTIALLY
+#undef TEST_LABELCOLLAPSE_POPULATION
 
 #include <boost/chrono.hpp>
 
@@ -51,6 +52,9 @@ int main(int argc, char **argv)
 
 	GraphicalModelType gm;
 	opengm::hdf5::load(gm, argv[1], "gm");
+#ifdef TEST_LABELCOLLAPSE_POPULATION
+	std::vector<LabelType> labeling;
+#endif
 
 	begin = Clock::now();
 	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
@@ -77,8 +81,29 @@ int main(int argc, char **argv)
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
 		inference.infer(visitor);
+#ifdef TEST_LABELCOLLAPSE_POPULATION
+		inference.arg(labeling);
+#endif
 	}
 	end = Clock::now();
 	duration = end - begin;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
+
+#ifdef TEST_LABELCOLLAPSE_POPULATION
+	{
+		using namespace opengm;
+		typedef typename LabelCollapseAuxTypeGen<GraphicalModelType>::GraphicalModelType AuxiliaryModelType;
+		typedef LPCplex<AuxiliaryModelType, AccumulatorType> Cplex;
+		typedef LabelCollapse<GraphicalModelType, Cplex> Inference;
+
+		Inference::Parameter param;
+		param.proxy.verbose_ = true;
+		param.proxy.integerConstraint_ = true;
+		param.proxy.numberOfThreads_ = 4;
+
+		Inference inf(gm, param);
+		inf.populate(labeling.begin());
+		inf.infer();
+	}
+#endif
 }
