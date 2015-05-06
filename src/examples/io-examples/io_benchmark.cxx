@@ -4,6 +4,7 @@
 #undef CPLEX_DUMP_SEQUENTIALLY
 #undef TEST_LABELCOLLAPSE_POPULATION
 
+#include <stdexcept>
 #include <boost/chrono.hpp>
 
 #include <opengm/functions/explicit_function.hxx>
@@ -80,7 +81,11 @@ int main(int argc, char **argv)
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
-		inference.infer(visitor);
+		opengm::InferenceTermination result = inference.infer(visitor);
+		if (result != opengm::NORMAL && result != opengm::CONVERGENCE) {
+			std::cout << "ERROR: INFERENCE FAILED" << std::endl;
+			throw std::runtime_error("Inference failed!");
+		}
 #ifdef TEST_LABELCOLLAPSE_POPULATION
 		inference.arg(labeling);
 #endif
