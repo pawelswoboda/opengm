@@ -515,6 +515,10 @@ LPCplex<GM, ACC>::infer
          cplex_.setParam(IloCplex::FracCuts, cl);
       }
 
+	  cplex_.setParam(IloCplex::NodeAlg, 2);
+	  cplex_.setParam(IloCplex::VarSel, 4);
+	  cplex_.setParam(IloCplex::PreDual, 1);
+
       // cplex_.setParam(IloCplex::Covers, parameter_.coverCutLevel_);
       //cplex_.setParam(IloCplex::DisjCuts, parameter_.disjunctiverCutLevel_);
       //cplex_.setParam(IloCplex::Cliques, parameter_.cliqueCutLevel_);
