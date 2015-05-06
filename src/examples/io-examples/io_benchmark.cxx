@@ -101,13 +101,22 @@ int main(int argc, char **argv)
 		typedef LPCplex<AuxiliaryModelType, AccumulatorType> Cplex;
 		typedef LabelCollapse<GraphicalModelType, Cplex> Inference;
 
+		std::vector<LabelType> targetShape(gm.numberOfVariables());
+		labelcollapse::Reordering<GraphicalModelType, AccumulatorType> reordering(gm);
+		for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
+			std::vector<LabelType> mapping(gm.numberOfLabels(i));
+			reordering.reorder(i);
+			reordering.getMapping(mapping.begin());
+			targetShape[i] = mapping[ labeling[i] ];
+		}
+
 		Inference::Parameter param;
 		param.proxy.verbose_ = true;
 		param.proxy.integerConstraint_ = true;
 		param.proxy.numberOfThreads_ = 4;
 
 		Inference inf(gm, param);
-		inf.populate(labeling.begin());
+		inf.populate(targetShape.begin());
 		inf.infer();
 	}
 #endif
