@@ -261,6 +261,9 @@ namespace opengm{
 
             ILPSolver ilpSolver(model,_ilpsolverParemeter);
             terminationILP=ilpSolver.infer();
+            std::cout << "[DEBUG] terminationILP = " << terminationILP << std::endl
+                      << "[DEBUG] value = " << ilpSolver.value() << std::endl
+                      << "[DEBUG] bound = " << ilpSolver.bound() << std::endl;
 
             if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE)){
                return terminationILP;
