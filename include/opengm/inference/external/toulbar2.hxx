@@ -129,6 +129,17 @@ ToulBar2<GM, ACC>::ToulBar2(
 , solver_(WeightedCSPSolver::makeWeightedCSPSolver(STORE_SIZE, MAX_COST))
 , result_(UNKNOWN)
 {
+	// WARNING: We need to call this before every invocation of the Toulbar2
+	// solver.
+	//
+	// THIS IS HIGHLY PROBLEMATIC!
+	//
+	// The caller of our ToulBar2 wrapper is responsible that only on instance
+	// is used at the same time!
+	//
+	// FIXME: This needs to be sorted out as soon as possible.
+	ToulBar2_initialize();
+
 	typedef typename GraphicalModelType::FactorType FactorType;
 	typedef ShapeWalkerSwitchedOrder<typename FactorType::ShapeIteratorType> Walker;
 
@@ -235,7 +246,7 @@ InferenceTermination
 ToulBar2<GM, ACC>::infer()
 {
 	EmptyVisitorType visitor;
-	infer(visitor);
+	return infer(visitor);
 }
 
 template<class GM, class ACC>
@@ -269,6 +280,7 @@ ToulBar2<GM, ACC>::arg(
 
 	labeling.resize(gm_.numberOfVariables());
 	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i) {
+		OPENGM_ASSERT_OP(solution[i], <, gm_.numberOfLabels(i));
 		labeling[i] = solution[i];
 	}
 
