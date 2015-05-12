@@ -3,6 +3,7 @@
 #undef COMBILP_STOP_AFTER_REPARAMETRIZATION
 #undef CPLEX_DUMP_SEQUENTIALLY
 #undef TEST_LABELCOLLAPSE_POPULATION
+#undef PRINT_LABELING
 
 #include <stdexcept>
 #include <boost/chrono.hpp>
@@ -86,13 +87,20 @@ int main(int argc, char **argv)
 			std::cout << "ERROR: INFERENCE FAILED" << std::endl;
 			throw std::runtime_error("Inference failed!");
 		}
-#ifdef TEST_LABELCOLLAPSE_POPULATION
+#if defined(TEST_LABELCOLLAPSE_POPULATION) || defined(PRINT_LABELING)
 		inference.arg(labeling);
 #endif
 	}
 	end = Clock::now();
 	duration = end - begin;
-	std::cout << "=> Total elapsed time: " << duration << std::endl;
+
+#ifdef PRINT_LABELING
+	std::cout << "LABELING:" << std::endl;
+	for (IndexType i = 0; i < gm.numberOfLabels(); ++i) {
+		std::cout << " " << labeling[i];
+	}
+	std::cout << std::endl;
+#endif
 
 #ifdef TEST_LABELCOLLAPSE_POPULATION
 	{
@@ -120,4 +128,7 @@ int main(int argc, char **argv)
 		inf.infer();
 	}
 #endif
+
+	// Scripts expect this to be the last line of the log file.
+	std::cout << "=> Total elapsed time: " << duration << std::endl;
 }
