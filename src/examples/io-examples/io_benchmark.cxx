@@ -54,7 +54,7 @@ int main(int argc, char **argv)
 
 	GraphicalModelType gm;
 	opengm::hdf5::load(gm, argv[1], "gm");
-#ifdef TEST_LABELCOLLAPSE_POPULATION
+#if defined(TEST_LABELCOLLAPSE_POPULATION) || defined(PRINT_LABELING)
 	std::vector<LabelType> labeling;
 #endif
 
@@ -94,7 +94,7 @@ int main(int argc, char **argv)
 
 #ifdef PRINT_LABELING
 	std::cout << "LABELING:" << std::endl;
-	for (IndexType i = 0; i < gm.numberOfLabels(); ++i) {
+	for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
 		std::cout << " " << labeling[i];
 	}
 	std::cout << std::endl;
