@@ -1,9 +1,9 @@
 #define TRWS_DEBUG_OUTPUT
-#define ALREADY_REPARAMETRIZED
+#undef ALREADY_REPARAMETRIZED
 #undef COMBILP_STOP_AFTER_REPARAMETRIZATION
 #undef CPLEX_DUMP_SEQUENTIALLY
 #undef TEST_LABELCOLLAPSE_POPULATION
-#undef PRINT_LABELING
+#define PRINT_LABELING
 
 #include <stdexcept>
 #include <boost/chrono.hpp>
@@ -59,9 +59,9 @@ int main(int argc, char **argv)
 #endif
 
 	begin = Clock::now();
-	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
+	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + CPLEX ..." << std::endl;
 	{
-		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, AccumulatorType> Generator;
+		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, AccumulatorType> Generator;
 		typedef Generator::CombiLPType CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
@@ -71,14 +71,12 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
 		param.lpsolverParameter_.maxNumberOfIterations_= 1;
 #else
-		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
+		param.lpsolverParameter_.setTreeAgreeMaxStableIter(10000);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 #endif
-		param.ilpsolverParameter_.proxy.verbose_ = true;
-		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
-		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
-		param.ilpsolverParameter_.proxy.workMem_= 1024*32;
-		param.ilpsolverParameter_.proxy.numberOfThreads_ = 4;
+		param.ilpsolverParameter_.verbose_ = true;
+		param.ilpsolverParameter_.integerConstraint_ = true;
+		param.ilpsolverParameter_.numberOfThreads_ = 8;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
