@@ -26,10 +26,10 @@ namespace opengm{
 
 namespace combilp {
 	template<class GM>
-	void DilateMask(const GM&, typename GM::IndexType, std::vector<bool>&);
+	void dilateMask(const GM &, typename GM::IndexType, std::vector<bool>&);
 
 	template<class GM>
-	void DilateMask(const GM&,const std::vector<bool>&, std::vector<bool>&);
+	void dilateMask(const GM&, std::vector<bool>&);
 
 	template<class GM>
 	bool LabelingMatching(const std::vector<typename GM::LabelType>&,const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::list<typename GM::IndexType>&);
@@ -352,17 +352,8 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 )
 {
 	// Do not need to dilate the mask in the newer approach.
-	if (parameter_.singleReparametrization_) {
-		// FIXME: We are copying the mask, because we just want to update the map
-		// in place, but the functions takes inmask and outmask.
-		//
-		// The function should to this by itself!
-		//
-		// FIXME: Oh hell, the function actually looks even worse. It sets
-		// outmask = inmask (both pointers). What the hell?
-		MaskType mask = mask_;
-		combilp::DilateMask(gm_, mask_, mask);
-	}
+	if (parameter_.singleReparametrization_)
+		combilp::dilateMask(gm_, mask_);
 
 	Labeling &labeling_lp = labeling_;
 	Labeling &lp_labeling = labeling_;
@@ -489,7 +480,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 #endif
 			for (typename std::list<IndexType>::const_iterator it=result.begin();it!=result.end();++it) {
 				if (parameter_.singleReparametrization_) //BSD: expanding the mask_
-					combilp::DilateMask(gm, *it, mask_);
+					combilp::dilateMask(gm, *it, mask_);
 				else
 					mask_[*it]=true;
 			}
@@ -507,54 +498,42 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 
 namespace combilp{
 
-	template<class FACTOR>
-	void
-	MakeFactorVariablesTrue
-	(
-		const FACTOR &f,
-		std::vector<bool> &mask
-	)
-	{
-		typedef typename FACTOR::VariablesIteratorType Iterator;
-		for (Iterator it = f.variableIndicesBegin(); it != f.variableIndicesEnd(); ++it)
-			mask[*it]=true;
-	}
-
 	template<class GM>
 	void
-	DilateMask
+	dilateMask
 	(
 		const GM &gm,
 		typename GM::IndexType varId,
 		std::vector<bool> &mask
 	)
 	{
+		typedef typename GM::IndexType IndexType;
+		typedef typename GM::FactorType FactorType;
+		OPENGM_ASSERT_OP(varId, <, gm.numberOfVariables());
+		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
+
+		// Sets all mask for all variables in factor to true.
 		typename GM::IndexType numberOfFactors = gm.numberOfFactors(varId);
-		for (typename GM::IndexType localFactorId = 0; localFactorId < numberOfFactors; ++localFactorId) {
-			const typename GM::FactorType& f = gm[gm.factorOfVariable(varId,localFactorId)];
-			if (f.numberOfVariables() > 1)
-				MakeFactorVariablesTrue(f, mask);
+		for (IndexType i = 0; i < gm.numberOfFactors(varId); ++i) {
+			const FactorType &f = gm[ gm.factorOfVariable(varId, i) ];
+
+			for (IndexType j = 0; j < f.numberOfVariables(); ++j)
+				mask[ f.variableIndex(j) ] = true;
 		}
 	}
 
-	// inmask and poutmask should be different objects!
 	template<class GM>
 	void
-	DilateMask
+	dilateMask
 	(
 		const GM &gm,
-		const std::vector<bool> &inmask,
-		std::vector<bool> &outmask
+		std::vector<bool> &mask
 	)
 	{
-		// TODO: WTF? This line and the comment above make no sense...
-		// What’s going on?
-		//
-		// FIXME: Clean this
-		outmask = inmask;
-		for (typename GM::IndexType varId = 0; varId < inmask.size(); ++varId)
-			if (inmask[varId])
-				DilateMask(gm, varId, outmask);
+		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
+		for (typename GM::IndexType i = 0; i < gm.numberOfVariables(); ++i)
+			if (mask[i])
+				dilateMask(gm, i, mask);
 	}
 
 	template<class GM>
