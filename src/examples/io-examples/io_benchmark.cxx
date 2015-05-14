@@ -59,7 +59,7 @@ int main(int argc, char **argv)
 #endif
 
 	begin = Clock::now();
-	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
+	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + ToulBar2 ..." << std::endl;
 	{
 		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, AccumulatorType> Generator;
 		typedef Generator::CombiLPType CombiLPType;
@@ -74,11 +74,6 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 #endif
-		param.ilpsolverParameter_.proxy.verbose_ = true;
-		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
-		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
-		param.ilpsolverParameter_.proxy.workMem_= 1024*32;
-		param.ilpsolverParameter_.proxy.numberOfThreads_ = 4;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
@@ -106,8 +101,8 @@ int main(int argc, char **argv)
 	{
 		using namespace opengm;
 		typedef typename LabelCollapseAuxTypeGen<GraphicalModelType>::GraphicalModelType AuxiliaryModelType;
-		typedef LPCplex<AuxiliaryModelType, AccumulatorType> Cplex;
-		typedef LabelCollapse<GraphicalModelType, Cplex> Inference;
+		typedef ToulBar2<AuxiliaryModelType, AccumulatorType> ToulBar;
+		typedef LabelCollapse<GraphicalModelType, ToulBar> Inference;
 
 		std::vector<LabelType> targetShape(gm.numberOfVariables());
 		labelcollapse::Reordering<GraphicalModelType, AccumulatorType> reordering(gm);

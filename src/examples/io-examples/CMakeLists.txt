@@ -7,5 +7,5 @@ if(WITH_HDF5 AND HDF5_FOUND)
    endif()
 
    add_executable(example-io-benchmark io_benchmark.cxx)
-   target_link_libraries(example-io-benchmark ${CMAKE_THREAD_LIBS_INIT} ${CPLEX_LIBRARIES} ${HDF5_LIBRARIES} rt boost_system boost_chrono)
+   target_link_libraries(example-io-benchmark ${CMAKE_THREAD_LIBS_INIT} ${CPLEX_LIBRARIES} ${HDF5_LIBRARIES} rt boost_system boost_chrono external-library-toulbar2)
 endif()
