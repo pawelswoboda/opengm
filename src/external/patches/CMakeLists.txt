@@ -80,3 +80,9 @@ add_custom_command(TARGET externalLibs PRE_BUILD
                    COMMENT "MPLP"
                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/MPLP"
 ) 
+
+add_custom_command(TARGET externalLibs PRE_BUILD
+                   COMMAND ./patchToulBar2.sh
+                   COMMENT "ToulBar2"
+                   WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ToulBar2"
+)
