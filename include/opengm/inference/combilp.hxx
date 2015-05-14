@@ -38,7 +38,7 @@ namespace combilp {
 	bool LabelingMatching(const GM&, const std::vector<typename GM::LabelType>&, const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::vector<typename GM::IndexType>&, typename GM::ValueType&);
 
 	template<class GM>
-	void GetMaskBoundary(const GM&, const std::vector<bool>&, std::vector<bool>&);
+	void getMaskBoundary(const GM&, const std::vector<bool>&, std::vector<bool>&);
 }
 
 template<class LP>
@@ -380,7 +380,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 #endif
 
 		MaskType boundmask(mask_.size());
-		combilp::GetMaskBoundary(gm_,mask_, boundmask);
+		combilp::getMaskBoundary(gm_, mask_, boundmask);
 
 #ifdef OPENGM_COMBILP_DEBUG
 		if (parameter_.saveProblemMasks_) {
@@ -599,32 +599,31 @@ namespace combilp{
 		return result.empty();
 	}
 
-	// TODO: Needs cleanup.
 	template<class GM>
 	void
-	GetMaskBoundary(
+	getMaskBoundary(
 		const GM &gm,
 		const std::vector<bool> &mask,
 		std::vector<bool> &boundmask
 	)
 	{
+		typedef typename GM::IndexType IndexType;
+		typedef typename GM::FactorType FactorType;
+		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
+
 		boundmask.assign(mask.size(),false);
-		for (typename GM::IndexType varId=0;varId<mask.size();++varId) {
-			if (! mask[varId])
-				continue;
+		for (IndexType i = 0; i < mask.size(); ++i) {
+			if (! mask[i]) continue;
 
-			typename GM::IndexType numberOfFactors=gm.numberOfFactors(varId);
-			for (typename GM::IndexType localFactorId=0;localFactorId<numberOfFactors;++localFactorId) {
-				if (boundmask[varId])
-					break;
+			for (IndexType j = 0; j < gm.numberOfFactors(i); ++j) {
+				if (boundmask[j]) break;
 
-				const typename GM::FactorType& f=gm[gm.factorOfVariable(varId,localFactorId)];
-				if (f.numberOfVariables()>1) {
-					for (typename GM::FactorType::VariablesIteratorType it=f.variableIndicesBegin(); it!=f.variableIndicesEnd();++it) {
-						if (! mask[*it]) {
-							boundmask[varId]=true;
-							break;
-						}
+				typedef typename FactorType::VariablesIteratorType Iter;
+				const FactorType& f = gm[ gm.factorOfVariable(i, j) ];
+				for (Iter it = f.variableIndicesBegin(); it != f.variableIndicesEnd(); ++it) {
+					if (! mask[*it]) {
+						boundmask[i] = true;
+						break;
 					}
 				}
 			}
