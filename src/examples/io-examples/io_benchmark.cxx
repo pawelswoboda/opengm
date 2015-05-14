@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	begin = Clock::now();
 	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + ToulBar2 ..." << std::endl;
 	{
-		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, AccumulatorType> Generator;
+		typedef opengm::CombiLP_TRWSi_Gen<GraphicalModelType, AccumulatorType> Generator;
 		typedef Generator::CombiLPType CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
