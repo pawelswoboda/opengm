@@ -32,10 +32,10 @@ namespace combilp {
 	void dilateMask(const GM&, std::vector<bool>&);
 
 	template<class GM>
-	bool LabelingMatching(const std::vector<typename GM::LabelType>&,const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::list<typename GM::IndexType>&);
+	bool LabelingMatching(const std::vector<typename GM::LabelType>&,const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::vector<typename GM::IndexType>&);
 
 	template<class GM>
-	bool LabelingMatching(const GM&, const std::vector<typename GM::LabelType>&, const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::list<typename GM::IndexType>&, typename GM::ValueType&);
+	bool LabelingMatching(const GM&, const std::vector<typename GM::LabelType>&, const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::vector<typename GM::IndexType>&, typename GM::ValueType&);
 
 	template<class GM>
 	void GetMaskBoundary(const GM&, const std::vector<bool>&, std::vector<bool>&);
@@ -436,7 +436,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 		std::cout << "Boundary size=" << std::count(boundmask.begin(),boundmask.end(),true) << std::endl;
 #endif
 
-		std::list<IndexType> result;
+		std::vector<IndexType> result;
 		bool optimalityFlag;
 
 		ValueType gap=0;
@@ -478,7 +478,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 			if (parameter_.saveProblemMasks_)
 			OUT::saveContainer(std::string(parameter_.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
 #endif
-			for (typename std::list<IndexType>::const_iterator it=result.begin();it!=result.end();++it) {
+			for (typename std::vector<IndexType>::const_iterator it=result.begin();it!=result.end();++it) {
 				if (parameter_.singleReparametrization_) //BSD: expanding the mask_
 					combilp::dilateMask(gm, *it, mask_);
 				else
@@ -536,6 +536,7 @@ namespace combilp{
 				dilateMask(gm, i, mask);
 	}
 
+	// TODO: Needs cleanup.
 	template<class GM>
 	bool
 	LabelingMatching
@@ -543,7 +544,7 @@ namespace combilp{
 		const std::vector<typename GM::LabelType> &labeling1,
 		const std::vector<typename GM::LabelType> &labeling2,
 		const std::vector<bool> &mask,
-		std::list<typename GM::IndexType> &result
+		std::vector<typename GM::IndexType> &result
 	)
 	{
 		OPENGM_ASSERT_OP(labeling1.size(), ==, mask.size());
@@ -555,7 +556,7 @@ namespace combilp{
 		return result.empty();
 	}
 
-
+	// TODO: Needs cleanup.
 	template<class GM>
 	bool
 	LabelingMatching(
@@ -563,7 +564,7 @@ namespace combilp{
 		const std::vector<typename GM::LabelType> &labeling_out,
 		const std::vector<typename GM::LabelType> &labeling_in,
 		const std::vector<bool> &mask_in,
-		std::list<typename GM::IndexType> &result,
+		std::vector<typename GM::IndexType> &result,
 		typename GM::ValueType& gap
 	)
 	{
@@ -598,6 +599,7 @@ namespace combilp{
 		return result.empty();
 	}
 
+	// TODO: Needs cleanup.
 	template<class GM>
 	void
 	GetMaskBoundary(
