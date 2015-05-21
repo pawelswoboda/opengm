@@ -187,22 +187,10 @@ private:
 	//
 	Parameter parameter_;
 	GraphicalModelType gm_;
-	LPSolverType lpsolver_;
-	boost::scoped_ptr<ReparametrizerType> reparametrizer_;
 	std::vector<LabelType> labeling_;
 	ValueType value_;
 	ValueType bound_;
 	MaskType mask_;
-
-	// NOTE: We need the lpsolver_ only during performLP() phase. The problem
-	// is that the ILP steps in performILP() also need the reparametrizer.
-	// We just reuse the same reparametrizer. But the reparametrizer accesses
-	// pointers which refer te lpsolver_.
-	//
-	// TODO: Should be possible to separate lpsolver and reparametrizer more?
-	// Then we could maybe also just create a new reparametrizer in the ILP
-	// phase? (If we do not need the stored reparametrized configuration
-	// anymore, do not know if this is the case...)
 };
 
 template<class GM, class ACC, class LP, class ILP>
@@ -213,8 +201,6 @@ CombiLP<GM, ACC, LP, ILP>::CombiLP
 )
 : parameter_(param)
 , gm_(gm)
-, lpsolver_(gm_, parameter_.lpsolverParameter_)
-, reparametrizer_(lpsolver_.getReparametrizer(parameter_.repaParameter_))
 , labeling_(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
 , value_(ACC::template neutral<ValueType>())
 , bound_(ACC::template ineutral<ValueType>())
@@ -308,22 +294,27 @@ template<class GM, class ACC, class LP, class ILP>
 void
 CombiLP<GM, ACC, LP, ILP>::performLP()
 {
+	LPSolverType solver(gm_, parameter_.lpsolverParameter_);
+	boost::scoped_ptr<ReparametrizerType> reparametrizer(solver.getReparametrizer(parameter_.repaParameter_));
+
 #ifdef OPENGM_COMBILP_DEBUG
-	std::cout << "Running LP solver "<< lpsolver_.name() << std::endl;
+	std::cout << "Running LP solver "<< solver.name() << std::endl;
 #endif
 
-	lpsolver_.infer();
-	value_ = lpsolver_.value();
-	bound_ = lpsolver_.bound();
-	lpsolver_.arg(labeling_);
-	lpsolver_.getTreeAgreement(mask_);
+	solver.infer();
+	value_ = solver.value();
+	bound_ = solver.bound();
+	solver.arg(labeling_);
+	solver.getTreeAgreement(mask_);
 
 #ifdef OPENGM_COMBILP_DEBUG
-	std::cout << "Energy of the labeling consistent with the arc consistency =" << lpsolver_.graphicalModel().evaluate(labeling_) << std::endl;
+	std::cout << "Energy of the labeling consistent with the arc consistency =" << solver.graphicalModel().evaluate(labeling_) << std::endl;
 	std::cout << "Arc inconsistent set size =" << std::count(mask_.begin(),mask_.end(),false) << std::endl;
 	std::cout << "Trivializing." << std::endl;
 #endif
 
+	// FIXME: Why do we reparameterize the model again? The LPSolver already
+	// did this. There is no need for instantiating a reparametrizer here...
 #ifdef WITH_HDF5
 	if (parameter_.reparametrizedModelFileName_.compare("") != 0) {
 #ifdef OPENGM_COMBILP_DEBUG
@@ -332,9 +323,9 @@ CombiLP<GM, ACC, LP, ILP>::performLP()
 		typename ReparametrizerType::ReparametrizedGMType gm;
 		// TODO: Check this! Why another mask?
 		// FIXME: Looks bogous.
-		MaskType mask(reparametrizer_->graphicalModel().numberOfVariables(), true);
-		reparametrizer_->reparametrize(&mask);
-		reparametrizer_->getReparametrizedModel(gm);
+		MaskType mask(reparametrizer->graphicalModel().numberOfVariables(), true);
+		reparametrizer->reparametrize(&mask);
+		reparametrizer->getReparametrizedModel(gm);
 		store_into_explicit(gm, parameter_.reparametrizedModelFileName_);
 	}
 #endif
@@ -366,6 +357,10 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 	std::cout << "Switching to ILP." << std::endl;
 #endif
 
+	typename LPSolverType::Storage storage(gm_, parameter_.lpsolverParameter_.decompositionType_, (parameter_.lpsolverParameter_.initPoint_.size()==0 ? 0 : &parameter_.lpsolverParameter_.initPoint_));
+	typename ReparametrizerType::FunctionParametersType fparams(gm_);
+	ReparametrizerType reparametrizer(storage, fparams, parameter_.repaParameter_);
+
 	bool startILP=true;
 	typename ReparametrizerType::ReparametrizedGMType gm;
 	bool reparametrizedFlag=false;
@@ -394,15 +389,15 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 			std::cout << "Reparametrizing..." << std::endl;
 #endif
 			MaskType mask(mask_.size(), true);
-			reparametrizer_->reparametrize(&mask);
-			reparametrizer_->getReparametrizedModel(gm);
+			reparametrizer.reparametrize(&mask);
+			reparametrizer.getReparametrizedModel(gm);
 			reparametrizedFlag=true;
 		} else if (!parameter_.singleReparametrization_) {
 #ifdef OPENGM_COMBILP_DEBUG
 			std::cout << "Reparametrizing..." << std::endl;
 #endif
-			reparametrizer_->reparametrize(&mask_);
-			reparametrizer_->getReparametrizedModel(gm);
+			reparametrizer.reparametrize(&mask_);
+			reparametrizer.getReparametrizedModel(gm);
 		}
 
 		OPENGM_ASSERT_OP(mask_.size(), ==, gm.numberOfVariables());
@@ -536,7 +531,6 @@ namespace combilp{
 				dilateMask(gm, i, mask);
 	}
 
-	// TODO: Needs cleanup.
 	template<class GM>
 	bool
 	LabelingMatching
