@@ -369,7 +369,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 #ifdef OPENGM_COMBILP_DEBUG
 		std::cout << "ILP iteration " << iteration
 		          << "(size = " << std::count(mask_.begin(), mask_.end(), true)
-		          << std::endl;
+		          << ")" << std::endl;
 #endif
 
 		//
