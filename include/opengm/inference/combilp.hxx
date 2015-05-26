@@ -323,15 +323,7 @@ namespace opengm{
 #ifdef TRWS_DEBUG_OUTPUT
                _fout << "Reparametrizing..."<<std::endl;
 #endif
-//               //BSD: temporary code, remove me
-//               MaskType mask_minus(mask);
-//               for (size_t i=0;i<mask.size();++i)
-//            	   if (boundmask[i]) mask_minus[i]=false;//xor mask, boundary
-//
-//               _Reparametrize(&gm,mask_minus);
                _Reparametrize(&gm,mask);
-
-
             }
 
             OPENGM_ASSERT(mask.size()==gm.numberOfVariables());
@@ -348,9 +340,9 @@ namespace opengm{
             terminationILP=_PerformILPInference(modelManipulator,&labeling);
             if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE))
             {
-               _labeling=lp_labeling;
+               //_labeling=lp_labeling;
 #ifdef TRWS_DEBUG_OUTPUT
-               _fout << "ILP solver failed to solve the problem. LP solver results will be saved." <<std::endl;
+               _fout << "ILP solver failed to solve the problem. Best attained results will be saved." <<std::endl;
 #endif
                
                //return NORMAL;
@@ -370,23 +362,30 @@ namespace opengm{
             {
             	optimalityFlag=LabelingMatching(gm,lp_labeling,labeling,mask,&result,&gap);
                 ValueType newvalue=gm.evaluate(labeling);
-                ValueType newbound=newvalue-gap;
 
-                ACC::op(_value,newvalue,_value);
+                std::vector<bool> imask(mask.size());
+                std::transform(mask.begin(),mask.end(),imask.begin(),std::logical_not<bool>());
+                ValueType newbound=gm.evaluate(labeling,mask)+gm.evaluate(labeling,imask);
+
+                if (ACC::bop(newvalue,_value))
+                {
+                	_value=newvalue;
+                	_labeling=labeling;
+                }
+
                 ACC::iop(_bound,newbound,_bound);
 
     #ifdef TRWS_DEBUG_OUTPUT
                 _fout <<"newvalue="<<newvalue<<"; best value="<<_value<<std::endl;
                 _fout <<"newbound="<<newbound<<"; best bound="<<_bound<<std::endl;
+                //_fout << "new gap="<<gap<<std::endl;
     #endif
             }
 
-
-            if (optimalityFlag)
+            if (optimalityFlag || (fabs(_value-_bound)<= std::numeric_limits<ValueType>::epsilon()*_value) )
             {
                startILP=false;
-               _labeling=labeling;
-               _value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
+               //_value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
                terminationId=NORMAL;
 #ifdef TRWS_DEBUG_OUTPUT
                _fout <<"Solved! Optimal energy="<<value()<<std::endl;
