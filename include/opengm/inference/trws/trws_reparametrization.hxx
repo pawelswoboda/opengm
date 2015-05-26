@@ -136,66 +136,6 @@ void TrivializationSolver<GM,ACC,InputIterator>::_PushBack()
 			std::minus<ValueType>());
 }
 
-//template<class GM,class ACC,class InputIterator>
-//void TrivializationSolver<GM,ACC,InputIterator>::_PushBack(const MaskType& mask)
-//{
-//	OPENGM_ASSERT(mask.size()==parent::_currentUnaryFactor.size());
-//	_multipliers.resize(parent::_currentUnaryFactor.size());
-//	bool decrease=false;
-//
-//	//std::cout << "_numberOfBoundaryTerms="<<_numberOfBoundaryTerms<<std::endl;
-//
-//	for (IndexType label=0;label<_multipliers.size();++label)
-//	{
-//		if (mask[label]) _multipliers[label]=1.0;
-//		else
-//		{
-//			_multipliers[label]=((ValueType)_numberOfBoundaryTerms-1.0)/_numberOfBoundaryTerms;
-//			decrease=true;
-//		}
-//	}
-//
-//	if (decrease)
-//	{
-//	 --_numberOfBoundaryTerms;
-//	 decrease=false;
-//	}
-//
-//	//std::cout << "_multipliers:" <<_multipliers<<std::endl;
-//
-//	transform(parent::_currentUnaryFactor.begin(),
-//			parent::_currentUnaryFactor.end(),
-//			_multipliers.begin(),parent::_currentUnaryFactor.begin(),
-//			std::multiplies<ValueType>());
-//
-//	std::transform(parent::_currentUnaryFactor.begin(),
-//			parent::_currentUnaryFactor.end(),
-//			parent::_marginals[parent::_currentUnaryIndex].begin(),
-//			parent::_currentUnaryFactor.begin(),
-//			std::minus<ValueType>());
-//	std::transform(parent::_currentUnaryFactor.begin(),parent::_currentUnaryFactor.end(),
-//			parent::_storage.unaryFactors(parent::_currentUnaryIndex).begin(),
-//			parent::_currentUnaryFactor.begin(),std::plus<ValueType>());
-//
-//	_setDuals(parent::_currentUnaryIndex,parent::_moveDirection,parent::_currentUnaryFactor.begin());
-//
-//	parent::_PushMessagesToFactor();
-//	parent::_currentUnaryIndex=parent::_next(parent::_currentUnaryIndex);//instead of _InitCurrentUnaryBuffer(_next(_currentUnaryIndex));
-//	parent::_currentUnaryFactor.assign(parent::_storage.unaryFactors(parent::_currentUnaryIndex).size(),0.0);
-//	parent::_ClearMessages();
-//
-//	transform_inplace(parent::_currentUnaryFactor.begin(),
-//			parent::_currentUnaryFactor.end(),
-//			std::bind2nd(std::multiplies<ValueType>(),-1.0));
-//	_setDuals(parent::_currentUnaryIndex,Storage::ReverseDirection(parent::_moveDirection),
-//			parent::_currentUnaryFactor.begin());
-//
-//	std::transform(parent::_marginals[parent::_currentUnaryIndex].begin(),
-//			parent::_marginals[parent::_currentUnaryIndex].end(),
-//			parent::_currentUnaryFactor.begin(),parent::_currentUnaryFactor.begin(),
-//			std::minus<ValueType>());
-//}
-
 
 template<class GM,class ACC,class InputIterator>
 void TrivializationSolver<GM,ACC,InputIterator>::BackwardMove(const MaskType* pmask)
@@ -217,29 +157,6 @@ void TrivializationSolver<GM,ACC,InputIterator>::BackwardMove(const MaskType* pm
 	parent::_bInitializationNeeded=true;
 }
 
-//template<class GM,class ACC,class InputIterator>
-//void TrivializationSolver<GM,ACC,InputIterator>::BackwardMove(const ImmovableLabelingType& immovableLabels)
-//{
-//	_mask.assign(parent::size(),true);
-//	parent::_moveDirection=Storage::ReverseDirection(parent::_moveDirection);
-//
-//	if (parent::_moveDirection==Storage::Direct)
-//	{
-//		//std::cout << "Direct"<<std::endl;
-//		_InitBackwardMoveBuffer(0);
-//	}
-//	else
-//	{
-//		//std::cout << "Reverse"<<std::endl;
-//		_InitBackwardMoveBuffer(parent::size()-1);
-//	}
-//
-//	//for (IndexType i=0;i<parent::size()-1;++i)//!> number of iterations is equal to a number of pairwise factors
-//	for (IndexType i=0;i<parent::size()-1;++i)//!> number of iterations is equal to a number of pairwise factors
-//		_PushBack(immovableLabels[parent::_currentUnaryIndex]); //_Push(size()-i) - the current value of i is known, as _currentIndex
-//
-//	parent::_bInitializationNeeded=true;
-//}
 
 template<class GM,class ACC,class InputIterator>
 void TrivializationSolver<GM,ACC,InputIterator>
@@ -329,7 +246,6 @@ TRWS_Reparametrizer<Storage,ACC>::TRWS_Reparametrizer(Storage& storage,
 template<class Storage,class ACC>
 void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 {
-
 	MaskType mask(pmask!=0 ? *pmask : MaskType(_storage.masterModel().numberOfVariables(),true));
 	OPENGM_ASSERT(mask.size()==_storage.masterModel().numberOfVariables());
 	ValueType 	bound=0;
@@ -337,16 +253,80 @@ void TRWS_Reparametrizer<Storage,ACC>::reparametrize(const MaskType* pmask)
 	for (size_t i=0;i<_subSolvers.size();++i)
 	{
 		typename Storage::SubModel& model=_storage.subModel(i);
-		sequenceMask.resize(model.size());
-		for (IndexType localInd=0; localInd<sequenceMask.size();++localInd)
-		{
-			OPENGM_ASSERT(model.varIndex(localInd) < mask.size());
-			sequenceMask[localInd]=mask[model.varIndex(localInd)];
-		}
+
+		sequenceMask.assign(model.size(),true);
 
 	_subSolvers[i]->ForwardMove();
 	_subSolvers[i]->BackwardMove(&sequenceMask);
 	bound+=_subSolvers[i]->GetObjectiveValue();
+	}
+	//BSD: here add moving potentials from the boundary to p/w factor and from p/w factor to unaries
+	//...according to the mask
+	// for all vars with mask=false
+	// check all incident factors
+	// count numFact with mask=1 for ANY its variable, push_back factorID
+	// for all saved factorID identify those vars0, which have the mask=false
+	// and those vars1 with the mask=true
+	// add reparametrized unary factor divided by numFact to the message vector
+	// subtract min value (clear message) from vars1
+	//and for each variable remember the label minimum comes from ?.
+	// - No need, after finding the ILP labeling we have to just check that the corresponding factor = 0
+
+
+	const typename Storage::GraphicalModelType& gm=_storage.masterModel();
+	std::vector<size_t> borderFactorCounter(gm.numberOfVariables(),0);
+	std::vector<std::pair<IndexType,IndexType> > borderFactors; borderFactors.reserve(gm.numberOfFactors());
+	for (IndexType varID=0;varID<gm.numberOfVariables();++varID)
+	if (!mask[varID])
+	{
+	 for (IndexType localfID=0;localfID<gm.numberOfFactors(varID);++localfID)
+	 {
+		 IndexType factorID=gm.factorOfVariable(varID,localfID);
+		 const typename GraphicalModelType::FactorType& factor=gm[factorID];
+		 if (factor.numberOfVariables()<2) continue;
+		 if (factor.numberOfVariables()>2) std::runtime_error("TRWS_Reparametrizer<Storage,ACC>::reparametrize(): Higher order models are not supported yet.");
+		 if (mask[factor.variableIndex(0)] || mask[factor.variableIndex(1)] )
+		 {
+			 IndexType var0=(!mask[factor.variableIndex(0)] ? 0 : 1 );
+			 ++borderFactorCounter[varID];
+			 borderFactors.push_back(std::make_pair(factorID,var0));
+		 }
+	 }
+	}
+
+	for (typename std::vector<std::pair<IndexType,IndexType> >::const_iterator fit=borderFactors.begin();fit!=borderFactors.end();++fit)
+	{
+		//sending message to the factor from var0
+		std::pair<typename RepaStorageType::uIterator,typename RepaStorageType::uIterator> lit=parent::Reparametrization().getIterators(fit->first,fit->second);
+		IndexType var0=fit->second;
+		IndexType var0ID=gm[fit->first].variableIndex(var0);
+		LabelType label=0;
+		while (lit.first!=lit.second)
+		{
+			OPENGM_ASSERT(borderFactorCounter[var0ID]!=0);
+			*lit.first+=parent::Reparametrization().getVariableValue(gm[fit->first].variableIndex(var0),label++)/borderFactorCounter[var0ID];
+			++lit.first;
+		}
+		--borderFactorCounter[var0ID]; //the value of the variable decreases to this factor
+
+		//sending message to the var1
+		IndexType var1=(1-var0);
+		IndexType var1ID=gm[fit->first].variableIndex(var1);
+		//clear message
+		std::vector<IndexType> ind(2,0);
+		ValueType val=parent::Reparametrization().getFactorValue(fit->first,ind.begin());
+		lit=parent::Reparametrization().getIterators(fit->first,var1);
+		for (LabelType l1=0;l1<gm.numberOfLabels(var1ID);++l1)
+		{
+		 ind[var1]=l1;
+		 for (LabelType l0=0;l0<gm.numberOfLabels(var0ID);++l0)
+		 {
+			ind[var0]=l0;
+			ACC::op(val,parent::Reparametrization().getFactorValue(fit->first,ind.begin()),val);//min or max
+		 }
+		 *lit.first-=val;
+		 ++lit.first;
+		}
 	}
 
 }

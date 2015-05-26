@@ -334,7 +334,7 @@ namespace opengm{
                   OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
 #endif
                for (typename std::list<IndexType>::const_iterator it=result.begin();it!=result.end();++it)
-                  DilateMask(gm,*it,&mask);
+                  DilateMask(gm,*it,&mask); //BSD: do not need to do this in the new version
             }
          }
 
@@ -549,7 +549,7 @@ namespace opengm{
       trws_base::transform_inplace(initialmask.begin(),initialmask.end(),std::logical_not<bool>());
 
       MaskType mask;
-      combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);
+      combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);//BSD: do not need to dilate it in the new approach
 
       visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
       InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis);
