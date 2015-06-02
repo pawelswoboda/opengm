@@ -54,7 +54,7 @@ main
 	opengm::hdf5::load(gm, argv[1], "gm");
 	DecompositionStorageType storage(gm, DecompositionStorageType::GENERALSTRUCTURE, NULL);
 
-	typedef opengm::hack::SequenceGeneratorIterator<GraphicalModelType> GeneratorType;
+	typedef opengm::hack::SequenceGeneratorIterator<GraphicalModelType, GraphicalModelType> GeneratorType;
 	typename GeneratorType::Iterators its = GeneratorType::makeIterators(storage);
 
 	{

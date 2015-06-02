@@ -234,7 +234,6 @@ copyPairwiseFromRepa
 	if (gm[index].variableIndex(0) == right)
 		permutePairwise(result);
 
-
 	return result;
 }
 
@@ -293,23 +292,23 @@ trivialMerge
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
+template<class GM, class GM2>
 class SequenceGeneratorIterator {
 public:
 	typedef GM GraphicalModelType;
 	typedef typename GraphicalModelType::IndexType IndexType;
 	typedef typename GraphicalModelType::ValueType ValueType;
 
-	typedef DecompositionStorage<GM> DecompositionStorageType;
-	typedef SequenceStorage<GM> SequenceStorageType;
-	typedef std::pair<SequenceGeneratorIterator<GM>, SequenceGeneratorIterator<GM> > Iterators;
+	typedef DecompositionStorage<GM2> DecompositionStorageType;
+	typedef SequenceStorage<GM2> SequenceStorageType;
+	typedef std::pair<SequenceGeneratorIterator<GM, GM2>, SequenceGeneratorIterator<GM, GM2> > Iterators;
 
 	typedef std::pair<IndexType, ValueType> Element;
 	typedef std::vector<Element> Elements;
 
 	bool operator!=(const SequenceGeneratorIterator&);
 	Elements& operator*();
-	SequenceGeneratorIterator<GM>& operator++();
+	SequenceGeneratorIterator<GM, GM2>& operator++();
 
 	static Iterators makeIterators(const DecompositionStorageType&);
 
@@ -321,8 +320,8 @@ private:
 	Elements current_;
 };
 
-template<class GM>
-SequenceGeneratorIterator<GM>::SequenceGeneratorIterator
+template<class GM, class GM2>
+SequenceGeneratorIterator<GM, GM2>::SequenceGeneratorIterator
 (
 	size_t index,
 	const DecompositionStorageType &storage
@@ -332,16 +331,16 @@ SequenceGeneratorIterator<GM>::SequenceGeneratorIterator
 {
 }
 
-template<class GM>
+template<class GM, class GM2>
 bool
-SequenceGeneratorIterator<GM>::operator!=(const SequenceGeneratorIterator &rhs)
+SequenceGeneratorIterator<GM, GM2>::operator!=(const SequenceGeneratorIterator &rhs)
 {
 	return (index_ != rhs.index_) || (storage_ != rhs.storage_);
 }
 
-template<class GM>
-typename SequenceGeneratorIterator<GM>::Elements&
-SequenceGeneratorIterator<GM>::operator*()
+template<class GM, class GM2>
+typename SequenceGeneratorIterator<GM, GM2>::Elements&
+SequenceGeneratorIterator<GM, GM2>::operator*()
 {
 	OPENGM_ASSERT_OP(index_, <, storage_->numberOfModels());
 	const SequenceStorageType &seq = storage_->subModel(index_);
@@ -354,17 +353,17 @@ SequenceGeneratorIterator<GM>::operator*()
 	return current_;
 }
 
-template<class GM>
-SequenceGeneratorIterator<GM>&
-SequenceGeneratorIterator<GM>::operator++()
+template<class GM, class GM2>
+SequenceGeneratorIterator<GM, GM2>&
+SequenceGeneratorIterator<GM, GM2>::operator++()
 {
 	++index_;
 	return *this;
 }
 
-template<class GM>
-typename SequenceGeneratorIterator<GM>::Iterators
-SequenceGeneratorIterator<GM>::makeIterators
+template<class GM, class GM2>
+typename SequenceGeneratorIterator<GM, GM2>::Iterators
+SequenceGeneratorIterator<GM, GM2>::makeIterators
 (
 	const DecompositionStorageType &storage
 )
