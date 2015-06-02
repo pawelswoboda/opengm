@@ -117,11 +117,8 @@ copyUnaryFromRepa
 	#ifndef NDEBUG
 	OPENGM_ASSERT_OP(gm[index].numberOfVariables(), ==, 1);
 	OPENGM_ASSERT_OP(gm[index].shape(0), ==, result.shape(0));
-	for (typename GM::LabelType i = 0; i < gm[index].shape(0); ++i) {
-		FastSequence<typename GM::LabelType> labeling(1);
-		labeling[0] = i;
-		OPENGM_ASSERT(is_almost_equal(result(labeling.begin()), repa.getVariableValue(index, i)));
-	}
+	for (typename GM::LabelType i = 0; i < gm[index].shape(0); ++i)
+		OPENGM_ASSERT(is_almost_equal(result(i), repa.getVariableValue(index, i)));
 	#endif
 
 	return result;
@@ -431,7 +428,9 @@ template<class GM, class DERIVED>
 typename SequenceReparameterizer<GM, DERIVED>::StorageType
 SequenceReparameterizer<GM, DERIVED>::run()
 {
+	#ifndef NDEBUG
 	std::cout << "SequenceReparameterizer::run()" << std::endl;
+	#endif
 	repa_ = StorageType(gm_);
 
 	if (sequence_.size() >= 2) {
@@ -490,7 +489,9 @@ template<class GM, class DERIVED>
 void
 SequenceReparameterizer<GM, DERIVED>::forwardPass()
 {
+	#ifndef NDEBUG
 	std::cout << "SequenceReparameterizer::forwardPass()" << std::endl;
+	#endif
 	Potentials pots;
 	Iterators its;
 
@@ -542,7 +543,9 @@ template<class GM, class DERIVED>
 void
 SequenceReparameterizer<GM, DERIVED>::backwardPass()
 {
+	#ifndef NDEBUG
 	std::cout << "SequenceReparameterizer::backwardPass()" << std::endl;
+	#endif
 }
 
 template<class GM, class DERIVED>
@@ -555,7 +558,9 @@ SequenceReparameterizer<GM, DERIVED>::reparametrizeAll
 	INPUT_ITERATOR end
 )
 {
+	#ifndef NDEBUG
 	std::cout << "SequenceReparameterizer::reparametrizeAll()" << std::endl;
+	#endif
 	StorageType repa_(gm);
 	for (INPUT_ITERATOR it = begin; it != end; ++it) {
 		DERIVED reparametrizer(gm, *it);
@@ -661,7 +666,9 @@ template<class GM>
 void
 CanonicalReparametrizer<GM>::backwardPass()
 {
+	#ifndef NDEBUG
 	std::cout << "CanonicalReparametrizer::backwardPass()" << std::endl;
+	#endif
 	Potentials pots;
 	Iterators its;
 
@@ -771,7 +778,9 @@ template<class GM>
 void
 UniformReparametrizer<GM>::backwardPass()
 {
+	#ifndef NDEBUG
 	std::cout << "UniformReparametrizer::backwardPass()" << std::endl;
+	#endif
 	Potentials pots;
 	Iterators its;
 
@@ -824,6 +833,147 @@ UniformReparametrizer<GM>::backwardPass()
 			for (LabelType k = 0; k < gm_.numberOfLabels(sequence_[i].first); ++k)
 				min = std::min(min, pots(j, k));
 		OPENGM_ASSERT(is_almost_equal(energy / (2*sequence_.size()-1), min));
+		#endif
+	}
+
+	// Check whether LabelCollapse property holds.
+	#ifndef NDEBUG
+	for (IndexType i = 1; i < sequence_.size(); ++i) {
+		marray::Marray<ValueType> left = copyUnary(i-1);
+		marray::Marray<ValueType> right = copyUnary(i);
+		marray::Marray<ValueType> pairwise = copyPairwise(i-1, i);
+
+		for (LabelType j = 0; j < left.size(); ++j) {
+			for (LabelType k = 0; k < right.size(); ++k) {
+				OPENGM_ASSERT_OP(left(j), <=, pairwise(j, k) + 1e-8);
+				OPENGM_ASSERT_OP(right(k), <=, pairwise(j, k) + 1e-8);
+			}
+		}
+	}
+	#endif
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class CustomReparametrizer
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM>
+class CustomReparametrizer : public SequenceReparameterizer<GM, CustomReparametrizer<GM> > {
+public:
+	typedef SequenceReparameterizer<GM, CustomReparametrizer<GM> > Parent;
+
+	using typename Parent::GraphicalModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+
+	using typename Parent::StorageType;
+	using typename Parent::ElementType;
+	using typename Parent::SequenceType;
+	using typename Parent::Potentials;
+	using typename Parent::Iterators;
+
+	CustomReparametrizer(const GraphicalModelType&, const SequenceType&);
+
+protected:
+	using Parent::copyUnary;
+	using Parent::copyPairwise;
+	using Parent::pencil;
+
+	using Parent::gm_;
+	using Parent::sequence_;
+	using Parent::repa_;
+
+	void backwardPass();
+
+	friend Parent;
+
+private:
+	ValueType attraction_;
+};
+
+template<class GM>
+CustomReparametrizer<GM>::CustomReparametrizer
+(
+	const GraphicalModelType &gm,
+	const SequenceType &sequence
+)
+: Parent(gm, sequence)
+{
+	size_t numChains = 0;
+	for (size_t i = 0; i < sequence_.size(); ++i) {
+		numChains += sequence_[i].second;
+	}
+
+	attraction_ = static_cast<ValueType>(numChains);
+	attraction_ = 100.0;
+}
+
+template<class GM>
+void
+CustomReparametrizer<GM>::backwardPass()
+{
+	#ifndef NDEBUG
+	std::cout << "CustomReparametrizer::backwardPass()" << std::endl;
+	#endif
+	Potentials pots;
+	Iterators its;
+
+	// Calculate energy (minimal marginal of last node). The energy is only
+	// used for verifying the reparameterization in debug mode.
+	#ifndef NDEBUG
+	pots = copyUnary(sequence_.size()-1); 
+	ValueType energy = pots(0);
+	for (LabelType i = 1; i < gm_.numberOfLabels(sequence_[sequence_.size()-1].first); ++i)
+		energy = std::min(energy, pots(i));
+	#endif
+
+	// Backward move
+	for (IndexType i = sequence_.size()-1; i > 0; --i) {
+		ValueType min;
+
+		// Push potential from unary to pencil.
+		pots = copyUnary(i);
+		its = pencil(i, i-1);
+		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i].first); ++j) {
+			OPENGM_ASSERT_OP(j, <, its.second - its.first);
+			ValueType mul = 1.0 - 1.0 / ((2*i + 1) * attraction_);
+			*(its.first + j) += pots(j) * mul;
+		}
+
+		// Check whether best unary has uniform part of energy.
+		#ifndef NDEBUG
+		pots = copyUnary(i);
+		min = pots(0);
+		for (LabelType j = 1; j < gm_.numberOfLabels(sequence_[i].first); ++j)
+			min = std::min(min, pots(j));
+		OPENGM_ASSERT(is_almost_equal(energy / ((2*sequence_.size()-1) * attraction_) , min));
+		#endif
+
+		// Push potential from pencil to unary.
+		pots = copyPairwise(i-1, i);
+		its = pencil(i-1, i);
+		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i-1].first); ++j) {
+			OPENGM_ASSERT_OP(j, <, its.second - its.first);
+			min = pots(j, 0);
+			for (LabelType k = 1; k < gm_.numberOfLabels(sequence_[i].first); ++k)
+				min = std::min(min, pots(j, k));
+			ValueType mul = ((2*i - 1) * attraction_) / ((2*i + 1) * attraction_ - 1);
+			*(its.first + j) -= min * mul;
+		}
+
+		// Check whether best pairwise has uniform part of energy.
+		#ifndef NDEBUG
+		pots = copyPairwise(i-1, i);
+		min = pots(0, 0);
+		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i-1].first); ++j)
+			for (LabelType k = 0; k < gm_.numberOfLabels(sequence_[i].first); ++k)
+				min = std::min(min, pots(j, k));
+		//std::cout << (energy * (1.0 - sequence_.size() / ((2*sequence_.size()-1)*attraction_)) / (sequence_.size() - 1)) << " / " << min << std::endl;
+		//OPENGM_ASSERT(is_almost_equal(energy * (1.0 - sequence_.size() / ((2*sequence_.size()-1)*attraction_)) / (sequence_.size() - 1), min));
 		#endif
 	}
 

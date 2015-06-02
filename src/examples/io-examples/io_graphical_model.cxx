@@ -57,6 +57,7 @@ main
 	typedef opengm::hack::SequenceGeneratorIterator<GraphicalModelType, GraphicalModelType> GeneratorType;
 	typename GeneratorType::Iterators its = GeneratorType::makeIterators(storage);
 
+#if 0
 	{
 		typedef opengm::hack::CanonicalReparametrizer<GraphicalModelType> ReparametrizerType;
 		ReparametrizerType::reparametrizeAll(gm, its.first, its.second);
@@ -64,6 +65,12 @@ main
 
 	{
 		typedef opengm::hack::UniformReparametrizer<GraphicalModelType> ReparametrizerType;
+		ReparametrizerType::reparametrizeAll(gm, its.first, its.second);
+	}
+#endif
+
+	{
+		typedef opengm::hack::CustomReparametrizer<GraphicalModelType> ReparametrizerType;
 		ReparametrizerType::reparametrizeAll(gm, its.first, its.second);
 	}
 }
