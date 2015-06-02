@@ -903,13 +903,11 @@ CustomReparametrizer<GM>::CustomReparametrizer
 )
 : Parent(gm, sequence)
 {
-	size_t numChains = 0;
+	attraction_ = 0;
 	for (size_t i = 0; i < sequence_.size(); ++i) {
-		numChains += sequence_[i].second;
+		attraction_ += 1.0 / sequence_[i].second;
 	}
-
-	attraction_ = static_cast<ValueType>(numChains);
-	attraction_ = 100.0;
+	attraction_ *= 10.0;
 }
 
 template<class GM>
@@ -929,6 +927,9 @@ CustomReparametrizer<GM>::backwardPass()
 	ValueType energy = pots(0);
 	for (LabelType i = 1; i < gm_.numberOfLabels(sequence_[sequence_.size()-1].first); ++i)
 		energy = std::min(energy, pots(i));
+
+	ValueType fractionUnary = energy / ((2*sequence_.size()-1) * attraction_);
+	ValueType fractionPairwise = (energy - fractionUnary * sequence_.size()) / (sequence_.size() - 1);
 	#endif
 
 	// Backward move
@@ -950,7 +951,7 @@ CustomReparametrizer<GM>::backwardPass()
 		min = pots(0);
 		for (LabelType j = 1; j < gm_.numberOfLabels(sequence_[i].first); ++j)
 			min = std::min(min, pots(j));
-		OPENGM_ASSERT(is_almost_equal(energy / ((2*sequence_.size()-1) * attraction_) , min));
+		OPENGM_ASSERT(is_almost_equal(fractionUnary, min));
 		#endif
 
 		// Push potential from pencil to unary.
@@ -972,8 +973,12 @@ CustomReparametrizer<GM>::backwardPass()
 		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i-1].first); ++j)
 			for (LabelType k = 0; k < gm_.numberOfLabels(sequence_[i].first); ++k)
 				min = std::min(min, pots(j, k));
-		//std::cout << (energy * (1.0 - sequence_.size() / ((2*sequence_.size()-1)*attraction_)) / (sequence_.size() - 1)) << " / " << min << std::endl;
-		//OPENGM_ASSERT(is_almost_equal(energy * (1.0 - sequence_.size() / ((2*sequence_.size()-1)*attraction_)) / (sequence_.size() - 1), min));
+		// OPENGM_ASSERT(is_almost_equal(fractionPairwise, min));
+		// FIXME: The above is failing constantly. But all the unaries have the
+		// same value and also all the pairwise have the same value.
+		//
+		// The minimum pairwise value is just not as much as we are expecting.
+		// Why not?
 		#endif
 	}
 
