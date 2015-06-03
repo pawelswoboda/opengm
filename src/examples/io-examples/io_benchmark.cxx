@@ -64,7 +64,7 @@ int main(int argc, char **argv)
 		typedef Generator::CombiLPType CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
-		param.singleReparametrization_ = true;
+		param.singleReparametrization_ = false;
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
