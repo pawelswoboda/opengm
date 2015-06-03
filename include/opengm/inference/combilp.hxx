@@ -7,11 +7,17 @@
 
 #ifndef COMBILP_HXX_
 #define COMBILP_HXX_
+
+#include <boost/scoped_ptr.hpp>
+
 #include <opengm/graphicalmodel/graphicalmodel_manipulator.hxx>
 #include <opengm/inference/lpcplex.hxx>
+#include <opengm/inference/labelcollapse/labelcollapse.hxx>
 #include <opengm/inference/auxiliary/lp_reparametrization.hxx>
 #include <opengm/inference/trws/output_debug_utils.hxx>
 #include <opengm/inference/trws/trws_base.hxx>
+#include <opengm/inference/trws/trws_trws.hxx>
+#include <opengm/inference/trws/trws_temporary.hxx>
 
 namespace opengm{
 
@@ -282,7 +288,42 @@ namespace opengm{
             }
             std::cout << std::endl;
 
-            ILPSolver ilpSolver(model,_ilpsolverParemeter);
+            typedef TRWSi<ReparametrizedGMType, AccumulationType> TrwsiInference;
+            typename TrwsiInference::Parameter trwsiParam;
+            trwsiParam.maxNumberOfIterations_ = 1000;
+            trwsiParam.setTreeAgreeMaxStableIter(100);
+            trwsiParam.verbose_ = true;
+            TrwsiInference trwsi(model, trwsiParam);
+            trwsi.infer();
+
+            typedef typename TrwsiInference::ReparametrizerType TrwsiReparametrizerType;
+            typedef typename TrwsiReparametrizerType::ReparametrizedGMType TrwsiGM;
+            TrwsiGM m;
+            boost::scoped_ptr<TrwsiReparametrizerType> trwsiReparametrizer(trwsi.getReparametrizer());
+            trwsiReparametrizer->reparametrize();
+            trwsiReparametrizer->getReparametrizedModel(m);
+
+            //typedef trws_base::DecompositionStorage<TrwsiGM> DecompositionStorageType;
+            typedef LPReparametrizer<TrwsiGM, AccumulationType> ReparametrizerType;
+            typedef hack::SequenceGeneratorIterator<TrwsiGM, ReparametrizedGMType> SequenceGeneratorIteratorType;
+            typedef hack::CanonicalReparametrizer<TrwsiGM> CanonicalReparametrizerType;
+
+            //DecompositionStorageType storage(m, DecompositionStorageType::GENERALSTRUCTURE, NULL);
+            typename SequenceGeneratorIteratorType::Iterators its = SequenceGeneratorIteratorType::makeIterators(trwsi.getDecompositionStorage());
+
+            typename ReparametrizerType::ReparametrizedGMType mm;
+            ReparametrizerType reparametrizer(m);
+            reparametrizer.Reparametrization() = CanonicalReparametrizerType::reparametrizeAll(m, its.first, its.second);
+            reparametrizer.getReparametrizedModel(mm);
+
+            typedef typename LabelCollapseAuxTypeGen<typename LPReparametrizer<TrwsiGM, AccumulationType>::ReparametrizedGMType>::GraphicalModelType AuxMType;
+            typedef LabelCollapse<typename LPReparametrizer<TrwsiGM, AccumulationType>::ReparametrizedGMType, LPCplex<AuxMType, ACC> > ILPSolverType;
+
+            typename ILPSolverType::Parameter param;
+            param.proxy.integerConstraint_ = true;
+            param.proxy.numberOfThreads_ = 4;
+
+            ILPSolverType ilpSolver(mm, param);
             ilpSolver.populate(targetShape.begin());
             terminationILP=ilpSolver.infer();
 

@@ -58,13 +58,13 @@ int main(int argc, char **argv)
 #endif
 
 	begin = Clock::now();
-	std::cout << ":: Benchmarking Dense CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
+	std::cout << ":: Benchmarking CombiLP + TRWSi + LabelCollapse + CPLEX ..." << std::endl;
 	{
 		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, AccumulatorType> Generator;
 		typedef Generator::CombiLPType CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
-		param.singleReparametrization_ = false;
+		param.singleReparametrization_ = true;
 		param.lpsolverParameter_.verbose_ = true;
 #ifdef ALREADY_REPARAMETRIZED
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(0);
