@@ -223,8 +223,7 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
 		if (!isFull(i) && *it == 0)
-			for (unsigned int j = 0; j < 3; ++j)
-				uncollapse(i);
+			uncollapse(i);
 	}
 }
 
