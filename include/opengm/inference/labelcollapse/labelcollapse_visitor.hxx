@@ -47,7 +47,7 @@ public:
 	LabelCollapseStatisticsVisitor(
 		bool verbose = true,
 		bool memlogging = true,
-		bool depthStats = true
+		bool depthStats = false
 	);
 
 	void begin(const INFERENCE&);
