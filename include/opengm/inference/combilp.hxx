@@ -12,6 +12,7 @@
 #include <opengm/inference/auxiliary/lp_reparametrization.hxx>
 #include <opengm/inference/trws/output_debug_utils.hxx>
 #include <opengm/inference/trws/trws_base.hxx>
+#include "labelcollapse/labelcollapse_internal.hxx"
 
 namespace opengm{
 
@@ -221,6 +222,7 @@ namespace opengm{
          ReparametrizerType& _lpparametrizer;
          std::vector<LabelType> _labeling;
          std::vector<LabelType> _targetShape;
+         std::vector<LabelType> _depth;
          ValueType _value;
          ValueType _bound;
 #ifdef TRWS_DEBUG_OUTPUT
@@ -241,6 +243,7 @@ namespace opengm{
    ,_value(ACC::template neutral<ValueType>())
    ,_bound(ACC::template ineutral<ValueType>())
    ,_targetShape(_lpparametrizer.graphicalModel().numberOfVariables(), 0)
+   ,_depth(_lpparametrizer.graphicalModel().numberOfVariables(), 0)
 #ifdef TRWS_DEBUG_OUTPUT
    ,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
 #endif
@@ -304,6 +307,27 @@ namespace opengm{
 
                _targetShape[i] = targetShape[ modelManipulator.varMap_[i] ];
             }
+
+			typedef typename ::opengm::labelcollapse::Reordering<
+				typename GMManipulatorType::OGM,
+				typename ILPSolver::AccumulationType
+			> Reordering;
+			Reordering reordering(modelManipulator.gm_);
+			for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
+				if (modelManipulator.fixVariable_[i] ||
+				   (modelManipulator.var2subProblem_[i] != modelIndex))
+				{
+					  continue;
+				}
+
+				std::vector<LabelType> mapping(modelManipulator.gm_.numberOfLabels(i));
+				reordering.reorder(i);
+				reordering.getMapping(mapping.begin());
+				OPENGM_ASSERT_OP(submodelLabelings[modelIndex][modelManipulator.varMap_[i]], <, mapping.size());
+
+				_depth[i] = mapping[ submodelLabelings[modelIndex][modelManipulator.varMap_[i]] ];
+			}
+
          }
 
          modelManipulator.modifiedSubStates2OriginalState(submodelLabelings,*plabeling);
@@ -435,6 +459,17 @@ namespace opengm{
 #ifdef TRWS_DEBUG_OUTPUT
                _fout <<"Solved! Optimal energy="<<value()<<std::endl;
 #endif
+				std::cout << "-- BEGIN DEPTH STATS --" << std::endl;
+				std::cout << "# FORMAT: node / mask / label / shape / origShape" << std::endl;
+				for (IndexType i = 0; i < _lpparametrizer.graphicalModel().numberOfVariables(); ++i) {
+					std::cout << i << " / "
+							  << (mask[i] ? 1 : 0) << " / "
+							  << _depth[i] << " / "
+							  << _targetShape[i] << " / "
+							  << _lpparametrizer.graphicalModel().numberOfLabels(i)
+							  << std::endl;
+				}
+				std::cout << "-- END DEPTH STATS --" << std::endl;
             }
             else
             {
