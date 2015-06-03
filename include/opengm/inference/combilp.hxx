@@ -309,7 +309,7 @@ namespace opengm{
             //typedef trws_base::DecompositionStorage<TrwsiGM> DecompositionStorageType;
             typedef LPReparametrizer<TrwsiGM, AccumulationType> ReparametrizerType;
             typedef hack::SequenceGeneratorIterator<TrwsiGM, ReparametrizedGMType> SequenceGeneratorIteratorType;
-            typedef hack::CanonicalReparametrizer<TrwsiGM> CanonicalReparametrizerType;
+            typedef hack::CustomReparametrizer<TrwsiGM> CanonicalReparametrizerType;
 
             //DecompositionStorageType storage(m, DecompositionStorageType::GENERALSTRUCTURE, NULL);
             typename SequenceGeneratorIteratorType::Iterators its = SequenceGeneratorIteratorType::makeIterators(trwsi.getDecompositionStorage());
