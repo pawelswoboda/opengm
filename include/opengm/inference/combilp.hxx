@@ -307,18 +307,53 @@ namespace opengm{
             trwsiReparametrizer->reparametrize();
             trwsiReparametrizer->getReparametrizedModel(m);
 #endif
+            std::vector<size_t> counts(modelManipulator.getModifiedSubModel(modelIndex).numberOfVariables());
+            std::vector< std::vector<IndexType> > sequences;
+            for (size_t i = 0; i < _lpparametrizer.getStorage().numberOfModels(); ++i) {
+               std::vector<IndexType> current;
+               for (IndexType j = 0; j < _lpparametrizer.getStorage().subModel(i).size(); ++j) {
+                  IndexType node = _lpparametrizer.getStorage().subModel(i).varIndex(j);
+                  if (modelManipulator.fixVariable_[node] ||
+                      (modelManipulator.var2subProblem_[node] != modelIndex))
+                  {
+                     if (!current.empty()) {
+                        sequences.push_back(current);
+                        current.resize(0);
+                     }
+                  } else {
+                     IndexType nodePrime = modelManipulator.varMap_[node];
+                     counts[nodePrime] += 1;
+                     current.push_back(nodePrime);
+                  }
+               }
+               if (!current.empty())
+                  sequences.push_back(current);
+            }
 
+            std::vector< std::vector< std::pair<IndexType, ValueType> > > stuff(sequences.size());
+            for (size_t i = 0; i < sequences.size(); ++i) {
+               stuff[i].resize(sequences[i].size());
+               for (size_t j = 0; j < sequences[i].size(); ++j) {
+                  stuff[i][j] = std::make_pair(sequences[i][j], static_cast<ValueType>(1) / counts[ sequences[i][j] ]);
+               }
+            }
+
+            typedef LPReparametrizer<ReparametrizedGMType, AccumulationType> ReparametrizerType;
+#if 0
             typedef trws_base::DecompositionStorage<ReparametrizedGMType> DecompositionStorageType;
             typedef LPReparametrizer<ReparametrizedGMType, AccumulationType> ReparametrizerType;
             typedef hack::SequenceGeneratorIterator<ReparametrizedGMType, ReparametrizedGMType> SequenceGeneratorIteratorType;
+#endif
             typedef hack::UniformReparametrizer<ReparametrizedGMType> CanonicalReparametrizerType;
 
+#if 0
             DecompositionStorageType storage(model, DecompositionStorageType::GENERALSTRUCTURE, NULL);
             typename SequenceGeneratorIteratorType::Iterators its = SequenceGeneratorIteratorType::makeIterators(storage);
+#endif
 
             typename ReparametrizerType::ReparametrizedGMType m;
             ReparametrizerType reparametrizer(model);
-            reparametrizer.Reparametrization() = CanonicalReparametrizerType::reparametrizeAll(model, its.first, its.second);
+            reparametrizer.Reparametrization() = CanonicalReparametrizerType::reparametrizeAll(model, stuff.begin(), stuff.end());
             reparametrizer.getReparametrizedModel(m);
 
             typedef typename LabelCollapseAuxTypeGen<typename LPReparametrizer<ReparametrizedGMType, AccumulationType>::ReparametrizedGMType>::GraphicalModelType AuxMType;

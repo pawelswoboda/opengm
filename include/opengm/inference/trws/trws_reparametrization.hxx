@@ -216,6 +216,7 @@ public:
 	void reparametrize(const MaskType* pmask=0);
 	void reparametrize(const ImmovableLabelingType& immovableLabeling);
 
+	const Storage& getStorage() { return _storage; }
 private:
 	Storage& _storage;
 	std::vector<SubSolverType*> _subSolvers;
