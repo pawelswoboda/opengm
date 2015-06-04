@@ -222,8 +222,15 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (!isFull(i) && *it == 0)
-			uncollapse(i);
+		if (!isFull(i) && *it == 0) {
+			double heuristic = original_.numberOfLabels(i) / 100 * 10;
+			int count = heuristic;
+			if (count < 1)
+				count = 1;
+
+			for (int j = 0; j < count; ++j)
+				uncollapse(i);
+		}
 	}
 }
 

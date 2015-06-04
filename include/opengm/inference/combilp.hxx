@@ -293,8 +293,8 @@ namespace opengm{
 
             typedef TRWSi<ReparametrizedGMType, AccumulationType> TrwsiInference;
             typename TrwsiInference::Parameter trwsiParam;
-            trwsiParam.maxNumberOfIterations_ = 1000;
-            trwsiParam.setTreeAgreeMaxStableIter(100);
+            trwsiParam.maxNumberOfIterations_ = 100;
+            trwsiParam.setTreeAgreeMaxStableIter(30);
             trwsiParam.verbose_ = true;
             TrwsiInference trwsi(model, trwsiParam);
             trwsi.infer();
