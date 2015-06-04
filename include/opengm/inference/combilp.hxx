@@ -256,37 +256,13 @@ namespace opengm{
          InferenceTermination terminationILP=NORMAL;
          modelManipulator.buildModifiedSubModels();
 
-         std::cout << "_targetShape";
-         for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
-            std::cout << " " << _targetShape[i];
-         }
-         std::cout << std::endl;
-
          std::vector<std::vector<LabelType> > submodelLabelings(modelManipulator.numberOfSubmodels());
          for (size_t modelIndex=0;modelIndex<modelManipulator.numberOfSubmodels();++modelIndex)
          {
             const typename GMManipulatorType::MGM& model=modelManipulator.getModifiedSubModel(modelIndex);
             submodelLabelings[modelIndex].resize(model.numberOfVariables());
-            
-            std::vector<LabelType> targetShape(model.numberOfVariables());
-            for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
-               if (modelManipulator.fixVariable_[i] ||
-                   (modelManipulator.var2subProblem_[i] != modelIndex))
-               {
-                  continue;
-               }
-
-               targetShape[ modelManipulator.varMap_[i] ] = _targetShape[i];
-            }
-
-            std::cout << "targetShape[" << modelIndex << "]";
-            for (IndexType i = 0; i < model.numberOfVariables(); ++i) {
-               std::cout << " " << targetShape[i];
-            }
-            std::cout << std::endl;
 
             ILPSolver ilpSolver(model,_ilpsolverParemeter);
-            ilpSolver.populate(targetShape.begin());
             terminationILP=ilpSolver.infer();
 
             if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE)){
@@ -296,37 +272,6 @@ namespace opengm{
             }
             else
                ilpSolver.arg(submodelLabelings[modelIndex]);
-
-	    ilpSolver.currentNumberOfLabels(targetShape.begin());
-            for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
-               if (modelManipulator.fixVariable_[i] ||
-                   (modelManipulator.var2subProblem_[i] != modelIndex))
-               {
-                  continue;
-               }
-
-               _targetShape[i] = targetShape[ modelManipulator.varMap_[i] ];
-            }
-
-			typedef typename ::opengm::labelcollapse::Reordering<
-				typename GMManipulatorType::OGM,
-				typename ILPSolver::AccumulationType
-			> Reordering;
-			Reordering reordering(modelManipulator.gm_);
-			for (IndexType i = 0; i < modelManipulator.gm_.numberOfVariables(); ++i) {
-				if (modelManipulator.fixVariable_[i] ||
-				   (modelManipulator.var2subProblem_[i] != modelIndex))
-				{
-					  continue;
-				}
-
-				std::vector<LabelType> mapping(modelManipulator.gm_.numberOfLabels(i));
-				reordering.reorder(i);
-				reordering.getMapping(mapping.begin());
-				OPENGM_ASSERT_OP(submodelLabelings[modelIndex][modelManipulator.varMap_[i]], <, mapping.size());
-
-				_depth[i] = mapping[ submodelLabelings[modelIndex][modelManipulator.varMap_[i]] ];
-			}
 
          }
 
