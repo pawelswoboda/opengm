@@ -73,6 +73,9 @@ class ModelBuilder;
 template<class GM, class ACC>
 class ModelBuilderUnary;
 
+template<class GM, class ACC>
+class ModelBuilderGeneric;
+
 // A (potentially partial) mapping of orignal labels to auxiliary labels
 // (and vice versa) for a given variable.
 template<class GM>
@@ -87,6 +90,27 @@ class Reordering;
 // corresponding epsilon value.
 template<class GM>
 class EpsilonFunction;
+
+// This functor operates on a factor. It unwraps the underlying factor function
+// and calls the FUNCTOR on this function.
+//
+// We need this intermediate step to get C++ template inference working.
+template<class FUNCTOR>
+class UnwrapFunctionFunctor;
+
+// This functor operates on factor function values. It will determine the new
+// best (smallest for energy minimization) epsilon value which is worse
+// (higher) than the old epsilon value.
+template<class ACC, class VALUE_TYPE>
+class EpsilonFunctor;
+
+// This functor operators on factor function values and is a coordinate functor
+// (receives value and coordinate input iterator as arguments).
+//
+// This functor will write all the labels to the output iterator where the
+// value is less than or equal to their variable’s epsilon value.
+template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
+class NonCollapsedFunctionFunctor;
 
 } // namespace labelcollapse
 
@@ -531,7 +555,6 @@ ModelBuilder<GM, ACC, DERIVED>::originalLabeling
 	}
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // class ModelBuilderUnary
@@ -550,6 +573,7 @@ public:
 	using typename Parent::IndexType;
 	using typename Parent::LabelType;
 	using typename Parent::ValueType;
+	using typename Parent::MappingType;
 
 	ModelBuilderUnary(const OriginalModelType&);
 
@@ -689,6 +713,179 @@ ModelBuilderUnary<GM, ACC>::internalChecks() const
 #endif
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// class ModelBuilderGeneric
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM, class ACC>
+class ModelBuilderGeneric : public ModelBuilder<GM, ACC, ModelBuilderGeneric<GM, ACC> > {
+public:
+	typedef ModelBuilder<GM, ACC, ModelBuilderGeneric<GM, ACC> > Parent;
+
+	using typename Parent::AccumulationType;
+	using typename Parent::OperatorType;
+	using typename Parent::OriginalModelType;
+	using typename Parent::AuxiliaryModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+	using typename Parent::MappingType;
+
+	ModelBuilderGeneric(const OriginalModelType&);
+
+	void buildAuxiliaryModel();
+	void uncollapse(const IndexType);
+
+private:
+	using Parent::original_;
+	using Parent::auxiliary_;
+	using Parent::epsilons_;
+	using Parent::mappings_;
+	using Parent::rebuildNecessary_;
+
+	void updateMappings();
+	ValueType calculateNewEpsilon(const IndexType);
+
+	friend Parent;
+};
+
+template<class GM, class ACC>
+ModelBuilderGeneric<GM, ACC>::ModelBuilderGeneric
+(
+	const OriginalModelType &gm
+)
+: Parent(gm)
+{
+	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
+		epsilons_[f] = calculateNewEpsilon(f);
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+		uncollapse(i);
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderGeneric<GM, ACC>::buildAuxiliaryModel()
+{
+	OPENGM_ASSERT(rebuildNecessary_)
+	if (!rebuildNecessary_)
+		return;
+
+	// TODO: We probably should update the mapping incrementally. Everything
+	// gets faster :-)
+	updateMappings();
+
+	Parent::buildAuxiliaryModel();
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderGeneric<GM, ACC>::uncollapse
+(
+	const IndexType idx
+)
+{
+	bool foundAnyFactor = false;
+	IndexType bestFactor = 0;
+	ValueType bestEpsilon = ACC::template neutral<ValueType>();
+	ValueType bestEpsilonDiff = ACC::template neutral<ValueType>();
+
+	for (IndexType f = 0; f < original_.numberOfFactors(idx); ++f) {
+		IndexType factor = original_.factorOfVariable(idx, f);
+
+		ValueType epsilon = calculateNewEpsilon(factor);
+		ValueType epsilonDiff = epsilon - epsilons_[factor];
+
+		if ((! foundAnyFactor) || (epsilonDiff < bestEpsilonDiff)) {
+			foundAnyFactor = true;
+			bestFactor = factor;
+			bestEpsilon = epsilon;
+			bestEpsilonDiff = epsilonDiff;
+		}
+	}
+
+	// If the variable is not the first variable of any factor, then we
+	// should not update any factor. :-)
+	if (foundAnyFactor) {
+		epsilons_[bestFactor] = bestEpsilon;
+		rebuildNecessary_ = true;
+	}
+}
+
+template<class GM, class ACC>
+typename ModelBuilderGeneric<GM, ACC>::ValueType
+ModelBuilderGeneric<GM, ACC>::calculateNewEpsilon(
+	const IndexType idx
+)
+{
+	const ValueType &epsilon = epsilons_[idx];
+	const typename OriginalModelType::FactorType &factor = original_[idx];
+
+	EpsilonFunctor<ACC, ValueType> functor(epsilon);
+	factor.forAllValuesInAnyOrder(functor);
+	return functor.value();
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderGeneric<GM, ACC>::updateMappings()
+{
+	typedef std::vector<LabelType> LabelVec;
+	typedef typename LabelVec::iterator Iterator;
+	typedef std::back_insert_iterator<LabelVec> Inserter;
+	typedef NonCollapsedFunctionFunctor<ACC, IndexType, ValueType, Inserter> FunctionFunctor;
+	typedef UnwrapFunctionFunctor<FunctionFunctor> FactorFunctor;
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		bool foundAnyFactor = false;
+		LabelVec nonCollapsed;
+		Inserter inserter(nonCollapsed);
+
+		for (IndexType j = 0; j < original_.numberOfFactors(i); ++j) {
+			const IndexType f = original_.factorOfVariable(i, j);
+			const typename OriginalModelType::FactorType &factor = original_[f];
+
+			IndexType varIdx = 0;
+			for (IndexType k = 0; k < factor.numberOfVariables(); ++k) {
+				if (factor.variableIndex(k) == i) {
+					varIdx = k;
+					break;
+				}
+			}
+
+			FunctionFunctor functionFunctor(varIdx, epsilons_[f], inserter);
+			FactorFunctor factorFunctor(functionFunctor);
+			factor.callFunctor(factorFunctor);
+			foundAnyFactor = true;
+		}
+
+		MappingType &m = mappings_[i];
+		m = MappingType(original_.numberOfLabels(i));
+
+		// If there are no factors where our variable is the first variable,
+		// there are no corresponding epsilon values for this variable. We have
+		// no information and cannot distinguish the labels of this variable.
+		//
+		// The only reasonable action is to include all labels for this
+		// variable (make mapping full bijection).
+		//
+		// In all other cases we introduce the labels for which found some
+		// epsilon which is larger. The mapping class will automatically
+		// convert itself into a full bijection if it detects that it is
+		// necessary.
+		if (foundAnyFactor) {
+			for (Iterator it = nonCollapsed.begin(); it != nonCollapsed.end(); ++it) {
+				m.insert(*it);
+			}
+		} else {
+			m.makeFull();
+		}
+	}
+
+	rebuildNecessary_ = true;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -1015,6 +1212,94 @@ EpsilonFunction<GM>::size() const
 	}
 	return result;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//
+//class UnwrapFunctionFunctor
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class FUNCTOR>
+class UnwrapFunctionFunctor {
+public:
+	UnwrapFunctionFunctor(FUNCTOR &functor)
+	: functor_(functor)
+	{
+	}
+
+	// We need this functor class, because the operator() is a template
+	// for a specific function type.
+	//
+	// This way we can access the underlying function object without knowing the
+	// concrete type (C++ infers the template arguments for class methods).
+	template<class FUNCTION>
+	void operator()(const FUNCTION &function) {
+		function.forAllValuesInAnyOrderWithCoordinate(functor_);
+	}
+
+private:
+	FUNCTOR &functor_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class EpsilonFunctor
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class ACC, class VALUE_TYPE>
+class EpsilonFunctor {
+public:
+	EpsilonFunctor(VALUE_TYPE oldValue)
+	: oldValue_(oldValue)
+	, value_(ACC::template neutral<VALUE_TYPE>())
+	{
+	}
+
+	VALUE_TYPE value() const {
+		return value_;
+	}
+
+	void operator()(const VALUE_TYPE v)
+	{
+		if (ACC::ibop(v, oldValue_) && ACC::bop(v, value_)) {
+			value_ = v;
+		}
+	}
+
+private:
+	VALUE_TYPE oldValue_;
+	VALUE_TYPE value_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class NonCollapsedFunctionFunctor
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
+class NonCollapsedFunctionFunctor {
+public:
+	NonCollapsedFunctionFunctor(INDEX_TYPE variable, VALUE_TYPE epsilon, OUTPUT_ITERATOR iterator)
+	: iterator_(iterator)
+	, epsilon_(epsilon)
+	, variable_(variable)
+	{
+	}
+
+	template<class INPUT_ITERATOR>
+	void operator()(const VALUE_TYPE v, INPUT_ITERATOR it)
+	{
+		if (ACC::bop(v, epsilon_))
+			*iterator_++ = it[variable_];
+	}
+
+private:
+	OUTPUT_ITERATOR iterator_;
+	VALUE_TYPE epsilon_;
+	INDEX_TYPE variable_;
+};
 
 } // namespace labelcollapse
 } // namespace opengm
