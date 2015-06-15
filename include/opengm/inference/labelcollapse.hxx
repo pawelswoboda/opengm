@@ -67,8 +67,16 @@ struct LabelCollapseAuxTypeGen;
 namespace labelcollapse {
 
 // Builds the auxiliary model given the original model.
-template<class GM, class INF>
+template<class GM, class ACC, class DERIVED>
 class ModelBuilder;
+
+template<class GM, class ACC>
+class ModelBuilderUnary;
+
+// A (potentially partial) mapping of orignal labels to auxiliary labels
+// (and vice versa) for a given variable.
+template<class GM>
+class Mapping;
 
 // Reorders labels according to their unary potentials.
 template<class GM, class ACC>
@@ -179,7 +187,7 @@ public:
 
 private:
 	const GraphicalModelType &gm_;
-	labelcollapse::ModelBuilder<GraphicalModelType, AccumulationType> builder_;
+	labelcollapse::ModelBuilderUnary<GraphicalModelType, AccumulationType> builder_;
 	const Parameter parameter_;
 
 	InferenceTermination termination_;
@@ -354,7 +362,8 @@ namespace labelcollapse {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM, class ACC>
+// Abstract base class.
+template<class GM, class ACC, class DERIVED>
 class ModelBuilder {
 public:
 	//
@@ -375,6 +384,8 @@ public:
 	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
 	AuxiliaryModelType;
 
+	typedef Mapping<OriginalModelType> MappingType;
+
 	//
 	// Methods
 	//
@@ -391,46 +402,41 @@ public:
 	}
 
 	template<class ITERATOR> bool isValidLabeling(ITERATOR) const;
-	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
-	LabelType numberOfLabels(IndexType) const;
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
-	void uncollapse(const IndexType);
+	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
 	template<class ITERATOR> void populate(ITERATOR);
+	LabelType numberOfLabels(IndexType i) const { return mappings_[i].size(); }
 
+	// The following functions should be overwritten in descendants.
+	void uncollapse(const IndexType);
 	void reset();
 
-private:
-	typedef std::vector<LabelType> Stack;
-	typedef std::vector<bool> Mapping;
-
-	bool isFull(IndexType) const;
-
+protected:
 	const OriginalModelType &original_;
-	std::vector<Stack> uncollapsed_;
-	std::vector<Stack> collapsed_;
-	std::vector<Mapping> mappings_;
-	std::vector<ValueType> epsilons_;
-	bool rebuildNecessary_;
 	AuxiliaryModelType auxiliary_;
+	std::vector<ValueType> epsilons_;
+	std::vector<MappingType> mappings_;
+	bool rebuildNecessary_;
 };
 
-template<class GM, class ACC>
-ModelBuilder<GM, ACC>::ModelBuilder
+template<class GM, class ACC, class DERIVED>
+ModelBuilder<GM, ACC, DERIVED>::ModelBuilder
 (
 	const OriginalModelType &gm
 )
 : original_(gm)
-, uncollapsed_(gm.numberOfVariables())
-, collapsed_(gm.numberOfVariables())
-, mappings_(gm.numberOfVariables())
+, epsilons_(gm.numberOfFactors(), ACC::template ineutral<ValueType>())
+, mappings_(gm.numberOfFactors(), MappingType(0))
 , rebuildNecessary_(true)
 {
-	reset();
+	for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
+		mappings_[i] = MappingType(gm.numberOfLabels(i));
+	}
 }
 
-template<class GM, class ACC>
+template<class GM, class ACC, class DERIVED>
 void
-ModelBuilder<GM, ACC>::buildAuxiliaryModel()
+ModelBuilder<GM, ACC, DERIVED>::buildAuxiliaryModel()
 {
 	if (!rebuildNecessary_)
 		return;
@@ -438,7 +444,7 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 	// Build space.
 	std::vector<LabelType> shape(original_.numberOfVariables());
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		shape[i] = numberOfLabels(i);
+		shape[i] = mappings_[i].size();
 	}
 	typename AuxiliaryModelType::SpaceType space(shape.begin(), shape.end());
 	auxiliary_ = AuxiliaryModelType(space);
@@ -448,7 +454,7 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 		typedef EpsilonFunction<OriginalModelType> ViewFunction;
 
 		const typename OriginalModelType::FactorType &factor = original_[i];
-		const ViewFunction func(factor, uncollapsed_, collapsed_, epsilons_[i]);
+		const ViewFunction func(factor, epsilons_[i], mappings_);
 
 		auxiliary_.addFactor(
 			auxiliary_.addFunction(func),
@@ -460,9 +466,57 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 	rebuildNecessary_ = false;
 }
 
-template<class GM, class ACC>
+template<class GM, class ACC, class DERIVED>
+template<class ITERATOR>
+bool
+ModelBuilder<GM, ACC, DERIVED>::isValidLabeling
+(
+	ITERATOR it
+) const
+{
+	OPENGM_ASSERT(!rebuildNecessary_);
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+		if (mappings_[i].isCollapsedAuxiliary(*it))
+			return false;
+	}
+
+	return true;
+}
+
+template<class GM, class ACC, class DERIVED>
+template<class ITERATOR>
 void
-ModelBuilder<GM, ACC>::originalLabeling
+ModelBuilder<GM, ACC, DERIVED>::uncollapseLabeling
+(
+	ITERATOR it
+)
+{
+	OPENGM_ASSERT(!rebuildNecessary_);
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+		if (mappings_[i].isCollapsedAuxiliary(*it))
+			static_cast<DERIVED*>(this)->uncollapse(i);
+	}
+}
+
+template<class GM, class ACC, class DERIVED>
+template<class ITERATOR>
+void
+ModelBuilder<GM, ACC, DERIVED>::populate
+(
+	ITERATOR it
+)
+{
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+		while (mappings_[i].numberOfLabels() < std::min(*it, original_.numberOfLabels()))
+			static_cast<DERIVED*>(this)->uncollapse(i);
+	}
+}
+
+template<class GM, class ACC, class DERIVED>
+void
+ModelBuilder<GM, ACC, DERIVED>::originalLabeling
 (
 	const std::vector<LabelType> &auxiliary,
 	std::vector<LabelType> &original
@@ -473,58 +527,103 @@ ModelBuilder<GM, ACC>::originalLabeling
 
 	original.assign(auxiliary.size(), 0);
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		original[i] = isFull(i) ? auxiliary[i] : uncollapsed_[i][auxiliary[i] - 1];
+		original[i] = mappings_[i].original(auxiliary[i]);
 	}
 }
 
-template<class GM, class ACC>
-template<class ITERATOR>
-bool
-ModelBuilder<GM, ACC>::isValidLabeling
-(
-	ITERATOR it
-) const
-{
-	OPENGM_ASSERT(!rebuildNecessary_);
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (!isFull(i) && *it == 0)
-			return false;
-	}
-
-	return true;
-}
+////////////////////////////////////////////////////////////////////////////////
+//
+// class ModelBuilderUnary
+//
+////////////////////////////////////////////////////////////////////////////////
 
 template<class GM, class ACC>
-template<class ITERATOR>
-void
-ModelBuilder<GM, ACC>::uncollapseLabeling
+class ModelBuilderUnary : public ModelBuilder<GM, ACC, ModelBuilderUnary<GM, ACC> > {
+public:
+	typedef ModelBuilder<GM, ACC, ModelBuilderUnary<GM, ACC> > Parent;
+
+	using typename Parent::AccumulationType;
+	using typename Parent::OperatorType;
+	using typename Parent::OriginalModelType;
+	using typename Parent::AuxiliaryModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+
+	ModelBuilderUnary(const OriginalModelType&);
+
+	void uncollapse(const IndexType);
+
+private:
+	typedef std::vector<LabelType> Stack;
+
+	using Parent::original_;
+	using Parent::auxiliary_;
+	using Parent::epsilons_;
+	using Parent::mappings_;
+	using Parent::rebuildNecessary_;
+
+	std::vector<Stack> collapsed_;
+
+	void internalChecks() const;
+
+	friend Parent;
+};
+
+template<class GM, class ACC>
+ModelBuilderUnary<GM, ACC>::ModelBuilderUnary
 (
-	ITERATOR it
+	const OriginalModelType &gm
 )
+: Parent(gm)
+, collapsed_(gm.numberOfVariables())
 {
-	OPENGM_ASSERT(!rebuildNecessary_);
+	Reordering<OriginalModelType, AccumulationType> reordering(original_);
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		collapsed_[i].resize(original_.numberOfLabels(i));
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		if (!isFull(i) && *it == 0)
-			uncollapse(i);
+		// We reverse the ordering and use .rbegin(), because we use the
+		// std::vector as a stack. The smallest element should be the last one.
+		reordering.reorder(i);
+		reordering.getOrdered(collapsed_[i].rbegin());
 	}
+
+	// From this point on all the invariances should hold.
+	internalChecks();
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+		uncollapse(i);
+
+	internalChecks();
 }
 
 template<class GM, class ACC>
 void
-ModelBuilder<GM, ACC>::uncollapse
+ModelBuilderUnary<GM, ACC>::uncollapse
 (
 	const IndexType idx
 )
 {
-	if (collapsed_[idx].size() == 0)
-		return;
+	internalChecks();
+
+	OPENGM_ASSERT(collapsed_[idx].size() > 0);
+	OPENGM_ASSERT(!mappings_[idx].full());
 
 	LabelType label = collapsed_[idx].back();
 	collapsed_[idx].pop_back();
-	uncollapsed_[idx].push_back(label);
-	mappings_[idx][label] = true;
+	mappings_[idx].insert(label);
+
+	// If there is just one collapsed label left, all the auxiliary unaries
+	// and binaries are equal to the original potentials. We can just
+	// uncollapse it.
+	//
+	// We just pop it here, because the Mapping class automatically handles
+	// this case. (Checked in debug mode.)
+	if (collapsed_[idx].size() == 1)
+		collapsed_[idx].pop_back();
+
+	internalChecks();
 
 	for (IndexType f2 = 0; f2 < original_.numberOfFactors(idx); ++f2) {
 		typedef typename OriginalModelType::FactorType FactorType;
@@ -550,7 +649,7 @@ ModelBuilder<GM, ACC>::uncollapse
 				bool next = true;
 				for (IndexType j = 0; j < factor.numberOfVariables(); ++j) {
 					IndexType varIdx = factor.variableIndex(j);
-					if (!mappings_[varIdx][walker.coordinateTuple()[j]]) {
+					if (mappings_[varIdx].isCollapsedOriginal(walker.coordinateTuple()[j])) {
 						next = false;
 						break;
 					}
@@ -567,71 +666,156 @@ ModelBuilder<GM, ACC>::uncollapse
 		}
 	}
 
-	// If there is just one collapsed label left, all the auxiliary unaries
-	// and binaries are equal to the original potentials. We can just
-	// uncollapse it.
-	if (collapsed_[idx].size() == 1) {
-		uncollapse(idx);
-	}
-
 	rebuildNecessary_ = true;
 }
 
 template<class GM, class ACC>
-template<class ITERATOR>
 void
-ModelBuilder<GM, ACC>::populate
-(
-	ITERATOR it
-)
+ModelBuilderUnary<GM, ACC>::internalChecks() const
 {
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		while (numberOfLabels(i) < *it && collapsed_[i].size() > 0) {
-			uncollapse(i);
+#ifndef NDEBUG
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
+			size_t count = std::count(collapsed_[i].begin(), collapsed_[i].end(), j);
+			if (count != 0) {
+				// is collapsed
+				OPENGM_ASSERT(mappings_[i].isCollapsedOriginal(j));
+			} else {
+				// is not collapsed
+				OPENGM_ASSERT(!mappings_[i].isCollapsedOriginal(j));
+			}
 		}
 	}
+#endif
 }
 
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::reset()
-{
-	epsilons_.assign(original_.numberOfFactors(), ACC::template ineutral<ValueType>());
-	rebuildNecessary_ = true;
 
-	Reordering<OriginalModelType, AccumulationType> reordering(original_);
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		mappings_[i].assign(original_.numberOfLabels(i), false);
-		collapsed_[i].resize(original_.numberOfLabels(i));
-		uncollapsed_[i].clear();
+////////////////////////////////////////////////////////////////////////////////
+//
+// class Mapping
+//
+////////////////////////////////////////////////////////////////////////////////
 
-		// We reverse the ordering and use .rbegin(), because we use the
-		// std::vector as a stack. The smallest element should be the last one.
-		reordering.reorder(i);
-		reordering.getOrdered(collapsed_[i].rbegin());
+template<class GM>
+class Mapping {
+public:
+	typedef typename GM::LabelType LabelType;
 
-		uncollapse(i);
+	Mapping(LabelType numLabels)
+	: numLabels_(numLabels)
+	, full_(false)
+	, mapOrigToAux_(numLabels)
+	, mapAuxToOrig_()
+	{
 	}
+
+	void insert(LabelType origLabel);
+	void makeFull();
+	bool full() const { return full_; }
+	bool isCollapsedAuxiliary(LabelType auxLabel) const;
+	bool isCollapsedOriginal(LabelType origLabel) const;
+	LabelType auxiliary(LabelType origLabel) const;
+	LabelType original(LabelType auxLabel) const;
+	LabelType size() const;
+
+private:
+	LabelType numLabels_;
+	bool full_;
+	std::vector<LabelType> mapOrigToAux_;
+	std::vector<LabelType> mapAuxToOrig_;
+};
+
+template<class GM>
+void
+Mapping<GM>::insert(
+	LabelType origLabel
+)
+{
+	// If this mapping is a full bijection, then we don’t need to insert
+	// anything.
+	if (full_)
+		return;
+
+	// If the label is already mapped, then we don’t need to insert anything.
+	if (mapOrigToAux_[origLabel] != 0)
+		return;
+
+	// In all other cases, we update our mappings. The zeroth auxiliary label
+	// is reserved.
+	mapAuxToOrig_.push_back(origLabel);
+	mapOrigToAux_[origLabel] = mapAuxToOrig_.size();
+
+	OPENGM_ASSERT(original(auxiliary(origLabel)) == origLabel);
+
+	// Check whether we can convert this mapping to a full bijection.
+	// This is the case if all labels are uncollapsed.
+	if (mapAuxToOrig_.size() + 1 >= mapOrigToAux_.size())
+		makeFull();
 }
 
-template<class GM, class ACC>
+template<class GM>
 bool
-ModelBuilder<GM, ACC>::isFull
+Mapping<GM>::isCollapsedAuxiliary
 (
-	IndexType idx
+	LabelType auxLabel
 ) const
 {
-	return collapsed_[idx].size() == 0;
+	return !full_ && auxLabel == 0;
 }
 
-template<class GM, class ACC>
-typename ModelBuilder<GM, ACC>::LabelType
-ModelBuilder<GM, ACC>::numberOfLabels
+template<class GM>
+bool
+Mapping<GM>::isCollapsedOriginal
 (
-	IndexType idx
+	LabelType origLabel
 ) const
 {
-	return uncollapsed_[idx].size() + (isFull(idx) ? 0 : 1);
+	return !full_ && auxiliary(origLabel) == 0;
+}
+
+template<class GM>
+typename Mapping<GM>::LabelType
+Mapping<GM>::auxiliary
+(
+	LabelType origLabel
+) const
+{
+	if (full_)
+		return origLabel;
+
+	OPENGM_ASSERT(origLabel < mapOrigToAux_.size());
+	return mapOrigToAux_[origLabel];
+}
+
+template<class GM>
+typename Mapping<GM>::LabelType
+Mapping<GM>::original
+(
+	LabelType auxLabel
+) const
+{
+	if (full_)
+		return auxLabel;
+
+	OPENGM_ASSERT(auxLabel > 0);
+	OPENGM_ASSERT(auxLabel - 1 < mapAuxToOrig_.size());
+	return mapAuxToOrig_[auxLabel - 1];
+}
+
+template<class GM>
+typename Mapping<GM>::LabelType
+Mapping<GM>::size() const
+{
+	return full_ ? numLabels_ : mapAuxToOrig_.size() + 1;
+}
+
+template<class GM>
+void
+Mapping<GM>::makeFull()
+{
+	full_ = true;
+	mapOrigToAux_.clear();
+	mapAuxToOrig_.clear();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -756,15 +940,15 @@ public:
 	typedef typename GM::LabelType LabelType;
 	typedef typename GM::ValueType ValueType;
 
+	typedef Mapping<GM> MappingType;
+
 	EpsilonFunction(
 		const FactorType &factor,
-		const std::vector< std::vector<LabelType> > &uncollapsed,
-		const std::vector< std::vector<LabelType> > &collapsed,
-		ValueType epsilon
+		ValueType epsilon,
+		const std::vector<MappingType> &mappings
 	)
 	: factor_(&factor)
-	, uncollapsed_(&uncollapsed)
-	, collapsed_(&collapsed)
+	, mappings_(&mappings)
 	, epsilon_(epsilon)
 	{
 	}
@@ -776,7 +960,7 @@ public:
 
 private:
 	const FactorType *factor_;
-	const std::vector< std::vector<LabelType> > *uncollapsed_, *collapsed_;
+	const std::vector<MappingType> *mappings_;
 	ValueType epsilon_;
 };
 
@@ -792,18 +976,11 @@ EpsilonFunction<GM>::operator()
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
 		IndexType varIdx = factor_->variableIndex(i);
 		LabelType auxLabel = *it;
-		LabelType origLabel;
 
-		if ((*collapsed_)[varIdx].size() == 0) {
-			origLabel = auxLabel;
-		} else {
-			if (auxLabel == 0) {
-				return epsilon_;
-			}
+		if ((*mappings_)[varIdx].isCollapsedAuxiliary(auxLabel))
+			return epsilon_;
 
-			origLabel = (*uncollapsed_)[varIdx][auxLabel - 1];
-		}
-
+		LabelType origLabel = (*mappings_)[varIdx].original(auxLabel);
 		modified[i] = origLabel;
 	}
 
@@ -818,7 +995,7 @@ EpsilonFunction<GM>::shape
 ) const
 {
 	IndexType varIdx = factor_->variableIndex(idx);
-	return (*uncollapsed_)[varIdx].size() + ((*collapsed_)[varIdx].size() > 0 ? 1 : 0);
+	return (*mappings_)[varIdx].size();
 }
 
 template<class GM>
