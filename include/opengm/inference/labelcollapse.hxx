@@ -49,18 +49,6 @@ namespace opengm {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Main class implementing the inference method. This class is intended to be
-// used by the user.
-template<class GM, class INF>
-class LabelCollapse;
-
-// This is a type generator for generating the template parameter for
-// the underlying proxy inference method.
-//
-// Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
-template<class GM>
-struct LabelCollapseAuxTypeGen;
-
 //
 // Namespace for internal implementation details.
 //
@@ -75,6 +63,14 @@ class ModelBuilderUnary;
 
 template<class GM, class ACC>
 class ModelBuilderGeneric;
+
+enum UncollapsingBehavior { Unary, Generic };
+
+// Type level function to choose between two different implementation of the
+// ModelBuilder class.
+template <class GM, class ACC, UncollapsingBehavior T> struct ModelBuilderTypeGen;
+template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Unary>   { typedef ModelBuilderUnary<GM, ACC> Type; };
+template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Generic> { typedef ModelBuilderGeneric<GM, ACC> Type; };
 
 // A (potentially partial) mapping of orignal labels to auxiliary labels
 // (and vice versa) for a given variable.
@@ -114,6 +110,18 @@ class NonCollapsedFunctionFunctor;
 
 } // namespace labelcollapse
 
+// Main class implementing the inference method. This class is intended to be
+// used by the user.
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING = labelcollapse::Unary>
+class LabelCollapse;
+
+// This is a type generator for generating the template parameter for
+// the underlying proxy inference method.
+//
+// Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
+template<class GM>
+struct LabelCollapseAuxTypeGen;
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // struct LabelCollapseAuxTypeGen
@@ -140,7 +148,7 @@ struct LabelCollapseAuxTypeGen {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 class LabelCollapse : public opengm::Inference<GM, typename INF::AccumulationType>
 {
 public:
@@ -162,18 +170,21 @@ public:
 		typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 		typedef typename INF::Parameter Parameter;
 	};
+	typedef LabelCollapse<GM, INF, UNCOLLAPSING> MyType;
 
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
+	typedef typename labelcollapse::ModelBuilderTypeGen<GraphicalModelType, AccumulationType, UNCOLLAPSING>::Type ModelBuilderType;
 	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
 	AuxiliaryModelType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
-	typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
-	typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
-	typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
-	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
+	typedef visitors::EmptyVisitor<MyType> EmptyVisitorType;
+	typedef visitors::VerboseVisitor<MyType> VerboseVisitorType;
+	typedef visitors::TimingVisitor<MyType> TimingVisitorType;
+	typedef visitors::LabelCollapseStatisticsVisitor<MyType> StatisticsVisitorType;
+
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
 	struct Parameter {
@@ -211,7 +222,7 @@ public:
 
 private:
 	const GraphicalModelType &gm_;
-	labelcollapse::ModelBuilderUnary<GraphicalModelType, AccumulationType> builder_;
+	ModelBuilderType builder_;
 	const Parameter parameter_;
 
 	InferenceTermination termination_;
@@ -220,8 +231,8 @@ private:
 	ValueType bound_;
 };
 
-template<class GM, class INF>
-LabelCollapse<GM, INF>::LabelCollapse
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+LabelCollapse<GM, INF, UNCOLLAPSING>::LabelCollapse
 (
 	const GraphicalModelType &gm,
 	const Parameter &parameter
@@ -232,27 +243,27 @@ LabelCollapse<GM, INF>::LabelCollapse
 {
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 std::string
-LabelCollapse<GM, INF>::name() const
+LabelCollapse<GM, INF, UNCOLLAPSING>::name() const
 {
 	AuxiliaryModelType gm;
 	typename Proxy::Inference inf(gm, parameter_.proxy);
 	return "LabelCollapse(" + inf.name() + ")";
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 InferenceTermination
-LabelCollapse<GM, INF>::infer()
+LabelCollapse<GM, INF, UNCOLLAPSING>::infer()
 {
 	EmptyVisitorType visitor;
 	return infer(visitor);
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class VISITOR>
 InferenceTermination
-LabelCollapse<GM, INF>::infer
+LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 (
 	VISITOR &visitor
 )
@@ -261,10 +272,10 @@ LabelCollapse<GM, INF>::infer
 	return infer(visitor, proxy_visitor);
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class VISITOR, class PROXY_VISITOR>
 InferenceTermination
-LabelCollapse<GM, INF>::infer
+LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 (
 	VISITOR& visitor,
 	PROXY_VISITOR& proxy_visitor
@@ -317,26 +328,26 @@ LabelCollapse<GM, INF>::infer
 	return termination_;
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 void
-LabelCollapse<GM, INF>::reset()
+LabelCollapse<GM, INF, UNCOLLAPSING>::reset()
 {
 	builder_.reset();
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class INPUT_ITERATOR>
 void
-LabelCollapse<GM, INF>::populate(
+LabelCollapse<GM, INF, UNCOLLAPSING>::populate(
 	INPUT_ITERATOR it
 )
 {
 	builder_.populate(it);
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 InferenceTermination
-LabelCollapse<GM, INF>::arg
+LabelCollapse<GM, INF, UNCOLLAPSING>::arg
 (
 	std::vector<LabelType>& label,
 	const size_t idx
@@ -350,10 +361,10 @@ LabelCollapse<GM, INF>::arg
 	}
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF>::originalNumberOfLabels
+LabelCollapse<GM, INF, UNCOLLAPSING>::originalNumberOfLabels
 (
 	OUTPUT_ITERATOR it
 ) const
@@ -363,10 +374,10 @@ LabelCollapse<GM, INF>::originalNumberOfLabels
 	}
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF>::currentNumberOfLabels
+LabelCollapse<GM, INF, UNCOLLAPSING>::currentNumberOfLabels
 (
 	OUTPUT_ITERATOR it
 ) const
@@ -1215,7 +1226,7 @@ EpsilonFunction<GM>::size() const
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//class UnwrapFunctionFunctor
+// class UnwrapFunctionFunctor
 //
 ////////////////////////////////////////////////////////////////////////////////
 
