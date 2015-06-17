@@ -29,13 +29,16 @@
 #define OPENGM_LABELCOLLAPSE_HXX
 
 #include <vector>
+#include <utility>
 
+#include "opengm/datastructures/fast_sequence.hxx"
+#include "opengm/functions/function_properties_base.hxx"
 #include "opengm/graphicalmodel/graphicalmodel.hxx"
 #include "opengm/graphicalmodel/space/discretespace.hxx"
-#include "opengm/functions/function_properties_base.hxx"
 #include "opengm/inference/inference.hxx"
 #include "opengm/inference/labelcollapse_visitor.hxx"
 #include "opengm/inference/visitors/visitors.hxx"
+#include "opengm/utilities/indexing.hxx"
 #include "opengm/utilities/metaprogramming.hxx"
 
 namespace opengm {
@@ -46,32 +49,43 @@ namespace opengm {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-// Main class implementing the inference method. This class is intended to be
-// used by the user.
-template<class GM, class INF>
-class LabelCollapse;
-
-// This is a type generator for generating the template parameter for
-// the underlying proxy inference method.
-//
-// Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
-template<class GM>
-struct LabelCollapseAuxTypeGen;
-
 //
 // Namespace for internal implementation details.
 //
 namespace labelcollapse {
 
 // Builds the auxiliary model given the original model.
-template<class GM, class INF>
+template<class GM, class ACC, class DERIVED>
 class ModelBuilder;
 
+template<class GM, class ACC>
+class ModelBuilderUnary;
+
+template<class GM, class ACC>
+class ModelBuilderGeneric;
+
+enum UncollapsingBehavior { Unary, Generic };
+
+// Type level function to choose between two different implementation of the
+// ModelBuilder class.
+template <class GM, class ACC, UncollapsingBehavior T> struct ModelBuilderTypeGen;
+template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Unary>   { typedef ModelBuilderUnary<GM, ACC> Type; };
+template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Generic> { typedef ModelBuilderGeneric<GM, ACC> Type; };
 
 // A (potentially partial) mapping of orignal labels to auxiliary labels
 // (and vice versa) for a given variable.
 template<class GM>
 class Mapping;
+
+// Reorders labels according to their unary potentials.
+template<class GM, class ACC>
+class Reordering;
+
+// A view function which returns the values from the original model if the
+// nodes are not collapsed. If they are, the view function will return the
+// corresponding epsilon value.
+template<class GM>
+class EpsilonFunction;
 
 // This functor operates on a factor. It unwraps the underlying factor function
 // and calls the FUNCTOR on this function.
@@ -79,12 +93,6 @@ class Mapping;
 // We need this intermediate step to get C++ template inference working.
 template<class FUNCTOR>
 class UnwrapFunctionFunctor;
-
-// A view function which returns the values from the original model if the
-// nodes are not collapsed. If they are, the view function will return the
-// corresponding epsilon value.
-template<class GM>
-class EpsilonFunction;
 
 // This functor operates on factor function values. It will determine the new
 // best (smallest for energy minimization) epsilon value which is worse
@@ -101,6 +109,18 @@ template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
 class NonCollapsedFunctionFunctor;
 
 } // namespace labelcollapse
+
+// Main class implementing the inference method. This class is intended to be
+// used by the user.
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING = labelcollapse::Unary>
+class LabelCollapse;
+
+// This is a type generator for generating the template parameter for
+// the underlying proxy inference method.
+//
+// Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
+template<class GM>
+struct LabelCollapseAuxTypeGen;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -128,7 +148,7 @@ struct LabelCollapseAuxTypeGen {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 class LabelCollapse : public opengm::Inference<GM, typename INF::AccumulationType>
 {
 public:
@@ -150,18 +170,21 @@ public:
 		typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 		typedef typename INF::Parameter Parameter;
 	};
+	typedef LabelCollapse<GM, INF, UNCOLLAPSING> MyType;
 
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
+	typedef typename labelcollapse::ModelBuilderTypeGen<GraphicalModelType, AccumulationType, UNCOLLAPSING>::Type ModelBuilderType;
 	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
 	AuxiliaryModelType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
-	typedef visitors::EmptyVisitor< LabelCollapse<GM, INF> > EmptyVisitorType;
-	typedef visitors::VerboseVisitor< LabelCollapse<GM, INF> > VerboseVisitorType;
-	typedef visitors::TimingVisitor< LabelCollapse<GM, INF> > TimingVisitorType;
-	typedef visitors::LabelCollapseStatisticsVisitor< LabelCollapse<GM, INF> > StatisticsVisitorType;
+	typedef visitors::EmptyVisitor<MyType> EmptyVisitorType;
+	typedef visitors::VerboseVisitor<MyType> VerboseVisitorType;
+	typedef visitors::TimingVisitor<MyType> TimingVisitorType;
+	typedef visitors::LabelCollapseStatisticsVisitor<MyType> StatisticsVisitorType;
+
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
 	struct Parameter {
@@ -199,7 +222,7 @@ public:
 
 private:
 	const GraphicalModelType &gm_;
-	labelcollapse::ModelBuilder<GraphicalModelType, AccumulationType> builder_;
+	ModelBuilderType builder_;
 	const Parameter parameter_;
 
 	InferenceTermination termination_;
@@ -208,8 +231,8 @@ private:
 	ValueType bound_;
 };
 
-template<class GM, class INF>
-LabelCollapse<GM, INF>::LabelCollapse
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+LabelCollapse<GM, INF, UNCOLLAPSING>::LabelCollapse
 (
 	const GraphicalModelType &gm,
 	const Parameter &parameter
@@ -220,27 +243,27 @@ LabelCollapse<GM, INF>::LabelCollapse
 {
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 std::string
-LabelCollapse<GM, INF>::name() const
+LabelCollapse<GM, INF, UNCOLLAPSING>::name() const
 {
 	AuxiliaryModelType gm;
 	typename Proxy::Inference inf(gm, parameter_.proxy);
 	return "LabelCollapse(" + inf.name() + ")";
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 InferenceTermination
-LabelCollapse<GM, INF>::infer()
+LabelCollapse<GM, INF, UNCOLLAPSING>::infer()
 {
 	EmptyVisitorType visitor;
 	return infer(visitor);
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class VISITOR>
 InferenceTermination
-LabelCollapse<GM, INF>::infer
+LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 (
 	VISITOR &visitor
 )
@@ -249,10 +272,10 @@ LabelCollapse<GM, INF>::infer
 	return infer(visitor, proxy_visitor);
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class VISITOR, class PROXY_VISITOR>
 InferenceTermination
-LabelCollapse<GM, INF>::infer
+LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 (
 	VISITOR& visitor,
 	PROXY_VISITOR& proxy_visitor
@@ -305,26 +328,26 @@ LabelCollapse<GM, INF>::infer
 	return termination_;
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 void
-LabelCollapse<GM, INF>::reset()
+LabelCollapse<GM, INF, UNCOLLAPSING>::reset()
 {
 	builder_.reset();
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class INPUT_ITERATOR>
 void
-LabelCollapse<GM, INF>::populate(
+LabelCollapse<GM, INF, UNCOLLAPSING>::populate(
 	INPUT_ITERATOR it
 )
 {
 	builder_.populate(it);
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 InferenceTermination
-LabelCollapse<GM, INF>::arg
+LabelCollapse<GM, INF, UNCOLLAPSING>::arg
 (
 	std::vector<LabelType>& label,
 	const size_t idx
@@ -338,10 +361,10 @@ LabelCollapse<GM, INF>::arg
 	}
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF>::originalNumberOfLabels
+LabelCollapse<GM, INF, UNCOLLAPSING>::originalNumberOfLabels
 (
 	OUTPUT_ITERATOR it
 ) const
@@ -351,27 +374,16 @@ LabelCollapse<GM, INF>::originalNumberOfLabels
 	}
 }
 
-template<class GM, class INF>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF>::currentNumberOfLabels
+LabelCollapse<GM, INF, UNCOLLAPSING>::currentNumberOfLabels
 (
 	OUTPUT_ITERATOR it
 ) const
 {
-	if (builder_.rebuildNecessary()) {
-		// If the builder needs to rebuild the model, we did not perform any
-		// inference iteration (“iterations == 0”). We just return the labels
-		// of the original model.
-		//
-		// FIXME: Ensure that we are at iteration zero! The current
-		// implementation of this aspect looks more like a hack.
-		return originalNumberOfLabels(it);
-	}
-
-	const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
-	for (IndexType i = 0; i < gm.numberOfVariables(); ++i, ++it) {
-		*it = gm.numberOfLabels(i);
+	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
+		*it = builder_.numberOfLabels(i);
 	}
 }
 
@@ -385,14 +397,14 @@ namespace labelcollapse {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM, class ACC>
+// Abstract base class.
+template<class GM, class ACC, class DERIVED>
 class ModelBuilder {
 public:
 	//
 	// Types
 	//
 	typedef ACC AccumulationType;
-	typedef Mapping<GM> MappingType;
 
 	// Shared types (Original = Modified)
 	typedef typename GM::OperatorType OperatorType;
@@ -406,6 +418,8 @@ public:
 	// Auxiliary model types
 	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
 	AuxiliaryModelType;
+
+	typedef Mapping<OriginalModelType> MappingType;
 
 	//
 	// Methods
@@ -423,49 +437,44 @@ public:
 	}
 
 	template<class ITERATOR> bool isValidLabeling(ITERATOR) const;
-	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
-	void uncollapse(const IndexType);
+	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
 	template<class ITERATOR> void populate(ITERATOR);
+	LabelType numberOfLabels(IndexType i) const { return mappings_[i].size(); }
 
+	// The following functions should be overwritten in descendants.
+	void uncollapse(const IndexType);
 	void reset();
 
-private:
-	void updateMappings();
-	ValueType calculateNewEpsilon(const IndexType);
-
+protected:
 	const OriginalModelType &original_;
-
+	AuxiliaryModelType auxiliary_;
 	std::vector<ValueType> epsilons_;
 	std::vector<MappingType> mappings_;
-
 	bool rebuildNecessary_;
-	AuxiliaryModelType auxiliary_;
 };
 
-template<class GM, class ACC>
-ModelBuilder<GM, ACC>::ModelBuilder
+template<class GM, class ACC, class DERIVED>
+ModelBuilder<GM, ACC, DERIVED>::ModelBuilder
 (
 	const OriginalModelType &gm
 )
 : original_(gm)
-, mappings_(gm.numberOfVariables(), MappingType(0))
+, epsilons_(gm.numberOfFactors(), ACC::template ineutral<ValueType>())
+, mappings_(gm.numberOfFactors(), MappingType(0))
 , rebuildNecessary_(true)
 {
-	reset();
+	for (IndexType i = 0; i < gm.numberOfVariables(); ++i) {
+		mappings_[i] = MappingType(gm.numberOfLabels(i));
+	}
 }
 
-template<class GM, class ACC>
+template<class GM, class ACC, class DERIVED>
 void
-ModelBuilder<GM, ACC>::buildAuxiliaryModel()
+ModelBuilder<GM, ACC, DERIVED>::buildAuxiliaryModel()
 {
-	OPENGM_ASSERT(rebuildNecessary_)
 	if (!rebuildNecessary_)
 		return;
-
-	// TODO: We probably should update the mapping incrementally. Everything
-	// gets faster :-)
-	updateMappings();
 
 	// Build space.
 	std::vector<LabelType> shape(original_.numberOfVariables());
@@ -480,7 +489,7 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 		typedef EpsilonFunction<OriginalModelType> ViewFunction;
 
 		const typename OriginalModelType::FactorType &factor = original_[i];
-		const ViewFunction func(factor, mappings_, epsilons_[i]);
+		const ViewFunction func(factor, epsilons_[i], mappings_);
 
 		auxiliary_.addFactor(
 			auxiliary_.addFunction(func),
@@ -492,27 +501,10 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 	rebuildNecessary_ = false;
 }
 
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::originalLabeling
-(
-	const std::vector<LabelType> &auxiliary,
-	std::vector<LabelType> &original
-) const
-{
-	OPENGM_ASSERT(isValidLabeling(auxiliary.begin()));
-	OPENGM_ASSERT(auxiliary.size() == original_.numberOfVariables());
-
-	original.assign(auxiliary.size(), 0);
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		original[i] = mappings_[i].original(auxiliary[i]);
-	}
-}
-
-template<class GM, class ACC>
+template<class GM, class ACC, class DERIVED>
 template<class ITERATOR>
 bool
-ModelBuilder<GM, ACC>::isValidLabeling
+ModelBuilder<GM, ACC, DERIVED>::isValidLabeling
 (
 	ITERATOR it
 ) const
@@ -527,10 +519,10 @@ ModelBuilder<GM, ACC>::isValidLabeling
 	return true;
 }
 
-template<class GM, class ACC>
+template<class GM, class ACC, class DERIVED>
 template<class ITERATOR>
 void
-ModelBuilder<GM, ACC>::uncollapseLabeling
+ModelBuilder<GM, ACC, DERIVED>::uncollapseLabeling
 (
 	ITERATOR it
 )
@@ -539,13 +531,269 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 
 	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
 		if (mappings_[i].isCollapsedAuxiliary(*it))
-			uncollapse(i);
+			static_cast<DERIVED*>(this)->uncollapse(i);
 	}
+}
+
+template<class GM, class ACC, class DERIVED>
+template<class ITERATOR>
+void
+ModelBuilder<GM, ACC, DERIVED>::populate
+(
+	ITERATOR it
+)
+{
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+		while (mappings_[i].numberOfLabels() < std::min(*it, original_.numberOfLabels()))
+			static_cast<DERIVED*>(this)->uncollapse(i);
+	}
+}
+
+template<class GM, class ACC, class DERIVED>
+void
+ModelBuilder<GM, ACC, DERIVED>::originalLabeling
+(
+	const std::vector<LabelType> &auxiliary,
+	std::vector<LabelType> &original
+) const
+{
+	OPENGM_ASSERT(isValidLabeling(auxiliary.begin()));
+	OPENGM_ASSERT(auxiliary.size() == original_.numberOfVariables());
+
+	original.assign(auxiliary.size(), 0);
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		original[i] = mappings_[i].original(auxiliary[i]);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class ModelBuilderUnary
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM, class ACC>
+class ModelBuilderUnary : public ModelBuilder<GM, ACC, ModelBuilderUnary<GM, ACC> > {
+public:
+	typedef ModelBuilder<GM, ACC, ModelBuilderUnary<GM, ACC> > Parent;
+
+	using typename Parent::AccumulationType;
+	using typename Parent::OperatorType;
+	using typename Parent::OriginalModelType;
+	using typename Parent::AuxiliaryModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+	using typename Parent::MappingType;
+
+	ModelBuilderUnary(const OriginalModelType&);
+
+	void uncollapse(const IndexType);
+
+private:
+	typedef std::vector<LabelType> Stack;
+
+	using Parent::original_;
+	using Parent::auxiliary_;
+	using Parent::epsilons_;
+	using Parent::mappings_;
+	using Parent::rebuildNecessary_;
+
+	std::vector<Stack> collapsed_;
+
+	void internalChecks() const;
+
+	friend Parent;
+};
+
+template<class GM, class ACC>
+ModelBuilderUnary<GM, ACC>::ModelBuilderUnary
+(
+	const OriginalModelType &gm
+)
+: Parent(gm)
+, collapsed_(gm.numberOfVariables())
+{
+	Reordering<OriginalModelType, AccumulationType> reordering(original_);
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		collapsed_[i].resize(original_.numberOfLabels(i));
+
+		// We reverse the ordering and use .rbegin(), because we use the
+		// std::vector as a stack. The smallest element should be the last one.
+		reordering.reorder(i);
+		reordering.getOrdered(collapsed_[i].rbegin());
+	}
+
+	// From this point on all the invariances should hold.
+	internalChecks();
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+		uncollapse(i);
+
+	internalChecks();
 }
 
 template<class GM, class ACC>
 void
-ModelBuilder<GM, ACC>::uncollapse
+ModelBuilderUnary<GM, ACC>::uncollapse
+(
+	const IndexType idx
+)
+{
+	internalChecks();
+
+	OPENGM_ASSERT(collapsed_[idx].size() > 0);
+	OPENGM_ASSERT(!mappings_[idx].full());
+
+	LabelType label = collapsed_[idx].back();
+	collapsed_[idx].pop_back();
+	mappings_[idx].insert(label);
+
+	// If there is just one collapsed label left, all the auxiliary unaries
+	// and binaries are equal to the original potentials. We can just
+	// uncollapse it.
+	//
+	// We just pop it here, because the Mapping class automatically handles
+	// this case. (Checked in debug mode.)
+	if (collapsed_[idx].size() == 1)
+		collapsed_[idx].pop_back();
+
+	internalChecks();
+
+	for (IndexType f2 = 0; f2 < original_.numberOfFactors(idx); ++f2) {
+		typedef typename OriginalModelType::FactorType FactorType;
+		const IndexType f = original_.factorOfVariable(idx, f2);
+		const FactorType factor = original_[f];
+
+		if (factor.numberOfVariables() == 1) {
+			// If there are no collapsed labels then the unary epsilon
+			// value will not be used. So we only update it if there are
+			// more uncollapsed labels.
+			if (collapsed_[idx].size() > 0) {
+				opengm::FastSequence<LabelType> labeling(1);
+				labeling[0] = collapsed_[idx].back();
+				epsilons_[f] = factor(labeling.begin());
+			}
+		} else if (factor.numberOfVariables() > 1) {
+			// Use ShapeWalker to iterate over all the factor transitions and
+			// determine if we need to update the binary epsilon.
+			typedef ShapeWalker< typename FactorType::ShapeIteratorType> Walker;
+			Walker walker(factor.shapeBegin(), factor.numberOfVariables());
+			AccumulationType::neutral(epsilons_[f]);
+			for (IndexType i = 0; i < factor.size(); ++i, ++walker) {
+				bool next = true;
+				for (IndexType j = 0; j < factor.numberOfVariables(); ++j) {
+					IndexType varIdx = factor.variableIndex(j);
+					if (mappings_[varIdx].isCollapsedOriginal(walker.coordinateTuple()[j])) {
+						next = false;
+						break;
+					}
+				}
+
+				if (next)
+					continue;
+
+				ValueType v = factor(walker.coordinateTuple().begin());
+				if (AccumulationType::bop(v, epsilons_[f])) {
+					epsilons_[f] = v;
+				}
+			}
+		}
+	}
+
+	rebuildNecessary_ = true;
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderUnary<GM, ACC>::internalChecks() const
+{
+#ifndef NDEBUG
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
+			size_t count = std::count(collapsed_[i].begin(), collapsed_[i].end(), j);
+			if (count != 0) {
+				// is collapsed
+				OPENGM_ASSERT(mappings_[i].isCollapsedOriginal(j));
+			} else {
+				// is not collapsed
+				OPENGM_ASSERT(!mappings_[i].isCollapsedOriginal(j));
+			}
+		}
+	}
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class ModelBuilderGeneric
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM, class ACC>
+class ModelBuilderGeneric : public ModelBuilder<GM, ACC, ModelBuilderGeneric<GM, ACC> > {
+public:
+	typedef ModelBuilder<GM, ACC, ModelBuilderGeneric<GM, ACC> > Parent;
+
+	using typename Parent::AccumulationType;
+	using typename Parent::OperatorType;
+	using typename Parent::OriginalModelType;
+	using typename Parent::AuxiliaryModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+	using typename Parent::MappingType;
+
+	ModelBuilderGeneric(const OriginalModelType&);
+
+	void buildAuxiliaryModel();
+	void uncollapse(const IndexType);
+
+private:
+	using Parent::original_;
+	using Parent::auxiliary_;
+	using Parent::epsilons_;
+	using Parent::mappings_;
+	using Parent::rebuildNecessary_;
+
+	void updateMappings();
+	ValueType calculateNewEpsilon(const IndexType);
+
+	friend Parent;
+};
+
+template<class GM, class ACC>
+ModelBuilderGeneric<GM, ACC>::ModelBuilderGeneric
+(
+	const OriginalModelType &gm
+)
+: Parent(gm)
+{
+	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
+		epsilons_[f] = calculateNewEpsilon(f);
+
+	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+		uncollapse(i);
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderGeneric<GM, ACC>::buildAuxiliaryModel()
+{
+	OPENGM_ASSERT(rebuildNecessary_)
+	if (!rebuildNecessary_)
+		return;
+
+	// TODO: We probably should update the mapping incrementally. Everything
+	// gets faster :-)
+	updateMappings();
+
+	Parent::buildAuxiliaryModel();
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderGeneric<GM, ACC>::uncollapse
 (
 	const IndexType idx
 )
@@ -578,8 +826,8 @@ ModelBuilder<GM, ACC>::uncollapse
 }
 
 template<class GM, class ACC>
-typename ModelBuilder<GM, ACC>::ValueType
-ModelBuilder<GM, ACC>::calculateNewEpsilon(
+typename ModelBuilderGeneric<GM, ACC>::ValueType
+ModelBuilderGeneric<GM, ACC>::calculateNewEpsilon(
 	const IndexType idx
 )
 {
@@ -593,7 +841,7 @@ ModelBuilder<GM, ACC>::calculateNewEpsilon(
 
 template<class GM, class ACC>
 void
-ModelBuilder<GM, ACC>::updateMappings()
+ModelBuilderGeneric<GM, ACC>::updateMappings()
 {
 	typedef std::vector<LabelType> LabelVec;
 	typedef typename LabelVec::iterator Iterator;
@@ -648,35 +896,6 @@ ModelBuilder<GM, ACC>::updateMappings()
 	}
 
 	rebuildNecessary_ = true;
-}
-
-template<class GM, class ACC>
-template<class ITERATOR>
-void
-ModelBuilder<GM, ACC>::populate
-(
-	ITERATOR it
-)
-{
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		while (uncollapsed_[i].size() < *it && collapsed_[i].size() > 0) {
-			uncollapse(i);
-		}
-	}
-}
-
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::reset()
-{
-	epsilons_.assign(original_.numberOfFactors(), ACC::template ineutral<ValueType>());
-	rebuildNecessary_ = true;
-
-	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
-		epsilons_[f] = calculateNewEpsilon(f);
-
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
-		uncollapse(i);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -809,7 +1028,205 @@ Mapping<GM>::makeFull()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-//class UnwrapFunctionFunctor
+// class Reordering
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM, class ACC>
+class Reordering {
+public:
+	typedef GM GraphicalModelType;
+	typedef ACC AccumulationType;
+	OPENGM_GM_TYPE_TYPEDEFS;
+
+	Reordering(const GraphicalModelType&);
+	void reorder(IndexType i);
+	template<class OUTPUT_ITERATOR> void getOrdered(OUTPUT_ITERATOR);
+	template<class RANDOM_ACCESS_ITERATOR> void getMapping(RANDOM_ACCESS_ITERATOR);
+
+private:
+	typedef std::pair<LabelType, ValueType> Pair;
+	typedef std::vector<Pair> Pairs;
+	typedef typename Pairs::const_iterator Iterator;
+
+	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
+
+	const GraphicalModelType &gm_;
+	Pairs pairs_;
+};
+
+template<class GM, class ACC>
+Reordering<GM, ACC>::Reordering
+(
+	const GraphicalModelType &gm
+)
+: gm_(gm)
+{
+}
+
+template<class GM, class ACC>
+void
+Reordering<GM, ACC>::reorder
+(
+	IndexType idx
+)
+{
+	// We look up the unary factor.
+	bool found_unary = false;
+	IndexType f;
+	for (IndexType i = 0; i < gm_.numberOfFactors(idx); ++i) {
+		f = gm_.factorOfVariable(idx, i);
+		if (gm_[f].numberOfVariables() == 1) {
+			found_unary = true;
+			break;
+		}
+	}
+	// TODO: Maybe we should throw exception?
+	OPENGM_ASSERT(found_unary);
+
+	pairs_.resize(gm_.numberOfLabels(idx));
+	for (LabelType i = 0; i < gm_.numberOfLabels(idx); ++i) {
+		opengm::FastSequence<LabelType> labeling(1);
+		labeling[0] = i;
+		ValueType v = gm_[f](labeling.begin());
+		pairs_[i] = std::make_pair(i, v);
+	}
+
+	std::sort(pairs_.begin(), pairs_.end(), &compare);
+}
+
+template<class GM, class ACC>
+template<class OUTPUT_ITERATOR>
+void
+Reordering<GM, ACC>::getOrdered
+(
+	OUTPUT_ITERATOR out
+)
+{
+	for (Iterator in = pairs_.begin(); in != pairs_.end(); ++in, ++out)
+		*out = in->first;
+}
+
+template<class GM, class ACC>
+template<class RANDOM_ACCESS_ITERATOR>
+void
+Reordering<GM, ACC>::getMapping
+(
+	RANDOM_ACCESS_ITERATOR out
+)
+{
+	LabelType l = 0;
+	for (Iterator in = pairs_.begin(); in != pairs_.end(); ++in, ++l)
+		out[ in->first ] = l;
+}
+
+template<class GM, class ACC>
+bool
+Reordering<GM, ACC>::compare
+(
+	const std::pair<LabelType, ValueType> &pair1,
+	const std::pair<LabelType, ValueType> &pair2
+)
+{
+	return AccumulationType::bop(pair1.second, pair2.second);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class EpsilonFunction
+//
+////////////////////////////////////////////////////////////////////////////////
+
+template<class GM>
+class EpsilonFunction
+: public FunctionBase<EpsilonFunction<GM>,
+                      typename GM::ValueType, typename GM::IndexType, typename GM::LabelType>
+{
+public:
+	typedef typename GM::FactorType FactorType;
+	typedef typename GM::IndexType IndexType;
+	typedef typename GM::LabelType LabelType;
+	typedef typename GM::ValueType ValueType;
+
+	typedef Mapping<GM> MappingType;
+
+	EpsilonFunction(
+		const FactorType &factor,
+		ValueType epsilon,
+		const std::vector<MappingType> &mappings
+	)
+	: factor_(&factor)
+	, mappings_(&mappings)
+	, epsilon_(epsilon)
+	{
+	}
+
+	template<class ITERATOR> ValueType operator()(ITERATOR begin) const;
+	LabelType shape(const IndexType) const;
+	IndexType dimension() const;
+	IndexType size() const;
+
+private:
+	const FactorType *factor_;
+	const std::vector<MappingType> *mappings_;
+	ValueType epsilon_;
+};
+
+template<class GM>
+template<class ITERATOR>
+typename EpsilonFunction<GM>::ValueType
+EpsilonFunction<GM>::operator()
+(
+	ITERATOR it
+) const
+{
+	std::vector<LabelType> modified(factor_->numberOfVariables());
+	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
+		IndexType varIdx = factor_->variableIndex(i);
+		LabelType auxLabel = *it;
+
+		if ((*mappings_)[varIdx].isCollapsedAuxiliary(auxLabel))
+			return epsilon_;
+
+		LabelType origLabel = (*mappings_)[varIdx].original(auxLabel);
+		modified[i] = origLabel;
+	}
+
+	return factor_->operator()(modified.begin());
+}
+
+template<class GM>
+typename EpsilonFunction<GM>::LabelType
+EpsilonFunction<GM>::shape
+(
+	const IndexType idx
+) const
+{
+	IndexType varIdx = factor_->variableIndex(idx);
+	return (*mappings_)[varIdx].size();
+}
+
+template<class GM>
+typename EpsilonFunction<GM>::IndexType
+EpsilonFunction<GM>::dimension() const
+{
+	return factor_->numberOfVariables();
+}
+
+template<class GM>
+typename EpsilonFunction<GM>::IndexType
+EpsilonFunction<GM>::size() const
+{
+	IndexType result = 1;
+	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
+		result *= shape(i);
+	}
+	return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// class UnwrapFunctionFunctor
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -894,105 +1311,6 @@ private:
 	VALUE_TYPE epsilon_;
 	INDEX_TYPE variable_;
 };
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class EpsilonFunction
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class GM>
-class EpsilonFunction
-: public FunctionBase<EpsilonFunction<GM>,
-                      typename GM::ValueType, typename GM::IndexType, typename GM::LabelType>
-{
-public:
-	typedef Mapping<GM> MappingType;
-	typedef typename GM::FactorType FactorType;
-	typedef typename GM::IndexType IndexType;
-	typedef typename GM::LabelType LabelType;
-	typedef typename GM::ValueType ValueType;
-
-	EpsilonFunction(
-		const FactorType &factor,
-		const std::vector<MappingType> &mappings,
-		ValueType epsilon
-	)
-	: factor_(&factor)
-	, mappings_(&mappings)
-	, epsilon_(epsilon)
-	{
-	}
-
-	template<class ITERATOR> ValueType operator()(ITERATOR begin) const;
-	LabelType shape(const IndexType) const;
-	IndexType dimension() const;
-	IndexType size() const;
-
-private:
-	const FactorType *factor_;
-	const std::vector<MappingType> *mappings_;
-	ValueType epsilon_;
-};
-
-template<class GM>
-template<class ITERATOR>
-typename EpsilonFunction<GM>::ValueType
-EpsilonFunction<GM>::operator()
-(
-	ITERATOR it
-) const
-{
-	std::vector<LabelType> modified(factor_->numberOfVariables());
-	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
-		IndexType varIdx = factor_->variableIndex(i);
-		LabelType auxLabel = *it;
-		LabelType origLabel;
-
-		if ((*mappings_)[varIdx].full()) {
-			origLabel = auxLabel;
-		} else {
-			if (auxLabel == 0) {
-				return epsilon_;
-			}
-
-			origLabel = (*mappings_)[varIdx].original(auxLabel);
-		}
-
-		modified[i] = origLabel;
-	}
-
-	return factor_->operator()(modified.begin());
-}
-
-template<class GM>
-typename EpsilonFunction<GM>::LabelType
-EpsilonFunction<GM>::shape
-(
-	const IndexType idx
-) const
-{
-	IndexType varIdx = factor_->variableIndex(idx);
-	return (*mappings_)[varIdx].size();
-}
-
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::dimension() const
-{
-	return factor_->numberOfVariables();
-}
-
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::size() const
-{
-	IndexType result = 1;
-	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
-		result *= shape(i);
-	}
-	return result;
-}
 
 } // namespace labelcollapse
 } // namespace opengm

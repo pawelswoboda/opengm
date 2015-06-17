@@ -14,43 +14,22 @@
 #include <opengm/unittests/blackboxtests/blackboxteststar.hxx>
 
 
-int main()
+typedef opengm::GraphicalModel<double, opengm::Adder> OriginalModelType;
+typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType>::GraphicalModelType AuxiliaryModelType;
+typedef opengm::BlackBoxTestGrid<OriginalModelType> GridTest;
+typedef opengm::BlackBoxTestFull<OriginalModelType> FullTest;
+typedef opengm::BlackBoxTestStar<OriginalModelType> StarTest;
+typedef opengm::InferenceBlackBoxTester<OriginalModelType> BlackBoxTester;
+
+
+template<opengm::labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+void test(BlackBoxTester &tester)
 {
-	srand(time(0));
-
-	typedef opengm::GraphicalModel<double, opengm::Adder> OriginalModelType;
-	typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType>::GraphicalModelType AuxiliaryModelType;
-	typedef opengm::BlackBoxTestGrid<OriginalModelType> GridTest;
-	typedef opengm::BlackBoxTestFull<OriginalModelType> FullTest;
-	typedef opengm::BlackBoxTestStar<OriginalModelType> StarTest;
-
-	opengm::InferenceBlackBoxTester<OriginalModelType> tester;
-
-	tester.addTest(new GridTest(1,  4,  4, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 2000));
-	tester.addTest(new GridTest(1,  4,  4, false, false, GridTest::RANDOM, opengm::OPTIMAL, 2000));
-	tester.addTest(new GridTest(1,  4,  8, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 100));
-	tester.addTest(new GridTest(1,  4,  8, false, false, GridTest::RANDOM, opengm::OPTIMAL, 100));
-	tester.addTest(new GridTest(1,  4, 20,  true,  true, GridTest::RANDOM, opengm::OPTIMAL, 10));
-	tester.addTest(new GridTest(1,  4, 20, false, false, GridTest::RANDOM, opengm::OPTIMAL, 10));
-
-	tester.addTest(new GridTest(1, 10,  3, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 10));
-	tester.addTest(new GridTest(1,  5,  8, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 10));
-
-	tester.addTest(new GridTest(3,  3,  5, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 5));
-	tester.addTest(new GridTest(3,  3,  5, false, false, GridTest::RANDOM, opengm::OPTIMAL, 5));
-
-	tester.addTest(new StarTest(5,      6, false,  true, StarTest::RANDOM, opengm::OPTIMAL, 20));
-	tester.addTest(new StarTest(5,      6, false, false, StarTest::RANDOM, opengm::OPTIMAL, 20));
-
-	tester.addTest(new FullTest(3,      6, false,     2, FullTest::RANDOM, opengm::OPTIMAL, 20));
-
-	std::cout << "Test LabelCollapse ..." << std::endl;
-
 	std::cout << "  * Test Min-Sum with Bruteforce" << std::endl;
 	{
 		typedef opengm::Bruteforce<AuxiliaryModelType, opengm::Minimizer> Proxy;
-		typedef opengm::LabelCollapse<OriginalModelType, Proxy> Inference;
-		Inference::Parameter parameter;
+		typedef opengm::LabelCollapse<OriginalModelType, Proxy, UNCOLLAPSING> Inference;
+		typename Inference::Parameter parameter;
 		tester.test<Inference>(parameter);
 	}
 
@@ -58,13 +37,34 @@ int main()
 	std::cout << "  * Test Min-Sum with CPLEX" << std::endl;
 	{
 		typedef opengm::LPCplex<AuxiliaryModelType, opengm::Minimizer> Proxy;
-		typedef opengm::LabelCollapse<OriginalModelType, Proxy> Inference;
+		typedef opengm::LabelCollapse<OriginalModelType, Proxy, UNCOLLAPSING> Inference;
 
 		Proxy::Parameter proxy_parameter;
 		proxy_parameter.integerConstraint_ = true;
 
-		Inference::Parameter parameter(proxy_parameter);
+		typename Inference::Parameter parameter(proxy_parameter);
 		tester.test<Inference>(parameter);
 	}
 #endif
+}
+
+
+int main()
+{
+	srand(time(0));
+	BlackBoxTester tester;
+
+	tester.addTest(new GridTest(1,  4,  4, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 2000));
+	tester.addTest(new GridTest(1,  4,  8, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 100));
+	tester.addTest(new GridTest(1,  4, 20,  true,  true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+	tester.addTest(new GridTest(1, 10,  3, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+	tester.addTest(new GridTest(1,  5,  8, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 10));
+	tester.addTest(new GridTest(3,  3,  5, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 5));
+	tester.addTest(new StarTest(5,      6, false,  true, StarTest::RANDOM, opengm::OPTIMAL, 20));
+
+	std::cout << "Test LabelCollapse (unary version)..." << std::endl;
+	test<opengm::labelcollapse::Unary>(tester);
+
+	std::cout << "Test LabelCollapse (factorwise version)..." << std::endl;
+	test<opengm::labelcollapse::Generic>(tester);
 }
