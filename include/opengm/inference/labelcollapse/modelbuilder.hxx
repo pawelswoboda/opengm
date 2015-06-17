@@ -114,7 +114,6 @@ public:
 
 	// The following functions should be overwritten in descendants.
 	void uncollapse(const IndexType);
-	void reset();
 
 protected:
 	const OriginalModelType &original_;

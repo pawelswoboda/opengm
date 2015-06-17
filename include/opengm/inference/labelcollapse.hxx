@@ -149,7 +149,6 @@ public:
 	ValueType bound() const { return bound_; }
 	virtual ValueType value() const { return value_; }
 	template<class INPUT_ITERATOR> void populate(INPUT_ITERATOR);
-	void reset();
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
@@ -266,13 +265,6 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 
 	visitor.end(*this);
 	return termination_;
-}
-
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
-void
-LabelCollapse<GM, INF, UNCOLLAPSING>::reset()
-{
-	builder_.reset();
 }
 
 template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
