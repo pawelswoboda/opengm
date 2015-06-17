@@ -28,6 +28,7 @@
 #ifndef OPENGM_LABELCOLLAPSE_HXX
 #define OPENGM_LABELCOLLAPSE_HXX
 
+#include <algorithm>
 #include <vector>
 
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
@@ -152,6 +153,7 @@ public:
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
+	template<class OUTPUT_ITERATOR> void depth(OUTPUT_ITERATOR) const;
 
 private:
 	const GraphicalModelType &gm_;
@@ -160,6 +162,7 @@ private:
 
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
+	std::vector<LabelType> depth_;
 	ValueType value_;
 	ValueType bound_;
 };
@@ -246,6 +249,10 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 			exitInf = true;
 			termination_ = NORMAL;
 			value_ = inf.value();
+
+			depth_.resize(labeling.size());
+			std::copy(labeling.begin(), labeling.end(), depth_.begin());
+
 			builder_.originalLabeling(labeling, labeling_);
 		}
 
@@ -318,6 +325,19 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::currentNumberOfLabels
 	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
 		*it = builder_.numberOfLabels(i);
 	}
+}
+
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class OUTPUT_ITERATOR>
+void
+LabelCollapse<GM, INF, UNCOLLAPSING>::depth
+(
+	OUTPUT_ITERATOR it
+) const
+{
+	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
+	OPENGM_ASSERT_OP(depth_.size(), >, 0);
+	std::copy(depth_.begin(), depth_.end(), it);
 }
 
 } // namespace opengm
