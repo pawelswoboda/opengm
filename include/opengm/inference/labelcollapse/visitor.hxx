@@ -1,5 +1,5 @@
 //
-// File: labelcollapse_visitor.hxx
+// File: visitor.hxx
 //
 // This file is part of OpenGM.
 //
