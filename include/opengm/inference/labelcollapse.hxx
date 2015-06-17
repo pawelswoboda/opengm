@@ -139,7 +139,7 @@ public:
 	//
 	LabelCollapse(const GraphicalModelType&, const Parameter& = Parameter());
 	std::string name() const;
-	const GraphicalModelType& graphicalModel() const { return gm_; }
+	const GraphicalModelType& graphicalModel() const { return *gm_; }
 	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
 
 	InferenceTermination infer();
@@ -155,7 +155,7 @@ public:
 	template<class OUTPUT_ITERATOR> void depth(OUTPUT_ITERATOR) const;
 
 private:
-	const GraphicalModelType &gm_;
+	const GraphicalModelType *gm_;
 	ModelBuilderType builder_;
 	const Parameter parameter_;
 
@@ -172,7 +172,7 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::LabelCollapse
 	const GraphicalModelType &gm,
 	const Parameter &parameter
 )
-: gm_(gm)
+: gm_(&gm)
 , builder_(gm)
 , parameter_(parameter)
 {
@@ -301,8 +301,8 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::originalNumberOfLabels
 	OUTPUT_ITERATOR it
 ) const
 {
-	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
-		*it = gm_.numberOfLabels(i);
+	for (IndexType i = 0; i < gm_->numberOfVariables(); ++i, ++it) {
+		*it = gm_->numberOfLabels(i);
 	}
 }
 
@@ -314,7 +314,7 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::currentNumberOfLabels
 	OUTPUT_ITERATOR it
 ) const
 {
-	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i, ++it) {
+	for (IndexType i = 0; i < gm_->numberOfVariables(); ++i, ++it) {
 		*it = builder_.numberOfLabels(i);
 	}
 }
