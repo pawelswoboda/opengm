@@ -116,7 +116,7 @@ public:
 	void uncollapse(const IndexType);
 
 protected:
-	const OriginalModelType &original_;
+	const OriginalModelType *original_;
 	AuxiliaryModelType auxiliary_;
 	std::vector<ValueType> epsilons_;
 	std::vector<MappingType> mappings_;
@@ -128,7 +128,7 @@ ModelBuilder<GM, ACC, DERIVED>::ModelBuilder
 (
 	const OriginalModelType &gm
 )
-: original_(gm)
+: original_(&gm)
 , epsilons_(gm.numberOfFactors(), ACC::template ineutral<ValueType>())
 , mappings_(gm.numberOfFactors(), MappingType(0))
 , rebuildNecessary_(true)
@@ -146,18 +146,18 @@ ModelBuilder<GM, ACC, DERIVED>::buildAuxiliaryModel()
 		return;
 
 	// Build space.
-	std::vector<LabelType> shape(original_.numberOfVariables());
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+	std::vector<LabelType> shape(original_->numberOfVariables());
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
 		shape[i] = mappings_[i].size();
 	}
 	typename AuxiliaryModelType::SpaceType space(shape.begin(), shape.end());
 	auxiliary_ = AuxiliaryModelType(space);
 
 	// Build graphical models with all factors.
-	for (IndexType i = 0; i < original_.numberOfFactors(); ++i) {
+	for (IndexType i = 0; i < original_->numberOfFactors(); ++i) {
 		typedef EpsilonFunction<OriginalModelType> ViewFunction;
 
-		const typename OriginalModelType::FactorType &factor = original_[i];
+		const typename OriginalModelType::FactorType &factor = (*original_)[i];
 		const ViewFunction func(factor, epsilons_[i], mappings_);
 
 		auxiliary_.addFactor(
@@ -180,7 +180,7 @@ ModelBuilder<GM, ACC, DERIVED>::isValidLabeling
 {
 	OPENGM_ASSERT(!rebuildNecessary_);
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
 		if (mappings_[i].isCollapsedAuxiliary(*it))
 			return false;
 	}
@@ -198,7 +198,7 @@ ModelBuilder<GM, ACC, DERIVED>::uncollapseLabeling
 {
 	OPENGM_ASSERT(!rebuildNecessary_);
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
 		if (mappings_[i].isCollapsedAuxiliary(*it))
 			static_cast<DERIVED*>(this)->uncollapse(i);
 	}
@@ -212,8 +212,8 @@ ModelBuilder<GM, ACC, DERIVED>::populate
 	ITERATOR it
 )
 {
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i, ++it) {
-		while (mappings_[i].numberOfLabels() < std::min(*it, original_.numberOfLabels()))
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
+		while (mappings_[i].numberOfLabels() < std::min(*it, original_->numberOfLabels()))
 			static_cast<DERIVED*>(this)->uncollapse(i);
 	}
 }
@@ -227,10 +227,10 @@ ModelBuilder<GM, ACC, DERIVED>::originalLabeling
 ) const
 {
 	OPENGM_ASSERT(isValidLabeling(auxiliary.begin()));
-	OPENGM_ASSERT(auxiliary.size() == original_.numberOfVariables());
+	OPENGM_ASSERT(auxiliary.size() == original_->numberOfVariables());
 
 	original.assign(auxiliary.size(), 0);
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
 		original[i] = mappings_[i].original(auxiliary[i]);
 	}
 }
@@ -283,9 +283,9 @@ ModelBuilderUnary<GM, ACC>::ModelBuilderUnary
 : Parent(gm)
 , collapsed_(gm.numberOfVariables())
 {
-	Reordering<OriginalModelType, AccumulationType> reordering(original_);
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		collapsed_[i].resize(original_.numberOfLabels(i));
+	Reordering<OriginalModelType, AccumulationType> reordering(*original_);
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
+		collapsed_[i].resize(original_->numberOfLabels(i));
 
 		// We reverse the ordering and use .rbegin(), because we use the
 		// std::vector as a stack. The smallest element should be the last one.
@@ -296,7 +296,7 @@ ModelBuilderUnary<GM, ACC>::ModelBuilderUnary
 	// From this point on all the invariances should hold.
 	internalChecks();
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
 		uncollapse(i);
 
 	internalChecks();
@@ -329,10 +329,10 @@ ModelBuilderUnary<GM, ACC>::uncollapse
 
 	internalChecks();
 
-	for (IndexType f2 = 0; f2 < original_.numberOfFactors(idx); ++f2) {
+	for (IndexType f2 = 0; f2 < original_->numberOfFactors(idx); ++f2) {
 		typedef typename OriginalModelType::FactorType FactorType;
-		const IndexType f = original_.factorOfVariable(idx, f2);
-		const FactorType factor = original_[f];
+		const IndexType f = original_->factorOfVariable(idx, f2);
+		const FactorType factor = (*original_)[f];
 
 		if (factor.numberOfVariables() == 1) {
 			// If there are no collapsed labels then the unary epsilon
@@ -378,8 +378,8 @@ void
 ModelBuilderUnary<GM, ACC>::internalChecks() const
 {
 #ifndef NDEBUG
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
-		for (LabelType j = 0; j < original_.numberOfLabels(i); ++j) {
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
+		for (LabelType j = 0; j < original_->numberOfLabels(i); ++j) {
 			size_t count = std::count(collapsed_[i].begin(), collapsed_[i].end(), j);
 			if (count != 0) {
 				// is collapsed
@@ -438,10 +438,10 @@ ModelBuilderGeneric<GM, ACC>::ModelBuilderGeneric
 )
 : Parent(gm)
 {
-	for (IndexType f = 0; f < original_.numberOfFactors(); ++f)
+	for (IndexType f = 0; f < original_->numberOfFactors(); ++f)
 		epsilons_[f] = calculateNewEpsilon(f);
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i)
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
 		uncollapse(i);
 }
 
@@ -472,8 +472,8 @@ ModelBuilderGeneric<GM, ACC>::uncollapse
 	ValueType bestEpsilon = ACC::template neutral<ValueType>();
 	ValueType bestEpsilonDiff = ACC::template neutral<ValueType>();
 
-	for (IndexType f = 0; f < original_.numberOfFactors(idx); ++f) {
-		IndexType factor = original_.factorOfVariable(idx, f);
+	for (IndexType f = 0; f < original_->numberOfFactors(idx); ++f) {
+		IndexType factor = original_->factorOfVariable(idx, f);
 
 		ValueType epsilon = calculateNewEpsilon(factor);
 		ValueType epsilonDiff = epsilon - epsilons_[factor];
@@ -501,7 +501,7 @@ ModelBuilderGeneric<GM, ACC>::calculateNewEpsilon(
 )
 {
 	const ValueType &epsilon = epsilons_[idx];
-	const typename OriginalModelType::FactorType &factor = original_[idx];
+	const typename OriginalModelType::FactorType &factor = (*original_)[idx];
 
 	EpsilonFunctor<ACC, ValueType> functor(epsilon);
 	factor.forAllValuesInAnyOrder(functor);
@@ -518,14 +518,14 @@ ModelBuilderGeneric<GM, ACC>::updateMappings()
 	typedef NonCollapsedFunctionFunctor<ACC, IndexType, ValueType, Inserter> FunctionFunctor;
 	typedef UnwrapFunctionFunctor<FunctionFunctor> FactorFunctor;
 
-	for (IndexType i = 0; i < original_.numberOfVariables(); ++i) {
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
 		bool foundAnyFactor = false;
 		LabelVec nonCollapsed;
 		Inserter inserter(nonCollapsed);
 
-		for (IndexType j = 0; j < original_.numberOfFactors(i); ++j) {
-			const IndexType f = original_.factorOfVariable(i, j);
-			const typename OriginalModelType::FactorType &factor = original_[f];
+		for (IndexType j = 0; j < original_->numberOfFactors(i); ++j) {
+			const IndexType f = original_->factorOfVariable(i, j);
+			const typename OriginalModelType::FactorType &factor = (*original_)[f];
 
 			IndexType varIdx = 0;
 			for (IndexType k = 0; k < factor.numberOfVariables(); ++k) {
@@ -542,7 +542,7 @@ ModelBuilderGeneric<GM, ACC>::updateMappings()
 		}
 
 		MappingType &m = mappings_[i];
-		m = MappingType(original_.numberOfLabels(i));
+		m = MappingType(original_->numberOfLabels(i));
 
 		// If there are no factors where our variable is the first variable,
 		// there are no corresponding epsilon values for this variable. We have

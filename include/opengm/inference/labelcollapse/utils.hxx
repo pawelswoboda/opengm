@@ -227,7 +227,7 @@ private:
 
 	static bool compare(const std::pair<LabelType, ValueType>&, const std::pair<LabelType, ValueType>&);
 
-	const GraphicalModelType &gm_;
+	const GraphicalModelType *gm_;
 	Pairs pairs_;
 };
 
@@ -236,7 +236,7 @@ Reordering<GM, ACC>::Reordering
 (
 	const GraphicalModelType &gm
 )
-: gm_(gm)
+: gm_(&gm)
 {
 }
 
@@ -250,9 +250,9 @@ Reordering<GM, ACC>::reorder
 	// We look up the unary factor.
 	bool found_unary = false;
 	IndexType f;
-	for (IndexType i = 0; i < gm_.numberOfFactors(idx); ++i) {
-		f = gm_.factorOfVariable(idx, i);
-		if (gm_[f].numberOfVariables() == 1) {
+	for (IndexType i = 0; i < gm_->numberOfFactors(idx); ++i) {
+		f = gm_->factorOfVariable(idx, i);
+		if ((*gm_)[f].numberOfVariables() == 1) {
 			found_unary = true;
 			break;
 		}
@@ -260,11 +260,11 @@ Reordering<GM, ACC>::reorder
 	// TODO: Maybe we should throw exception?
 	OPENGM_ASSERT(found_unary);
 
-	pairs_.resize(gm_.numberOfLabels(idx));
-	for (LabelType i = 0; i < gm_.numberOfLabels(idx); ++i) {
+	pairs_.resize(gm_->numberOfLabels(idx));
+	for (LabelType i = 0; i < gm_->numberOfLabels(idx); ++i) {
 		opengm::FastSequence<LabelType> labeling(1);
 		labeling[0] = i;
-		ValueType v = gm_[f](labeling.begin());
+		ValueType v = (*gm_)[f](labeling.begin());
 		pairs_[i] = std::make_pair(i, v);
 	}
 
@@ -410,7 +410,7 @@ template<class FUNCTOR>
 class UnwrapFunctionFunctor {
 public:
 	UnwrapFunctionFunctor(FUNCTOR &functor)
-	: functor_(functor)
+	: functor_(&functor)
 	{
 	}
 
@@ -421,11 +421,11 @@ public:
 	// concrete type (C++ infers the template arguments for class methods).
 	template<class FUNCTION>
 	void operator()(const FUNCTION &function) {
-		function.forAllValuesInAnyOrderWithCoordinate(functor_);
+		function.forAllValuesInAnyOrderWithCoordinate(*functor_);
 	}
 
 private:
-	FUNCTOR &functor_;
+	FUNCTOR *functor_;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
