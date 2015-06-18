@@ -38,6 +38,7 @@
 #include <opengm/utilities/metaprogramming.hxx>
 
 #include "labelcollapse/modelbuilder.hxx"
+#include "labelcollapse/reparameterization.hxx"
 #include "labelcollapse/utils.hxx"
 #include "labelcollapse/visitor.hxx"
 
@@ -46,8 +47,11 @@ namespace opengm {
 
 // Main class implementing the inference method. This class is intended to be
 // used by the user.
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING = labelcollapse::Unary>
-class LabelCollapse;
+template<
+	class GM, class INF,
+	labelcollapse::UncollapsingBehavior UNCOLLAPSING = labelcollapse::Unary,
+	labelcollapse::ReparameterizationKind REPA = labelcollapse::ReparameterizationNone
+> class LabelCollapse;
 
 // This is a type generator for generating the template parameter for
 // the underlying proxy inference method.
@@ -64,16 +68,10 @@ struct LabelCollapseAuxTypeGen;
 
 template<class GM>
 struct LabelCollapseAuxTypeGen {
-	typedef typename GM::OperatorType OperatorType;
-	typedef typename GM::IndexType IndexType;
-	typedef typename GM::LabelType LabelType;
-	typedef typename GM::ValueType ValueType;
-
-	typedef typename opengm::DiscreteSpace<IndexType, LabelType> SpaceType;
-	typedef typename meta::TypeListGenerator< labelcollapse::EpsilonFunction<GM> >::type FunctionTypeList;
-
-	typedef GraphicalModel<ValueType, OperatorType, FunctionTypeList, SpaceType>
-	GraphicalModelType;
+	// HACK: We are only interested in the the type and so we pass an arbitrary
+	// ACC (AccumulationType).
+	typedef typename labelcollapse::Reparameterizer<GM, opengm::Minimizer>::ReparameterizedModelType ReparameterizedModelType;
+	typedef typename labelcollapse::ModelBuilderAuxTypeGen<ReparameterizedModelType>::GraphicalModelType GraphicalModelType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,7 +80,7 @@ struct LabelCollapseAuxTypeGen {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 class LabelCollapse : public opengm::Inference<GM, typename INF::AccumulationType>
 {
 public:
@@ -104,13 +102,14 @@ public:
 		typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 		typedef typename INF::Parameter Parameter;
 	};
-	typedef LabelCollapse<GM, INF, UNCOLLAPSING> MyType;
+	typedef LabelCollapse<GM, INF, UNCOLLAPSING, KIND> MyType;
 
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
-	typedef typename labelcollapse::ModelBuilderTypeGen<GraphicalModelType, AccumulationType, UNCOLLAPSING>::Type ModelBuilderType;
-	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
-	AuxiliaryModelType;
+	typedef typename LabelCollapseAuxTypeGen<GM>::ReparameterizedModelType ReparameterizedModelType;
+	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType AuxiliaryModelType;
+	typedef typename labelcollapse::Reparameterizer<GraphicalModelType, AccumulationType, KIND> ReparameterizerType;
+	typedef typename labelcollapse::ModelBuilderTypeGen<ReparameterizedModelType, AccumulationType, UNCOLLAPSING>::Type ModelBuilderType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
@@ -140,6 +139,7 @@ public:
 	LabelCollapse(const GraphicalModelType&, const Parameter& = Parameter());
 	std::string name() const;
 	const GraphicalModelType& graphicalModel() const { return *gm_; }
+	const ReparameterizedModelType &reparameterizedModel() const { return repa_.reparameterizedModel(); }
 	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
 
 	InferenceTermination infer();
@@ -156,6 +156,7 @@ public:
 
 private:
 	const GraphicalModelType *gm_;
+	ReparameterizerType repa_;
 	ModelBuilderType builder_;
 	const Parameter parameter_;
 
@@ -166,39 +167,44 @@ private:
 	ValueType bound_;
 };
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
-LabelCollapse<GM, INF, UNCOLLAPSING>::LabelCollapse
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::LabelCollapse
 (
 	const GraphicalModelType &gm,
 	const Parameter &parameter
 )
 : gm_(&gm)
-, builder_(gm)
+, repa_(gm)
+, builder_(repa_.reparameterizedModel())
 , parameter_(parameter)
 {
+	// FIXME: This is a bit clumsy. We first construct all the objects and
+	// afterwards need to instantiate a new builder. This should be fixed.
+	repa_.reparameterize();
+	builder_ = ModelBuilderType(repa_.reparameterizedModel());
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 std::string
-LabelCollapse<GM, INF, UNCOLLAPSING>::name() const
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::name() const
 {
 	AuxiliaryModelType gm;
 	typename Proxy::Inference inf(gm, parameter_.proxy);
 	return "LabelCollapse(" + inf.name() + ")";
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 InferenceTermination
-LabelCollapse<GM, INF, UNCOLLAPSING>::infer()
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer()
 {
 	EmptyVisitorType visitor;
 	return infer(visitor);
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 template<class VISITOR>
 InferenceTermination
-LabelCollapse<GM, INF, UNCOLLAPSING>::infer
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer
 (
 	VISITOR &visitor
 )
@@ -207,10 +213,10 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 	return infer(visitor, proxy_visitor);
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 template<class VISITOR, class PROXY_VISITOR>
 InferenceTermination
-LabelCollapse<GM, INF, UNCOLLAPSING>::infer
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer
 (
 	VISITOR& visitor,
 	PROXY_VISITOR& proxy_visitor
@@ -267,19 +273,20 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::infer
 	return termination_;
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 template<class INPUT_ITERATOR>
 void
-LabelCollapse<GM, INF, UNCOLLAPSING>::populate(
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::populate
+(
 	INPUT_ITERATOR it
 )
 {
 	builder_.populate(it);
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 InferenceTermination
-LabelCollapse<GM, INF, UNCOLLAPSING>::arg
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::arg
 (
 	std::vector<LabelType>& label,
 	const size_t idx
@@ -293,10 +300,10 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::arg
 	}
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF, UNCOLLAPSING>::originalNumberOfLabels
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::originalNumberOfLabels
 (
 	OUTPUT_ITERATOR it
 ) const
@@ -306,10 +313,10 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::originalNumberOfLabels
 	}
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF, UNCOLLAPSING>::currentNumberOfLabels
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::currentNumberOfLabels
 (
 	OUTPUT_ITERATOR it
 ) const
@@ -319,10 +326,10 @@ LabelCollapse<GM, INF, UNCOLLAPSING>::currentNumberOfLabels
 	}
 }
 
-template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING>
+template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
 template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF, UNCOLLAPSING>::depth
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::depth
 (
 	OUTPUT_ITERATOR it
 ) const

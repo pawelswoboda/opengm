@@ -61,6 +61,20 @@ template <class GM, class ACC, UncollapsingBehavior T> struct ModelBuilderTypeGe
 template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Unary>   { typedef ModelBuilderUnary<GM, ACC> Type; };
 template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Generic> { typedef ModelBuilderGeneric<GM, ACC> Type; };
 
+// Type level function for calculation of the auxiliary model type.
+template<class GM>
+struct ModelBuilderAuxTypeGen {
+	typedef typename GM::OperatorType OperatorType;
+	typedef typename GM::IndexType IndexType;
+	typedef typename GM::LabelType LabelType;
+	typedef typename GM::ValueType ValueType;
+
+	typedef typename opengm::DiscreteSpace<IndexType, LabelType> SpaceType;
+	typedef typename meta::TypeListGenerator< EpsilonFunction<GM> >::type FunctionTypeList;
+
+	typedef GraphicalModel<ValueType, OperatorType, FunctionTypeList, SpaceType> GraphicalModelType;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // class ModelBuilder
@@ -86,8 +100,7 @@ public:
 	typedef GM OriginalModelType;
 
 	// Auxiliary model types
-	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
-	AuxiliaryModelType;
+	typedef typename ModelBuilderAuxTypeGen<GM>::GraphicalModelType AuxiliaryModelType;
 
 	typedef Mapping<OriginalModelType> MappingType;
 
@@ -99,7 +112,7 @@ public:
 	void buildAuxiliaryModel();
 	bool rebuildNecessary() const { return rebuildNecessary_; }
 
-	const OriginalModelType& getOriginalModel() const { return original_; }
+	const OriginalModelType& getOriginalModel() const { return *original_; }
 	const AuxiliaryModelType& getAuxiliaryModel() const
 	{
 		OPENGM_ASSERT(!rebuildNecessary_);
