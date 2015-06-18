@@ -203,6 +203,24 @@ private:
 	ValueType value_;
 	ValueType bound_;
 	MaskType mask_;
+
+	// The first phase of CombiLP uses a TRWS solver. For the second phase
+	// we need a reparameterizer and the concept is very tightly coupled to
+	// the TRWS solver.
+	//
+	// (TRWS uses a TreeDecompositionStorage and stores unary values. After
+	// solving the model, the TreeDecompositionStorage has changed all those
+	// values. The reparameterizer reuses all those values.)
+	//
+	// The current solution is to extract the reparameterizer during the first
+	// pass. The problem is that the reparameterizer uses internal pointers to
+	// the TRWS structures. So we need to keep the TRWS instance also alive.
+	//
+	// Sounds complicated...
+	//
+	// FIXME: Decouple TRWSi and Reparametrizer.
+	LPSolverType trwsi_;
+	boost::scoped_ptr<ReparametrizerType> reparametrizer_;
 };
 
 template<class GM, class ACC, class LP, class ILP>
@@ -216,6 +234,8 @@ CombiLP<GM, ACC, LP, ILP>::CombiLP
 , labeling_(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
 , value_(ACC::template neutral<ValueType>())
 , bound_(ACC::template ineutral<ValueType>())
+, trwsi_(gm_, parameter_.lpsolverParameter_)
+, reparametrizer_(trwsi_.getReparametrizer(parameter_.repaParameter_))
 {
 #ifdef OPENGM_COMBILP_DEBUG
 	std::cout << "Parameters of the " << name() << " algorithm:" << std::endl;
@@ -277,7 +297,9 @@ template<class GM, class ACC, class LP, class ILP>
 void
 CombiLP<GM, ACC, LP, ILP>::performLP()
 {
-	LPSolverType solver(gm_, parameter_.lpsolverParameter_);
+	// FIXME: The TRWSi solver is a class member. See comment in class
+	// definition. Obviously it would be better, if we could decouple this.
+	LPSolverType &solver = trwsi_;
 
 #ifdef OPENGM_COMBILP_DEBUG
 	std::cout << "Running LP solver "<< solver.name() << std::endl;
@@ -333,25 +355,18 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 	          << std::endl;
 #endif
 
-	// FIXME: The following types look really ugly. The problem is that
-	// the TRWSi and the Reparameterization re tighly coupled.
-	//
-	// Normally we only need the reparameterization here. The storage is a
-	// tree decomposition storage, but the graph is splitted in chains.
-	//
-	// FIXME: Decouple TRWSi and Reparametrizer.
-	LPSolverType solver(gm_, parameter_.lpsolverParameter_);
-	boost::scoped_ptr<ReparametrizerType> reparametrizer(solver.getReparametrizer(parameter_.repaParameter_));
-	// FIXME-END
+	// FIXME: The reparametrizer is a class member. See comment in class
+	// definition. Obviously it would be better, if we could decouple this.
+	boost::scoped_ptr<ReparametrizerType> &reparametrizer = reparametrizer_;
 
 	// Do not need to dilate the mask in the newer approach.
-	// TODO: Throw away non-dense version.
+	// TODO: Throw away non-dense version?
 	if (parameter_.singleReparametrization_)
 		combilp::dilateMask(gm_, mask_);
 
 	typename ReparametrizerType::ReparametrizedGMType gm;
 	bool quitInference = false;
-	bool reparametrizedFlag = false; // TODO: Throw away non-dense version.
+	bool reparametrizedFlag = false; // TODO: Throw away non-dense version?
 	InferenceTermination result = TIMEOUT;
 
 	// Main loop for iteration. In each iteration we run the ILP solver on the
