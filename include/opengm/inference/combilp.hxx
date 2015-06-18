@@ -249,9 +249,9 @@ namespace opengm{
             submodelLabelings[modelIndex].resize(model.numberOfVariables());
             typename LPCPLEX::Parameter param;
             param.integerConstraint_=true;
-            param.numberOfThreads_= _parameter.threads_;
+            param.numberOfThreads_= 4;
             param.timeLimit_ = 3600;                       // TODO: Make this a parameter (1h)
-            param.workMem_= 1024*6;                        // TODO: Make this a parameter (6GB)
+            param.workMem_= 1024*10;                        // TODO: Make this a parameter (6GB)
             LPCPLEX ilpSolver(model,param);
             terminationILP=ilpSolver.infer();
 

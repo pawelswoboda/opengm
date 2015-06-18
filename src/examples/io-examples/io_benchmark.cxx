@@ -16,10 +16,12 @@
 #include "opengm/functions/truncated_squared_difference.hxx"
 #include <opengm/graphicalmodel/graphicalmodel_hdf5.hxx>
 #include <opengm/graphicalmodel/graphicalmodel.hxx>
-#include <opengm/inference/combilp_default.hxx>
 #include <opengm/operations/adder.hxx>
 #include <opengm/operations/minimizer.hxx>
 #include <opengm/utilities/metaprogramming.hxx>
+
+#include <opengm/inference/combilp.hxx>
+#include <opengm/inference/trws/trws_trws.hxx>
 
 int main(int argc, char **argv)
 {
@@ -59,8 +61,8 @@ int main(int argc, char **argv)
 
 	begin = Clock::now();
 	{
-		typedef opengm::CombiLP_TRWSi_LC_Gen<GraphicalModelType, AccumulatorType> Generator;
-		typedef Generator::CombiLPType CombiLPType;
+		typedef opengm::TRWSi<GraphicalModelType,opengm::Minimizer> TRWSiSolverType;
+		typedef opengm::CombiLP<GraphicalModelType,opengm::Minimizer,TRWSiSolverType> CombiLPType;
 		CombiLPType::Parameter param;
 		param.verbose_ = true;
 		param.singleReparametrization_ = false;
@@ -72,11 +74,6 @@ int main(int argc, char **argv)
 		param.lpsolverParameter_.setTreeAgreeMaxStableIter(100);
 		param.lpsolverParameter_.maxNumberOfIterations_= 10000;
 #endif
-		param.ilpsolverParameter_.proxy.verbose_ = true;
-		param.ilpsolverParameter_.proxy.integerConstraint_ = true;
-		param.ilpsolverParameter_.proxy.timeLimit_ = 3600;
-		param.ilpsolverParameter_.proxy.workMem_= 1024*32;
-		param.ilpsolverParameter_.proxy.numberOfThreads_ = 4;
 
 		CombiLPType::TimingVisitorType visitor(1, 0, true, false, std::numeric_limits<double>::infinity(), 0.0, 2);
 		CombiLPType inference(gm, param);
