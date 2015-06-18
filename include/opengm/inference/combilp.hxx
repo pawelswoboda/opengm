@@ -11,8 +11,9 @@
 // To enable detailed debug output enable the following preprocessor macro:
 // #define OPENGM_COMBILP_DEBUG
 //
-// FIXME: The above macro should be a parameter!
-#define OPENGM_COMBILP_DEBUG
+// FIXME: The above macro should be a parameter, maybe?
+// FIXME: Downstream code should also consider enabling TRWS_DEBUG_OUTPUT. 
+//        This is not very intuitive behavior for CombiLP.
 
 #include <boost/scoped_ptr.hpp>
 
@@ -158,8 +159,10 @@ public:
 			std::cout << "singleReparametrization=" << singleReparametrization_ << std::endl;
 			std::cout << "saveProblemMasks=" << saveProblemMasks_ << std::endl;
 			std::cout << "maskFileNamePre=" << maskFileNamePre_ << std::endl;
+#ifdef TRWS_DEBUG_OUTPUT
 			std::cout << "== lpsolverParameters: ==" << std::endl;
 			lpsolverParameter_.print(std::cout);
+#endif
 		}
 #endif
 	};
@@ -556,7 +559,9 @@ CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasks
 	const MaskType &boundaryMask
 ) const
 {
-#ifdef OPENGM_COMBILP_DEBUG
+	// FIXME: The helper functions are only defined if the TRWSi enables
+	// them. This is not intuitive behavior for CombiLP.
+#if defined(OPENGM_COMBILP_DEBUG) && defined(TRWS_DEBUG_OUTPUT)
 	if (parameter_.saveProblemMasks_) {
 		std::stringstream s;
 		s << parameter_.maskFileNamePre_ << "-mask-"
@@ -581,7 +586,9 @@ CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasksMismatches
 	const std::vector<IndexType> &mismatches
 ) const
 {
-#ifdef OPENGM_COMBILP_DEBUG
+	// FIXME: The helper functions are only defined if the TRWSi enables
+	// them. This is not intuitive behavior for CombiLP.
+#if defined(OPENGM_COMBILP_DEBUG) && defined(TRWS_DEBUG_OUTPUT)
 	if (parameter_.saveProblemMasks_) {
 		std::stringstream s;
 		s << parameter_.maskFileNamePre_ << "-added-"
