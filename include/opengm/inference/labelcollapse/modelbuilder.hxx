@@ -226,7 +226,7 @@ ModelBuilder<GM, ACC, DERIVED>::populate
 )
 {
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
-		while (mappings_[i].numberOfLabels() < std::min(*it, original_->numberOfLabels()))
+		while (numberOfLabels(i) < std::min(*it, original_->numberOfLabels(i)))
 			static_cast<DERIVED*>(this)->uncollapse(i);
 	}
 }
