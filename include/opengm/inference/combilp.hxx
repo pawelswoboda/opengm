@@ -25,8 +25,6 @@
 namespace opengm{
 
 namespace combilp {
-	void inverseMask(std::vector<bool> &);
-
 	template<class GM>
 	void dilateMask(const GM &, typename GM::IndexType, std::vector<bool>&);
 
@@ -267,6 +265,8 @@ CombiLP<GM, ACC, LP, ILP>::arg
 		return UNKNOWN;
 
 	labeling = labeling_;
+
+	// FIXME: Return the correct inference result.
 	return NORMAL;
 }
 
@@ -292,7 +292,7 @@ CombiLP<GM, ACC, LP, ILP>::performLP()
 	std::cout << "Trivializing." << std::endl;
 #endif
 
-	// FIXME: Why do we reparameterize the model again? The LPSolver already
+	// FIXME?: Why do we reparameterize the model again? The LPSolver already
 	// did this. There is no need for instantiating a reparametrizer here, is it?
 #ifdef WITH_HDF5
 	if (parameter_.reparametrizedModelFileName_.compare("") != 0) {
@@ -308,8 +308,9 @@ CombiLP<GM, ACC, LP, ILP>::performLP()
 	}
 #endif
 
-	combilp::inverseMask(mask_);
+	// Negate the mask. All non-strict-arc-consistent nodes are now “true”.
 	OPENGM_ASSERT_OP(mask_.size(), ==, gm_.numberOfVariables());
+	std::transform(mask_.begin(), mask_.end(), mask_.begin(), std::logical_not<bool>());
 }
 
 // TODO: Clean this method.
@@ -498,7 +499,7 @@ CombiLP<GM, ACC, LP, ILP>::checkOptimality
 	//
 	if (! parameter_.singleReparametrization_) {
 		std::vector<bool> imask = mask_;
-		combilp::inverseMask(imask);
+		std::transform(imask.begin(), imask.end(), imask.begin(), std::logical_not<bool>());
 
 		ValueType newValue = gm.evaluate(labeling);
 		ValueType newBound = gm.evaluate(labeling, mask_)
@@ -598,19 +599,6 @@ CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasksMismatches
 ////////////////////////////////////////////////////////////////////////////////
 
 namespace combilp{
-
-	void
-	inverseMask
-	(
-		std::vector<bool> &mask
-	)
-	{
-		for (std::vector<bool>::iterator it = mask.begin();
-		     it != mask.end(); ++it)
-		{
-			*it = !*it;
-		}
-	}
 
 	template<class GM>
 	void
