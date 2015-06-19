@@ -110,8 +110,9 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
    if (lpsolvertype=="TRWSi")
    {
 	   typedef TRWSi<GM,ACC> LPSOLVER;
+	   typedef LPCplex<typename CombiLP_ILP_TypeGen<LPSOLVER>::GraphicalModelType,ACC> ILPSOLVER;
 
-	   typedef CombiLP<GM, ACC, LPSOLVER> CombiLPType;
+	   typedef CombiLP<GM, ACC, LPSOLVER, ILPSOLVER> CombiLPType;
 	   typedef typename CombiLPType::VerboseVisitorType VerboseVisitorType;
 	   typedef typename CombiLPType::EmptyVisitorType EmptyVisitorType;
 	   typedef typename CombiLPType::TimingVisitorType TimingVisitorType;
@@ -135,12 +136,14 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   parameter_.maxNumberOfILPCycles_=parameter_maxNumberOfILPCycles;
 	   parameter_.singleReparametrization_=!param_multipleRepa;
 	   parameter_.lpsolverParameter_=lpsolverParameter_;
+	   parameter_.ilpsolverParameter_.integerConstraint_ = true;
 	   this-> template infer<CombiLPType, TimingVisitorType, typename CombiLPType::Parameter>(model, output, verbose, parameter_);
    }else if (lpsolvertype=="ADSal")
    {
 	   typedef ADSal<GM,ACC> LPSOLVER;
+	   typedef LPCplex<typename CombiLP_ILP_TypeGen<LPSOLVER>::GraphicalModelType,ACC> ILPSOLVER;
 
-	   typedef CombiLP<GM, ACC, LPSOLVER> CombiLPType;
+	   typedef CombiLP<GM, ACC, LPSOLVER, ILPSOLVER> CombiLPType;
 	   typedef typename CombiLPType::VerboseVisitorType VerboseVisitorType;
 	   typedef typename CombiLPType::EmptyVisitorType EmptyVisitorType;
 	   typedef typename CombiLPType::TimingVisitorType TimingVisitorType;
@@ -167,6 +170,7 @@ inline void CombiLPCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, c
 	   parameter_.maxNumberOfILPCycles_=parameter_maxNumberOfILPCycles;
 	   parameter_.singleReparametrization_=!param_multipleRepa;
 	   parameter_.lpsolverParameter_=lpsolverParameter_;
+	   parameter_.ilpsolverParameter_.integerConstraint_ = true;
 	   this-> template infer<CombiLPType, TimingVisitorType, typename CombiLPType::Parameter>(model, output, verbose, parameter_);
    }else throw RuntimeError("Unknown local polytope solver!");
 }
