@@ -261,8 +261,13 @@ LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer
 			builder_.originalLabeling(labeling, labeling_);
 		}
 
-		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf)
-			exitInf = true;
+		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) {
+			// Visitor could also return StopInfBoundReached. But that does not
+			// make any sense, because value_ is always plus or minus infinity.
+			// There is no meaningful gap between value_ and bound_.
+			termination_ = TIMEOUT;
+			return termination_;
+		}
 
 		// Update the model. This will try to make more labels available where
 		// the current labeling is invalid.
