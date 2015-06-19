@@ -12,7 +12,7 @@
 // #define OPENGM_COMBILP_DEBUG
 //
 // FIXME: The above macro should be a parameter, maybe?
-// FIXME: Downstream code should also consider enabling TRWS_DEBUG_OUTPUT. 
+// FIXME: Downstream code should also consider enabling TRWS_DEBUG_OUTPUT.
 //        This is not very intuitive behavior for CombiLP.
 
 #include <boost/scoped_ptr.hpp>
@@ -308,11 +308,10 @@ CombiLP<GM, ACC, LP, ILP>::performLP()
 	solver.infer();
 	value_ = solver.value();
 	bound_ = solver.bound();
-	solver.arg(labeling_);
-	solver.getTreeAgreement(mask_);
+	solver.getTreeAgreement(mask_, &labeling_);
 
 #ifdef OPENGM_COMBILP_DEBUG
-	std::cout << "Energy of the labeling consistent with the arc consistency =" << solver.graphicalModel().evaluate(labeling_) << std::endl;
+	std::cout << "Energy of the labeling consistent with the arc consistency =" << gm_.evaluate(labeling_) << std::endl;
 	std::cout << "Arc inconsistent set size =" << std::count(mask_.begin(),mask_.end(),false) << std::endl;
 	std::cout << "Trivializing." << std::endl;
 #endif
@@ -382,12 +381,24 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 	    ; !quitInference && iteration < parameter_.maxNumberOfILPCycles_
 		; ++iteration )
 	{
-		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf)
+		// The visitor can tell us to stop. He can also see the gap
+		// between value_ (always decreasing) and bound (always increasing). He
+		// can either raise a timeout or say that the gap is small enough.
+		switch (visitor(*this)) {
+		case visitors::VisitorReturnFlag::StopInfBoundReached:
+			return CONVERGENCE;
+			break;
+		case visitors::VisitorReturnFlag::StopInfTimeout:
+			// TODO: Should we update intermediate values before quitting?
 			return TIMEOUT;
+			break;
+		default:
+			break;
+		}
 
 #ifdef OPENGM_COMBILP_DEBUG
-		std::cout << "ILP iteration " << iteration
-		          << "(size = " << std::count(mask_.begin(), mask_.end(), true)
+		std::cout << "ILP iteration " << iteration << " (size = "
+		          << std::count(mask_.begin(), mask_.end(), true)
 		          << ")" << std::endl;
 #endif
 
@@ -528,7 +539,8 @@ CombiLP<GM, ACC, LP, ILP>::checkOptimality
 			labeling_ = labeling;
 		}
 
-		ACC::iop(newBound, bound_); // bound_ += newbound; for Minimizer
+		// for ACC == Minimizer equivalent to: bound_ -= std::min(bound_, newBound)
+		ACC::iop(bound_, newBound, bound_);
 
 #ifdef OPENGM_COMBILP_DEBUG
 		std::cout << "newvalue=" << newValue << "; best value=" << value_ << std::endl;
@@ -738,12 +750,12 @@ namespace combilp{
 		typedef typename GM::FactorType FactorType;
 		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
 
-		boundaryMask.assign(mask.size(),false);
+		boundaryMask.assign(mask.size(), false);
 		for (IndexType i = 0; i < mask.size(); ++i) {
 			if (! mask[i]) continue;
 
 			for (IndexType j = 0; j < gm.numberOfFactors(i); ++j) {
-				if (boundaryMask[j]) break;
+				if (boundaryMask[i]) break;
 
 				typedef typename FactorType::VariablesIteratorType Iter;
 				const FactorType& f = gm[ gm.factorOfVariable(i, j) ];
