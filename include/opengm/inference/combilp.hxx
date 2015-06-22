@@ -187,12 +187,13 @@ private:
 	void performLP();
 	template<class VISITOR> InferenceTermination performILP(VISITOR&);
 
-	InferenceTermination inferenceOnSubmodels(const ManipulatorType&, Labeling&, Labeling&) const;
+	InferenceTermination inferenceOnSubmodels(const ManipulatorType&, Labeling&, Labeling&, Labeling&) const;
 	bool checkOptimality(const ReparametrizedGMType&, const MaskType&, const Labeling&, std::vector<IndexType>&);
 	void addNodes(const ReparametrizedGMType&, const std::vector<IndexType>&);
 
 	void debugSaveProblemMasks(size_t, const MaskType&) const;
 	void debugSaveProblemMasksMismatches(size_t, const std::vector<IndexType>&) const;
+	void debugPrintDepth(const Labeling&, const Labeling&) const;
 
 	//
 	// Members
@@ -371,6 +372,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 	// BEGIN-HACK
 	// Target shape for LabelCollapse population of label space.
 	std::vector<LabelType> targetShape(gm_.numberOfVariables());
+	std::vector<LabelType> depth(gm_.numberOfVariables());
 	// END-HACK
 
 	// Main loop for iteration. In each iteration we run the ILP solver on the
@@ -391,6 +393,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 		// can either raise a timeout or say that the gap is small enough.
 		switch (visitor(*this)) {
 		case visitors::VisitorReturnFlag::StopInfBoundReached:
+			debugPrintDepth(targetShape, depth);
 			return CONVERGENCE;
 			break;
 		case visitors::VisitorReturnFlag::StopInfTimeout:
@@ -446,7 +449,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 		//
 		Labeling labeling;
 		ManipulatorType manipulator = combilp::maskToManipulator(gm, labeling_, mask_);
-		InferenceTermination inf = inferenceOnSubmodels(manipulator, labeling, targetShape);
+		InferenceTermination inf = inferenceOnSubmodels(manipulator, labeling, targetShape, depth);
 		if ((inf != NORMAL) && (inf != CONVERGENCE)) {
 #ifdef OPENGM_COMBILP_DEBUG
 			std::cout << "ILP solver failed to solve the problem. Best attained results will be saved." << std::endl;
@@ -466,6 +469,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 #ifdef OPENGM_COMBILP_DEBUG
 			std::cout << "Solved! Optimal energy=" << value() << std::endl;
 #endif
+			debugPrintDepth(targetShape, depth);
 		} else {
 			debugSaveProblemMasksMismatches(iteration, mismatches);
 			addNodes(gm, mismatches);
@@ -481,7 +485,8 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 (
 	const ManipulatorType &manipulator,
 	Labeling &labeling,
-	Labeling &targetShape
+	Labeling &targetShape,
+	Labeling &depth
 ) const
 {
 	std::vector<Labeling> labelings(manipulator.numberOfSubmodels());
@@ -525,7 +530,9 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 		ilpSolver.arg(labelings[i]);
 
 		// BEGIN-HACK
+		std::vector<LabelType> subDepth(model.numberOfVariables());
 		ilpSolver.currentNumberOfLabels(population.begin());
+		ilpSolver.depth(subDepth.begin());
 		for (IndexType j = 0; j < gm_.numberOfVariables(); ++j) {
 			if (manipulator.fixVariable_[j] ||
 			    (manipulator.var2subProblem_[j] != i))
@@ -533,7 +540,10 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 				continue;
 			}
 
-			targetShape[j] = population[ manipulator.varMap_[j] ];
+			IndexType subVar = manipulator.varMap_[j];
+
+			targetShape[j] = population[subVar];
+			depth[j] = subDepth[subVar];
 		}
 		// END-HACK
 	}
@@ -669,6 +679,27 @@ CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasksMismatches
 		OUT::saveContainer(s.str(), mismatches.begin(), mismatches.end());
 	}
 #endif
+}
+
+template<class GM, class ACC, class LP, class ILP>
+void
+CombiLP<GM, ACC, LP, ILP>::debugPrintDepth
+(
+	const Labeling &targetShape,
+	const Labeling &depth
+) const
+{
+	std::cout << "-- BEGIN DEPTH STATS --" << std::endl;
+	std::cout << "# FORMAT: node / mask / label / shape / origShape" << std::endl;
+	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i) {
+		std::cout << i << " / "
+				  << (mask_[i] ? 1 : 0) << " / "
+				  << depth[i] << " / "
+				  << targetShape[i] << " / "
+				  << gm_.numberOfLabels(i)
+				  << std::endl;
+	}
+	std::cout << "-- END DEPTH STATS --" << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
