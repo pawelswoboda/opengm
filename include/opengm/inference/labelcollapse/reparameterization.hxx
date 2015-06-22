@@ -1251,7 +1251,7 @@ struct ReparameterizerHelper<T, ReparameterizationChainUniform> {
 		std::cout << "ReparameterizationUniform activated!" << std::endl;
 		#endif
 
-		return chainHelper<CanonicalReparameterizer>(that);
+		return chainHelper<UniformReparameterizer>(that);
 	}
 };
 
@@ -1263,7 +1263,7 @@ struct ReparameterizerHelper<T, ReparameterizationChainCustom> {
 		std::cout << "ReparameterizationCustom activated!" << std::endl;
 		#endif
 
-		return chainHelper<CanonicalReparameterizer>(that);
+		return chainHelper<CustomReparameterizer>(that);
 	}
 };
 
