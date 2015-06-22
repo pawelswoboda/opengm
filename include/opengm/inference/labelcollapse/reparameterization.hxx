@@ -348,7 +348,7 @@ public:
 private:
 	SequenceGeneratorIterator(size_t index, const DecompositionStorageType&);
 
-	size_t index_; 
+	size_t index_;
 	const DecompositionStorageType *storage_;
 	Elements current_;
 };
@@ -542,7 +542,7 @@ SequenceReparameterizer<GM, DERIVED>::forwardPass()
 
 		// Check whether all unary are empty.
 		#ifndef NDEBUG
-		pots = copyUnary(i-1); 
+		pots = copyUnary(i-1);
 		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i-1].first); ++j)
 			OPENGM_ASSERT(is_almost_equal(static_cast<ValueType>(0), pots(j)));
 		#endif
@@ -562,7 +562,7 @@ SequenceReparameterizer<GM, DERIVED>::forwardPass()
 
 		// Check whether minimum of each pencil is zero.
 		#ifndef NDEBUG
-		pots = copyPairwise(i, i-1); 
+		pots = copyPairwise(i, i-1);
 		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i].first); ++j) {
 			ValueType min = pots(j, 0);
 			for (LabelType k = 1; k < gm_.numberOfLabels(sequence_[i-1].first); ++k)
@@ -823,7 +823,7 @@ UniformReparameterizer<GM>::backwardPass()
 	// Calculate energy (minimal marginal of last node). The energy is only
 	// used for verifying the reparameterization in debug mode.
 	#ifndef NDEBUG
-	pots = copyUnary(sequence_.size()-1); 
+	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
 	for (LabelType i = 1; i < gm_.numberOfLabels(sequence_[sequence_.size()-1].first); ++i)
 		energy = std::min(energy, pots(i));
@@ -958,7 +958,7 @@ CustomReparameterizer<GM>::backwardPass()
 	// Calculate energy (minimal marginal of last node). The energy is only
 	// used for verifying the reparameterization in debug mode.
 	#ifndef NDEBUG
-	pots = copyUnary(sequence_.size()-1); 
+	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
 	for (LabelType i = 1; i < gm_.numberOfLabels(sequence_[sequence_.size()-1].first); ++i)
 		energy = std::min(energy, pots(i));
@@ -1067,7 +1067,8 @@ private:
 };
 
 template<class GM>
-MinSumDiffusion<GM>::MinSumDiffusion(
+MinSumDiffusion<GM>::MinSumDiffusion
+(
 	const GraphicalModelType &gm
 )
 : gm_(gm)
@@ -1077,7 +1078,8 @@ MinSumDiffusion<GM>::MinSumDiffusion(
 
 template<class GM>
 void
-MinSumDiffusion<GM>::processNode(
+MinSumDiffusion<GM>::processNode
+(
 	IndexType var
 )
 {
@@ -1175,10 +1177,11 @@ public:
 	{
 	}
 
-	const ReparameterizedModelType& reparameterizedModel() const {
+	const ReparameterizedModelType& reparameterizedModel() const
+	{
 		return rm_;
 	}
-	
+
 	void reparameterize()
 	{
 		repa_.Reparametrization() = HelperType::doMagic(*this);
