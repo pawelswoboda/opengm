@@ -119,6 +119,7 @@ public:
 		return auxiliary_;
 	}
 
+	template<class INOUT_ITERATOR> void calculateDepth(INOUT_ITERATOR) const;
 	template<class ITERATOR> bool isValidLabeling(ITERATOR) const;
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
 	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
@@ -245,6 +246,20 @@ ModelBuilder<GM, ACC, DERIVED>::originalLabeling
 	original.assign(auxiliary.size(), 0);
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
 		original[i] = mappings_[i].original(auxiliary[i]);
+	}
+}
+
+template<class GM, class ACC, class DERIVED>
+template<class INOUT_ITERATOR>
+void
+ModelBuilder<GM, ACC, DERIVED>::calculateDepth
+(
+	INOUT_ITERATOR it
+) const
+{
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
+		LabelType aux = mappings_[i].auxiliary(*it);
+		*it = mappings_[i].full() ? aux : aux - 1;
 	}
 }
 

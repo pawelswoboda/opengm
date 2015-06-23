@@ -152,7 +152,7 @@ public:
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
-	template<class OUTPUT_ITERATOR> void depth(OUTPUT_ITERATOR) const;
+	template<class INOUT_ITERATOR> void calculateDepth(INOUT_ITERATOR) const;
 
 private:
 	const GraphicalModelType *gm_;
@@ -162,7 +162,6 @@ private:
 
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
-	std::vector<LabelType> depth_;
 	ValueType value_;
 	ValueType bound_;
 };
@@ -255,9 +254,6 @@ LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer
 			termination_ = NORMAL;
 			value_ = inf.value();
 
-			depth_.resize(labeling.size());
-			std::copy(labeling.begin(), labeling.end(), depth_.begin());
-
 			builder_.originalLabeling(labeling, labeling_);
 		}
 
@@ -332,16 +328,15 @@ LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::currentNumberOfLabels
 }
 
 template<class GM, class INF, labelcollapse::UncollapsingBehavior UNCOLLAPSING, labelcollapse::ReparameterizationKind KIND>
-template<class OUTPUT_ITERATOR>
+template<class INOUT_ITERATOR>
 void
-LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::depth
+LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::calculateDepth
 (
-	OUTPUT_ITERATOR it
+	INOUT_ITERATOR it
 ) const
 {
 	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
-	OPENGM_ASSERT_OP(depth_.size(), >, 0);
-	std::copy(depth_.begin(), depth_.end(), it);
+	builder_.calculateDepth(it);
 }
 
 } // namespace opengm

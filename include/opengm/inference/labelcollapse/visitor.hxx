@@ -132,7 +132,7 @@ LabelCollapseStatisticsVisitor<INFERENCE>::printDepth
 	std::vector<LabelType> depth(gm.numberOfVariables());
 	std::vector<LabelType> currentShape(gm.numberOfVariables());
 	std::vector<LabelType> originalShape(gm.numberOfVariables());
-	inf.depth(depth.begin());
+	inf.calculateDepth(depth.begin());
 	inf.currentNumberOfLabels(currentShape.begin());
 	inf.originalNumberOfLabels(originalShape.begin());
 
