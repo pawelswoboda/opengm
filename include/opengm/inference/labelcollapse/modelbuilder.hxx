@@ -41,7 +41,7 @@
 namespace opengm {
 
 // Forward declaration for type level function. (TODO: Move this to a header.)
-template<class GM> struct LabelCollapseAuxTypeGen;
+template<class GM, class ACC> struct LabelCollapseAuxTypeGen;
 
 namespace labelcollapse {
 
@@ -62,7 +62,7 @@ template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Unary>   { ty
 template <class GM, class ACC> struct ModelBuilderTypeGen<GM, ACC, Generic> { typedef ModelBuilderGeneric<GM, ACC> Type; };
 
 // Type level function for calculation of the auxiliary model type.
-template<class GM>
+template<class GM, class ACC>
 struct ModelBuilderAuxTypeGen {
 	typedef typename GM::OperatorType OperatorType;
 	typedef typename GM::IndexType IndexType;
@@ -70,7 +70,7 @@ struct ModelBuilderAuxTypeGen {
 	typedef typename GM::ValueType ValueType;
 
 	typedef typename opengm::DiscreteSpace<IndexType, LabelType> SpaceType;
-	typedef typename meta::TypeListGenerator< EpsilonFunction<GM> >::type FunctionTypeList;
+	typedef typename meta::TypeListGenerator< EpsilonFunction<GM, ACC> >::type FunctionTypeList;
 
 	typedef GraphicalModel<ValueType, OperatorType, FunctionTypeList, SpaceType> GraphicalModelType;
 };
@@ -100,7 +100,7 @@ public:
 	typedef GM OriginalModelType;
 
 	// Auxiliary model types
-	typedef typename ModelBuilderAuxTypeGen<GM>::GraphicalModelType AuxiliaryModelType;
+	typedef typename ModelBuilderAuxTypeGen<GM, ACC>::GraphicalModelType AuxiliaryModelType;
 
 	typedef Mapping<OriginalModelType> MappingType;
 
@@ -169,7 +169,7 @@ ModelBuilder<GM, ACC, DERIVED>::buildAuxiliaryModel()
 
 	// Build graphical models with all factors.
 	for (IndexType i = 0; i < original_->numberOfFactors(); ++i) {
-		typedef EpsilonFunction<OriginalModelType> ViewFunction;
+		typedef EpsilonFunction<OriginalModelType, AccumulationType> ViewFunction;
 
 		const typename OriginalModelType::FactorType &factor = (*original_)[i];
 		const ViewFunction func(factor, epsilons_[i], mappings_);

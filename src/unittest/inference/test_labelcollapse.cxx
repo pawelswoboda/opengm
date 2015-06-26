@@ -15,7 +15,8 @@
 
 
 typedef opengm::GraphicalModel<double, opengm::Adder> OriginalModelType;
-typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType>::GraphicalModelType AuxiliaryModelType;
+typedef opengm::Minimizer AccumulationType;
+typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType, AccumulationType>::GraphicalModelType AuxiliaryModelType;
 typedef opengm::BlackBoxTestGrid<OriginalModelType> GridTest;
 typedef opengm::BlackBoxTestFull<OriginalModelType> FullTest;
 typedef opengm::BlackBoxTestStar<OriginalModelType> StarTest;
@@ -29,7 +30,7 @@ void test(BlackBoxTester &tester)
 {
 	std::cout << "+++ Test Min-Sum with Bruteforce" << std::endl;
 	{
-		typedef opengm::Bruteforce<AuxiliaryModelType, opengm::Minimizer> Proxy;
+		typedef opengm::Bruteforce<AuxiliaryModelType, AccumulationType> Proxy;
 		typedef opengm::LabelCollapse<OriginalModelType, Proxy, UNCOLLAPSING, REPA> Inference;
 		typename Inference::Parameter parameter;
 		tester.test<Inference>(parameter);
@@ -38,7 +39,7 @@ void test(BlackBoxTester &tester)
 #ifdef WITH_CPLEX
 	std::cout << "+++ Test Min-Sum with CPLEX" << std::endl;
 	{
-		typedef opengm::LPCplex<AuxiliaryModelType, opengm::Minimizer> Proxy;
+		typedef opengm::LPCplex<AuxiliaryModelType, AccumulationType> Proxy;
 		typedef opengm::LabelCollapse<OriginalModelType, Proxy, UNCOLLAPSING, REPA> Inference;
 
 		Proxy::Parameter proxy_parameter;

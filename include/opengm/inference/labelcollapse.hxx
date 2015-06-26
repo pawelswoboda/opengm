@@ -57,7 +57,7 @@ template<
 // the underlying proxy inference method.
 //
 // Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
-template<class GM>
+template<class GM, class ACC>
 struct LabelCollapseAuxTypeGen;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -66,12 +66,12 @@ struct LabelCollapseAuxTypeGen;
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
+template<class GM, class ACC>
 struct LabelCollapseAuxTypeGen {
 	// HACK: We are only interested in the the type and so we pass an arbitrary
 	// ACC (AccumulationType).
 	typedef typename labelcollapse::Reparameterizer<GM, opengm::Minimizer>::ReparameterizedModelType ReparameterizedModelType;
-	typedef typename labelcollapse::ModelBuilderAuxTypeGen<ReparameterizedModelType>::GraphicalModelType GraphicalModelType;
+	typedef typename labelcollapse::ModelBuilderAuxTypeGen<ReparameterizedModelType, ACC>::GraphicalModelType GraphicalModelType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -106,8 +106,9 @@ public:
 
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
-	typedef typename LabelCollapseAuxTypeGen<GM>::ReparameterizedModelType ReparameterizedModelType;
-	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType AuxiliaryModelType;
+	typedef LabelCollapseAuxTypeGen<GraphicalModelType, AccumulationType> AuxTypeGen;
+	typedef typename AuxTypeGen::ReparameterizedModelType ReparameterizedModelType;
+	typedef typename AuxTypeGen::GraphicalModelType AuxiliaryModelType;
 	typedef typename labelcollapse::Reparameterizer<GraphicalModelType, AccumulationType, KIND> ReparameterizerType;
 	typedef typename labelcollapse::ModelBuilderTypeGen<ReparameterizedModelType, AccumulationType, UNCOLLAPSING>::Type ModelBuilderType;
 

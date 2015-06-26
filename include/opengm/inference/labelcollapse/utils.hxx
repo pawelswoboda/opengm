@@ -50,7 +50,7 @@ class Reordering;
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction;
 
 // This functor operates on a factor. It unwraps the underlying factor function
@@ -313,9 +313,9 @@ Reordering<GM, ACC>::compare
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction
-: public FunctionBase<EpsilonFunction<GM>,
+: public FunctionBase<EpsilonFunction<GM, ACC>,
                       typename GM::ValueType, typename GM::IndexType, typename GM::LabelType>
 {
 public:
@@ -348,32 +348,64 @@ private:
 	ValueType epsilon_;
 };
 
-template<class GM>
+template<class GM, class ACC>
 template<class ITERATOR>
-typename EpsilonFunction<GM>::ValueType
-EpsilonFunction<GM>::operator()
+typename EpsilonFunction<GM, ACC>::ValueType
+EpsilonFunction<GM, ACC>::operator()
 (
 	ITERATOR it
 ) const
 {
+	// At first we check which labels of current the factor are collapsed.
+	std::vector<bool> isCollapsed(factor_->numberOfVariables());
 	std::vector<LabelType> modified(factor_->numberOfVariables());
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
 		IndexType varIdx = factor_->variableIndex(i);
 		LabelType auxLabel = *it;
 
-		if ((*mappings_)[varIdx].isCollapsedAuxiliary(auxLabel))
-			return epsilon_;
+		isCollapsed[i] = (*mappings_)[varIdx].isCollapsedAuxiliary(auxLabel);
 
-		LabelType origLabel = (*mappings_)[varIdx].original(auxLabel);
-		modified[i] = origLabel;
+		if (! isCollapsed[i]) {
+			LabelType origLabel = (*mappings_)[varIdx].original(auxLabel);
+			modified[i] = origLabel;
+		}
 	}
 
-	return factor_->operator()(modified.begin());
+	// If no label is collapsed, we car just return the normal potential of
+	// the wrapped factor.
+	if (std::count(isCollapsed.begin(), isCollapsed.end(), true) == 0)
+		return (*factor_)(modified.begin());
+
+	// If all labels are collapsed, we can use a shortcut and use the
+	// precalculated value.
+	if (std::count(isCollapsed.begin(), isCollapsed.end(), false) == 0)
+		return epsilon_;
+
+	// Otherwise we fix all the non-collapsed labels and calculate the best
+	// local transition in this factor.
+	FastSequence<IndexType> fixedVars;
+	FastSequence<ValueType> fixedLbls;
+	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
+		if (! isCollapsed[i]) {
+			fixedVars.push_back(i);
+			fixedLbls.push_back(modified[i]);
+		}
+	}
+
+	typedef SubShapeWalker<typename FactorType::ShapeIteratorType, FastSequence<IndexType>, FastSequence<ValueType> > Walker;
+	Walker walker(factor_->shapeBegin(), factor_->numberOfVariables(), fixedVars, fixedLbls);
+	ValueType result = ACC::template neutral<ValueType>();
+	for (size_t i = 0; i < walker.subSize(); ++i, ++walker) {
+		ValueType current = (*factor_)(walker.coordinateTuple().begin());
+		if (ACC::bop(current, result))
+			result = current;
+	}
+	return result;
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::LabelType
-EpsilonFunction<GM>::shape
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::LabelType
+EpsilonFunction<GM, ACC>::shape
 (
 	const IndexType idx
 ) const
@@ -382,16 +414,16 @@ EpsilonFunction<GM>::shape
 	return (*mappings_)[varIdx].size();
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::dimension() const
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::IndexType
+EpsilonFunction<GM, ACC>::dimension() const
 {
 	return factor_->numberOfVariables();
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::size() const
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::IndexType
+EpsilonFunction<GM, ACC>::size() const
 {
 	IndexType result = 1;
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
