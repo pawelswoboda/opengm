@@ -45,7 +45,7 @@ namespace opengm {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
+template<class GM, class ACC>
 struct LabelCollapseAuxTypeGen {
 	typedef typename GM::OperatorType OperatorType;
 	typedef typename GM::IndexType IndexType;
@@ -53,7 +53,7 @@ struct LabelCollapseAuxTypeGen {
 	typedef typename GM::ValueType ValueType;
 
 	typedef typename opengm::DiscreteSpace<IndexType, LabelType> SpaceType;
-	typedef typename meta::TypeListGenerator< labelcollapse::EpsilonFunction<GM> >::type FunctionTypeList;
+	typedef typename meta::TypeListGenerator< labelcollapse::EpsilonFunction<GM, ACC> >::type FunctionTypeList;
 
 	typedef GraphicalModel<ValueType, OperatorType, FunctionTypeList, SpaceType>
 	GraphicalModelType;
@@ -90,8 +90,7 @@ public:
 
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
-	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
-	AuxiliaryModelType;
+	typedef typename LabelCollapseAuxTypeGen<GraphicalModelType, AccumulationType>::GraphicalModelType AuxiliaryModelType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 

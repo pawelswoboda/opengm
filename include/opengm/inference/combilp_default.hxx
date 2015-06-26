@@ -30,7 +30,7 @@ template<class GM, class ACC>
 struct CombiLP_TRWSi_LC_Gen {
 	typedef TRWSi<GM, ACC> LPSolverType;
 	typedef typename combilp_base::CombiLPReparametrizerTypeGenerator<typename LPSolverType::ReparametrizerType>::ReparametrizedGMType ReparametrizedGMType;
-	typedef typename LabelCollapseAuxTypeGen<ReparametrizedGMType>::GraphicalModelType AuxMType;
+	typedef typename LabelCollapseAuxTypeGen<ReparametrizedGMType, ACC>::GraphicalModelType AuxMType;
 	typedef LabelCollapse<ReparametrizedGMType, LPCplex<AuxMType, ACC> > ILPSolverType;
 	typedef CombiLP<GM, ACC, LPSolverType, ILPSolverType> CombiLPType;
 };

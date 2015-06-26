@@ -61,7 +61,7 @@ class Reordering;
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +88,7 @@ public:
 	typedef GM OriginalModelType;
 
 	// Auxiliary model types
-	typedef typename LabelCollapseAuxTypeGen<GM>::GraphicalModelType
+	typedef typename LabelCollapseAuxTypeGen<GM, ACC>::GraphicalModelType
 	AuxiliaryModelType;
 
 	//
@@ -161,7 +161,7 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 
 	// Build graphical models with all factors.
 	for (IndexType i = 0; i < original_.numberOfFactors(); ++i) {
-		typedef EpsilonFunction<OriginalModelType> ViewFunction;
+		typedef EpsilonFunction<OriginalModelType, AccumulationType> ViewFunction;
 
 		const typename OriginalModelType::FactorType &factor = original_[i];
 		const ViewFunction func(factor, uncollapsed_, collapsed_, epsilons_[i]);
@@ -468,9 +468,9 @@ Reordering<GM, ACC>::compare
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction
-: public FunctionBase<EpsilonFunction<GM>,
+: public FunctionBase<EpsilonFunction<GM, ACC>,
                       typename GM::ValueType, typename GM::IndexType, typename GM::LabelType>
 {
 public:
@@ -503,39 +503,72 @@ private:
 	ValueType epsilon_;
 };
 
-template<class GM>
+template<class GM, class ACC>
 template<class ITERATOR>
-typename EpsilonFunction<GM>::ValueType
-EpsilonFunction<GM>::operator()
+typename EpsilonFunction<GM, ACC>::ValueType
+EpsilonFunction<GM, ACC>::operator()
 (
 	ITERATOR it
 ) const
 {
+	// At first we check which labels of current the factor are collapsed.
+	std::vector<bool> isCollapsed(factor_->numberOfVariables());
 	std::vector<LabelType> modified(factor_->numberOfVariables());
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
 		IndexType varIdx = factor_->variableIndex(i);
 		LabelType auxLabel = *it;
-		LabelType origLabel;
 
-		if ((*collapsed_)[varIdx].size() == 0) {
-			origLabel = auxLabel;
-		} else {
-			if (auxLabel == 0) {
-				return epsilon_;
-			}
+		if ((*collapsed_)[varIdx].size() == 0)
+			isCollapsed[i] = false;
+		else
+			isCollapsed[i] = *it == 0;
 
-			origLabel = (*uncollapsed_)[varIdx][auxLabel - 1];
+		if (! isCollapsed[i]) {
+			if ((*collapsed_)[varIdx].size() == 0)
+				modified[i] = auxLabel;
+			else
+				modified[i] = (*uncollapsed_)[varIdx][auxLabel - 1];
 		}
-
-		modified[i] = origLabel;
 	}
 
-	return factor_->operator()(modified.begin());
+	// If no label is collapsed, we car just return the normal potential of
+	// the wrapped factor.
+	if (std::count(isCollapsed.begin(), isCollapsed.end(), true) == 0)
+		return (*factor_)(modified.begin());
+
+	// If all labels are collapsed, we can use a shortcut and use the
+	// precalculated value.
+	if (std::count(isCollapsed.begin(), isCollapsed.end(), false) == 0)
+		return epsilon_;
+
+	// Otherwise we fix all the non-collapsed labels and calculate the best
+	// local transition in this factor.
+	FastSequence<IndexType> fixedVars;
+	FastSequence<ValueType> fixedLbls;
+	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
+		if (! isCollapsed[i]) {
+			fixedVars.push_back(i);
+			fixedLbls.push_back(modified[i]);
+		}
+	}
+
+	typedef SubShapeWalker<typename FactorType::ShapeIteratorType, FastSequence<IndexType>, FastSequence<ValueType> > Walker;
+	Walker walker(factor_->shapeBegin(), factor_->numberOfVariables(), fixedVars, fixedLbls);
+	ValueType result = ACC::template neutral<ValueType>();
+	for (size_t i = 0; i < walker.subSize(); ++i, ++walker) {
+		ValueType current = (*factor_)(walker.coordinateTuple().begin());
+		if (ACC::bop(current, result))
+			result = current;
+	}
+
+	std::cout << "[EXT] " << epsilon_ << " / " << result << " / " << (epsilon_ - result) << std::endl;
+
+	return result;
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::LabelType
-EpsilonFunction<GM>::shape
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::LabelType
+EpsilonFunction<GM, ACC>::shape
 (
 	const IndexType idx
 ) const
@@ -544,16 +577,16 @@ EpsilonFunction<GM>::shape
 	return (*uncollapsed_)[varIdx].size() + ((*collapsed_)[varIdx].size() > 0 ? 1 : 0);
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::dimension() const
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::IndexType
+EpsilonFunction<GM, ACC>::dimension() const
 {
 	return factor_->numberOfVariables();
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::size() const
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::IndexType
+EpsilonFunction<GM, ACC>::size() const
 {
 	IndexType result = 1;
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {

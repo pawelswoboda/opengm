@@ -45,7 +45,7 @@ class LabelCollapse;
 // the underlying proxy inference method.
 //
 // Access is possible by “LabelCollapseAuxTypeGen<GM>::GraphicalModelType”.
-template<class GM>
+template<class GM, class ACC>
 struct LabelCollapseAuxTypeGen;
 
 //
@@ -64,7 +64,7 @@ class Reordering;
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction;
 
 } // namespace labelcollapse

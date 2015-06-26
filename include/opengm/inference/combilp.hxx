@@ -319,7 +319,7 @@ namespace opengm{
             reparametrizer.Reparametrization() = CanonicalReparametrizerType::reparametrizeAll(m, its.first, its.second);
             reparametrizer.getReparametrizedModel(mm);
 
-            typedef typename LabelCollapseAuxTypeGen<typename LPReparametrizer<TrwsiGM, AccumulationType>::ReparametrizedGMType>::GraphicalModelType AuxMType;
+            typedef typename LabelCollapseAuxTypeGen<typename LPReparametrizer<TrwsiGM, AccumulationType>::ReparametrizedGMType, ACC>::GraphicalModelType AuxMType;
             typedef LabelCollapse<typename LPReparametrizer<TrwsiGM, AccumulationType>::ReparametrizedGMType, LPCplex<AuxMType, ACC> > ILPSolverType;
 
             typename ILPSolverType::Parameter param;
