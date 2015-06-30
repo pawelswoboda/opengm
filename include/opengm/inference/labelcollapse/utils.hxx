@@ -376,11 +376,6 @@ EpsilonFunction<GM, ACC>::operator()
 	if (std::count(isCollapsed.begin(), isCollapsed.end(), true) == 0)
 		return (*factor_)(modified.begin());
 
-	// If all labels are collapsed, we can use a shortcut and use the
-	// precalculated value.
-	if (std::count(isCollapsed.begin(), isCollapsed.end(), false) == 0)
-		return epsilon_;
-
 	// Otherwise we fix all the non-collapsed labels and calculate the best
 	// local transition in this factor.
 	FastSequence<IndexType> fixedVars;
@@ -392,10 +387,33 @@ EpsilonFunction<GM, ACC>::operator()
 		}
 	}
 
+	// TODO: For higher order factor this is not very efficient. Currently we
+	// are iterating over all the factor transistions even if we discard many
+	// of them.
+	//
+	// FIXME:
+	//   - The following code is not written with performance in mind.
+	//   - The following code is ugly.
+	//   - Long story short: The following code sucks.
 	typedef SubShapeWalker<typename FactorType::ShapeIteratorType, FastSequence<IndexType>, FastSequence<ValueType> > Walker;
 	Walker walker(factor_->shapeBegin(), factor_->numberOfVariables(), fixedVars, fixedLbls);
 	ValueType result = ACC::template neutral<ValueType>();
-	for (size_t i = 0; i < walker.subSize(); ++i, ++walker) {
+	for (size_t z = 0; z < walker.subSize(); ++z, ++walker) {
+		bool next = false;
+		for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
+			if (std::find(fixedVars.begin(), fixedVars.end(), i) != fixedVars.end())
+				continue;
+
+			IndexType varIdx = factor_->variableIndex(i);
+			if (! (*mappings_)[varIdx].isCollapsedOriginal(walker.coordinateTuple()[i])) {
+				next = true;
+				break;
+			}
+		}
+
+		if (next)
+			continue;
+
 		ValueType current = (*factor_)(walker.coordinateTuple().begin());
 		if (ACC::bop(current, result))
 			result = current;
