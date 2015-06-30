@@ -255,6 +255,10 @@ LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer
 			value_ = inf.value();
 
 			builder_.originalLabeling(labeling, labeling_);
+		} else {
+			// Update the model. This will try to make more labels available where
+			// the current labeling is invalid.
+			builder_.uncollapseLabeling(labeling.begin());
 		}
 
 		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) {
@@ -264,10 +268,6 @@ LabelCollapse<GM, INF, UNCOLLAPSING, KIND>::infer
 			termination_ = TIMEOUT;
 			return termination_;
 		}
-
-		// Update the model. This will try to make more labels available where
-		// the current labeling is invalid.
-		builder_.uncollapseLabeling(labeling.begin());
 	}
 
 	visitor.end(*this);
