@@ -286,9 +286,12 @@ public:
 	ModelBuilderUnary(const OriginalModelType&);
 
 	void uncollapse(const IndexType);
+	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
 
 private:
 	typedef std::vector<LabelType> Stack;
+
+	void expand();
 
 	using Parent::original_;
 	using Parent::auxiliary_;
@@ -296,6 +299,7 @@ private:
 	using Parent::mappings_;
 	using Parent::rebuildNecessary_;
 
+	ValueType expansionEpsilon_;
 	std::vector<Stack> collapsed_;
 
 	void internalChecks() const;
@@ -309,6 +313,7 @@ ModelBuilderUnary<GM, ACC>::ModelBuilderUnary
 	const OriginalModelType &gm
 )
 : Parent(gm)
+, expansionEpsilon_(ACC::template ineutral<ValueType>())
 , collapsed_(gm.numberOfVariables())
 {
 	Reordering<OriginalModelType, AccumulationType> reordering(*original_);
@@ -363,14 +368,22 @@ ModelBuilderUnary<GM, ACC>::uncollapse
 		const FactorType factor = (*original_)[f];
 
 		if (factor.numberOfVariables() == 1) {
+			opengm::FastSequence<LabelType> labeling(1);
+
 			// If there are no collapsed labels then the unary epsilon
 			// value will not be used. So we only update it if there are
 			// more uncollapsed labels.
 			if (collapsed_[idx].size() > 0) {
-				opengm::FastSequence<LabelType> labeling(1);
 				labeling[0] = collapsed_[idx].back();
 				epsilons_[f] = factor(labeling.begin());
 			}
+
+			// Additional we remember the largest potential of the unary values.
+			// (Theorem 2).
+			labeling[0] = label; // label is the one which is getting uncollapsed
+			ValueType current = factor(labeling.begin());
+			if (ACC::ibop(current, expansionEpsilon_))
+				expansionEpsilon_ = current;
 		} else if (factor.numberOfVariables() > 1) {
 			// Use ShapeWalker to iterate over all the factor transitions and
 			// determine if we need to update the binary epsilon.
@@ -399,6 +412,28 @@ ModelBuilderUnary<GM, ACC>::uncollapse
 	}
 
 	rebuildNecessary_ = true;
+}
+
+template<class GM, class ACC>
+template<class ITERATOR>
+void
+ModelBuilderUnary<GM, ACC>::uncollapseLabeling
+(
+	ITERATOR it
+)
+{
+	Parent::uncollapseLabeling(it);
+	expand();
+}
+
+template<class GM, class ACC>
+void
+ModelBuilderUnary<GM, ACC>::expand()
+{
+	for (IndexType i = 0; i < original_->numberOfFactors(); ++i)
+		if ((*original_)[i].numberOfVariables() == 1)
+			while (epsilons_[i] < expansionEpsilon_)
+				uncollapse((*original_)[i].variableIndex(0));
 }
 
 template<class GM, class ACC>
