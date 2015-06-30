@@ -287,6 +287,7 @@ public:
 
 	void uncollapse(const IndexType);
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
+	template<class ITERATOR> void populate(ITERATOR);
 
 private:
 	typedef std::vector<LabelType> Stack;
@@ -423,6 +424,18 @@ ModelBuilderUnary<GM, ACC>::uncollapseLabeling
 )
 {
 	Parent::uncollapseLabeling(it);
+	expand();
+}
+
+template<class GM, class ACC>
+template<class ITERATOR>
+void
+ModelBuilderUnary<GM, ACC>::populate
+(
+	ITERATOR it
+)
+{
+	Parent::populate(it);
 	expand();
 }
 
