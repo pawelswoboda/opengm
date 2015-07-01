@@ -53,27 +53,6 @@ class Reordering;
 template<class GM, class ACC>
 class EpsilonFunction;
 
-// This functor operates on a factor. It unwraps the underlying factor function
-// and calls the FUNCTOR on this function.
-//
-// We need this intermediate step to get C++ template inference working.
-template<class FUNCTOR>
-class UnwrapFunctionFunctor;
-
-// This functor operates on factor function values. It will determine the new
-// best (smallest for energy minimization) epsilon value which is worse
-// (higher) than the old epsilon value.
-template<class ACC, class VALUE_TYPE>
-class EpsilonFunctor;
-
-// This functor operators on factor function values and is a coordinate functor
-// (receives value and coordinate input iterator as arguments).
-//
-// This functor will write all the labels to the output iterator where the
-// value is less than or equal to their variable’s epsilon value.
-template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
-class NonCollapsedFunctionFunctor;
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // class Mapping
@@ -328,12 +307,10 @@ public:
 
 	EpsilonFunction(
 		const FactorType &factor,
-		ValueType epsilon,
 		const std::vector<MappingType> &mappings
 	)
 	: factor_(&factor)
 	, mappings_(&mappings)
-	, epsilon_(epsilon)
 	{
 	}
 
@@ -345,7 +322,6 @@ public:
 private:
 	const FactorType *factor_;
 	const std::vector<MappingType> *mappings_;
-	ValueType epsilon_;
 };
 
 template<class GM, class ACC>
@@ -449,94 +425,6 @@ EpsilonFunction<GM, ACC>::size() const
 	}
 	return result;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class UnwrapFunctionFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class FUNCTOR>
-class UnwrapFunctionFunctor {
-public:
-	UnwrapFunctionFunctor(FUNCTOR &functor)
-	: functor_(&functor)
-	{
-	}
-
-	// We need this functor class, because the operator() is a template
-	// for a specific function type.
-	//
-	// This way we can access the underlying function object without knowing the
-	// concrete type (C++ infers the template arguments for class methods).
-	template<class FUNCTION>
-	void operator()(const FUNCTION &function) {
-		function.forAllValuesInAnyOrderWithCoordinate(*functor_);
-	}
-
-private:
-	FUNCTOR *functor_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class EpsilonFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class ACC, class VALUE_TYPE>
-class EpsilonFunctor {
-public:
-	EpsilonFunctor(VALUE_TYPE oldValue)
-	: oldValue_(oldValue)
-	, value_(ACC::template neutral<VALUE_TYPE>())
-	{
-	}
-
-	VALUE_TYPE value() const {
-		return value_;
-	}
-
-	void operator()(const VALUE_TYPE v)
-	{
-		if (ACC::ibop(v, oldValue_) && ACC::bop(v, value_)) {
-			value_ = v;
-		}
-	}
-
-private:
-	VALUE_TYPE oldValue_;
-	VALUE_TYPE value_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class NonCollapsedFunctionFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
-class NonCollapsedFunctionFunctor {
-public:
-	NonCollapsedFunctionFunctor(INDEX_TYPE variable, VALUE_TYPE epsilon, OUTPUT_ITERATOR iterator)
-	: iterator_(iterator)
-	, epsilon_(epsilon)
-	, variable_(variable)
-	{
-	}
-
-	template<class INPUT_ITERATOR>
-	void operator()(const VALUE_TYPE v, INPUT_ITERATOR it)
-	{
-		if (ACC::bop(v, epsilon_))
-			*iterator_++ = it[variable_];
-	}
-
-private:
-	OUTPUT_ITERATOR iterator_;
-	VALUE_TYPE epsilon_;
-	INDEX_TYPE variable_;
-};
 
 } // namepasce labelcollapse
 } // namepasce opengm
