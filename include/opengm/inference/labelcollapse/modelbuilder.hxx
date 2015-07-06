@@ -123,7 +123,7 @@ private:
 	AuxiliaryModelType auxiliary_;
 	std::vector<MappingType> mappings_;
 	bool rebuildNecessary_;
-	ValueType expansionEpsilon_;
+	ValueType epsilon_;
 	std::vector<Stack> collapsed_;
 };
 
@@ -135,7 +135,7 @@ ModelBuilder<GM, ACC>::ModelBuilder
 : original_(&gm)
 , mappings_(gm.numberOfFactors(), MappingType(0))
 , rebuildNecessary_(true)
-, expansionEpsilon_(ACC::template ineutral<ValueType>())
+, epsilon_(ACC::template ineutral<ValueType>())
 , collapsed_(gm.numberOfVariables())
 {
 	// First set up the mapping. This is needed for the later uncollapsing
@@ -307,8 +307,8 @@ ModelBuilder<GM, ACC>::uncollapse
 
 	// Additional we remember the largest potential of the unary values (Theorem 2).
 	ValueType current = unaryValue(idx, label);
-	if (ACC::ibop(current, expansionEpsilon_))
-		expansionEpsilon_ = current;
+	if (ACC::ibop(current, epsilon_))
+		epsilon_ = current;
 
 	rebuildNecessary_ = true;
 }
@@ -318,7 +318,7 @@ void
 ModelBuilder<GM, ACC>::expand()
 {
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
-		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < expansionEpsilon_)
+		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < epsilon_)
 			uncollapse(i);
 }
 
