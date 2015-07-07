@@ -23,6 +23,8 @@
 #include <opengm/inference/trws/output_debug_utils.hxx>
 #include <opengm/inference/trws/trws_base.hxx>
 
+#include "labelcollapse/temporary.hxx"
+
 namespace opengm{
 
 namespace combilp {
@@ -522,6 +524,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
 		ilpSolver.populateShape(population.begin());
+		labelcollapse::temporaryTheorem3(ilpSolver);
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
