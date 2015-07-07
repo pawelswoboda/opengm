@@ -131,5 +131,6 @@ int main(int argc, char **argv)
 #endif
 
 	// Scripts expect this to be the last line of the log file.
+	std::cout << "=> Elapsed ILP time: " << boost::chrono::duration_cast< boost::chrono::duration<double> >(opengm::hack::elapsed) << std::endl;
 	std::cout << "=> Total elapsed time: " << duration << std::endl;
 }
