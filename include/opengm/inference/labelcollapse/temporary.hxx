@@ -37,27 +37,25 @@ template<class INF>
 void
 temporaryTheorem2
 (
-	const INF &inf,
+	INF &inf,
 	std::vector<typename INF::GraphicalModelType::LabelType> *out = NULL
 )
 {
 	typedef TRWSi<typename INF::ReparameterizedModelType, typename INF::AccumulationType> TRWSiType;
 	typename TRWSiType::Parameter param;
-	trwsiParam.maxNumberOfIterations_ = 300;
-	trwsiParam.setTreeAgreeMaxStableIter(50);
-	trwsiParam.verbose_ = true;
+	param.maxNumberOfIterations_ = 300;
+	param.setTreeAgreeMaxStableIter(50);
+	param.verbose_ = true;
 
 	TRWSiType trwsi(inf.reparameterizedModel(), param);
 	trwsi.infer();
 
-	std::vector<typename INF::ValueType> labeling;
+	std::vector<typename INF::LabelType> labeling;
 	trwsi.arg(labeling);
 	if (out)
 		*out = labeling;
 
-	std::vector<typename INF::LabelType> depth(labeling);
-	inf.calculateDepth(depth); // Fucking API...
-	inf.populate(depth.begin());
+	inf.populateLabeling(labeling.begin());
 
 }
 
@@ -65,7 +63,7 @@ template<class INF>
 void
 temporaryTheorem3
 (
-	const INF &inf,
+	INF &inf,
 	std::vector<typename INF::GraphicalModelType::LabelType> *out = NULL
 )
 {
@@ -77,8 +75,8 @@ temporaryTheorem3
 	if (out)
 		*out = labeling;
 
-	typename INF::ValueType epsilon = typename INF::AccumulationType::template neutral<typename INF::ValueType>();
-	typename INF::ReparameterizedModelType &gm = inf.reparameterizedModel();
+	typename INF::ValueType epsilon = INF::AccumulationType::template neutral<typename INF::ValueType>();
+	const typename INF::ReparameterizedModelType &gm = inf.reparameterizedModel();
 	for (typename INF::IndexType i = 0; i < gm.numberOfFactor(); ++i) {
 		const typename INF::ReparameterizedModelType::FactorType &factor = gm[i];
 		FastSequence<typename INF::LabelType> factorLabeling(factor.numberOfVariables());
@@ -86,12 +84,12 @@ temporaryTheorem3
 		for(typename INF::IndexType j = 0; j < factor.numberOfVariables(); ++j)
 			factorLabeling[j] = labeling[factor.variableIndex(j)];
 
-		INF::AccumulationType::op(factor(factorLabeling.begin()), epsilon);
+		INF::AccumulationType::iop(factor(factorLabeling.begin()), epsilon);
 	}
 
 	inf.increaseEpsilonTo(epsilon);
 	// Populating is not necessary, but this triggers epsilon expansion.
-	inf.populate(labeling.begin());
+	inf.populateLabeling(labeling.begin());
 }
 
 } // namespace labelcollapse
