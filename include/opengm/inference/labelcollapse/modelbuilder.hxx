@@ -102,16 +102,16 @@ public:
 		return auxiliary_;
 	}
 
-	template<class INOUT_ITERATOR> void calculateDepth(INOUT_ITERATOR) const;
-	template<class ITERATOR> bool isValidLabeling(ITERATOR) const;
-	void originalLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
-	void auxiliaryLabeling(const std::Vector<LabelType>&, std::vector<LabelType>&) const;
+	template<class IN_ITER> bool isValidLabeling(IN_ITER) const;
+	template<class IN_ITER, class OUT_ITER> void originalLabeling(IN_ITER, OUT_ITER) const;
+	template<class IN_ITER, class OUT_ITER> void auxiliaryLabeling(IN_ITER, OUT_ITER) const;
+	template<class IN_ITER, class OUT_ITER> void calculateDepth(IN_ITER, OUT_ITER) const;
 	LabelType numberOfLabels(IndexType i) const { return mappings_[i].size(); }
 
 	void uncollapse(const IndexType);
-	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
+	template<class INPUT_ITERATOR> void uncollapseLabeling(INPUT_ITERATOR);
 
-	template<class ITERATOR> void populate(ITERATOR);
+	template<class INPUT_ITERATOR> void populate(INPUT_ITERATOR);
 	void increaseEpsilonTo(ValueType value);
 
 private:
@@ -198,11 +198,11 @@ ModelBuilder<GM, ACC>::buildAuxiliaryModel()
 }
 
 template<class GM, class ACC>
-template<class ITERATOR>
+template<class INPUT_ITERATOR>
 bool
 ModelBuilder<GM, ACC>::isValidLabeling
 (
-	ITERATOR it
+	INPUT_ITERATOR it
 ) const
 {
 	OPENGM_ASSERT(!rebuildNecessary_);
@@ -216,11 +216,11 @@ ModelBuilder<GM, ACC>::isValidLabeling
 }
 
 template<class GM, class ACC>
-template<class ITERATOR>
+template<class INPUT_ITERATOR>
 void
 ModelBuilder<GM, ACC>::uncollapseLabeling
 (
-	ITERATOR it
+	INPUT_ITERATOR it
 )
 {
 	OPENGM_ASSERT(!rebuildNecessary_);
@@ -265,48 +265,54 @@ template<class IN_ITER, class OUT_ITER>
 void
 ModelBuilder<GM, ACC>::originalLabeling
 (
-	const std::vector<LabelType> &auxiliary,
-	std::vector<LabelType> &original
+	IN_ITER auxiliary,
+	OUT_ITER original
 ) const
 {
 	OPENGM_ASSERT(! rebuildNecessary_);
-	OPENGM_ASSERT(isValidLabeling(auxiliary.begin()));
-	OPENGM_ASSERT(auxiliary.size() == original_->numberOfVariables());
+	OPENGM_ASSERT(isValidLabeling(auxiliary));
 
-	original.assign(original_->numberOfVariables(), 0);
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
-		original[i] = mappings_[i].original(auxiliary[i]);
+	for (IndexType i = 0; i < original_->numberOfVariables();
+	     ++i, ++auxiliary, ++original)
+	{
+		*original = mappings_[i].original(*auxiliary);
 	}
 }
 
 template<class GM, class ACC>
+template<class IN_ITER, class OUT_ITER>
 void
 ModelBuilder<GM, ACC>::auxiliaryLabeling
 (
-	const std::vector<LabelType> &original,
-	std::vector<LabelType> &auxiliary
+	IN_ITER original,
+	OUT_ITER auxiliary
 ) const
 {
 	OPENGM_ASSERT(! rebuildNecessary_);
-	OPENGM_ASSERT(original.size() == original_->numberOfVariables());
 
-	auxiliary.assign(original_->numberOfVariables(), 0);
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i) {
-		auxiliary[i] = mappings_[i].auxiliary(original[i]);
+	for (IndexType i = 0; i < original_->numberOfVariables();
+	     ++i, ++original, ++auxiliary)
+	{
+		*auxiliary = mappings_[i].auxiliary(*original);
 	}
 }
 
 template<class GM, class ACC>
-template<class INOUT_ITERATOR>
+template<class IN_ITER, class OUT_ITER>
 void
 ModelBuilder<GM, ACC>::calculateDepth
 (
-	INOUT_ITERATOR it
+	IN_ITER origLabeling,
+	OUT_ITER depth
 ) const
 {
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
-		LabelType aux = mappings_[i].auxiliary(*it);
-		*it = mappings_[i].full() ? aux : aux - 1;
+	OPENGM_ASSERT(! rebuildNecessary_);
+
+	for (IndexType i = 0; i < original_->numberOfVariables();
+	     ++i, ++origLabeling, ++depth)
+	{
+		LabelType aux = mappings_[i].auxiliary(*origLabeling);
+		*depth = mappings_[i].full() ? aux : aux - 1;
 	}
 }
 

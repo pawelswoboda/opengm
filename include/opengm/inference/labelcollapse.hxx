@@ -152,8 +152,8 @@ public:
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
-	template<class INOUT_ITERATOR> void calculateDepth(INOUT_ITERATOR) const;
-	void auxiliaryLabeling(const std::vector<LabelType>&, std::vector<LabelType>&) const;
+	template<class IN_ITER, class OUT_ITER> void auxiliaryLabeling(IN_ITER, OUT_ITER) const;
+	template<class IN_ITER, class OUT_ITER> void calculateDepth(IN_ITER, OUT_ITER) const;
 
 private:
 	const GraphicalModelType *gm_;
@@ -223,7 +223,7 @@ LabelCollapse<GM, INF, KIND>::infer
 )
 {
 	termination_ = UNKNOWN;
-	labeling_.resize(0);
+	labeling_.resize(gm_->numberOfVariables());
 	bound_ = AccumulationType::template neutral<ValueType>();
 	value_ = AccumulationType::template neutral<ValueType>();
 
@@ -234,6 +234,7 @@ LabelCollapse<GM, INF, KIND>::infer
 		// Build auxiliary model.
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
+		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, gm_->numberOfVariables());
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
@@ -255,7 +256,7 @@ LabelCollapse<GM, INF, KIND>::infer
 			termination_ = NORMAL;
 			value_ = inf.value();
 
-			builder_.originalLabeling(labeling, labeling_);
+			builder_.originalLabeling(labeling.begin(), labeling_.begin());
 		} else {
 			// Update the model. This will try to make more labels available where
 			// the current labeling is invalid.
@@ -329,26 +330,28 @@ LabelCollapse<GM, INF, KIND>::currentNumberOfLabels
 }
 
 template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
-template<class INOUT_ITERATOR>
-void
-LabelCollapse<GM, INF, KIND>::calculateDepth
-(
-	INOUT_ITERATOR it
-) const
-{
-	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
-	builder_.calculateDepth(it);
-}
-
-template<class GM, INF, labelcollapse::ReparameterizationKind KIND>
+template<class IN_ITER, class OUT_ITER>
 void
 LabelCollapse<GM, INF, KIND>::auxiliaryLabeling
 (
-	const std::vector<LabelType> &original,
-	std::vector<LabelType> &auxiliary
+	IN_ITER original,
+	OUT_ITER auxiliary
 ) const
 {
 	builder_.auxiliaryLabeling(original, auxiliary);
+}
+
+template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class IN_ITER, class OUT_ITER>
+void
+LabelCollapse<GM, INF, KIND>::calculateDepth
+(
+	IN_ITER labeling,
+	OUT_ITER depth
+) const
+{
+	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
+	builder_.calculateDepth(labeling, depth);
 }
 
 } // namespace opengm
