@@ -77,7 +77,7 @@ temporaryTheorem3
 
 	typename INF::ValueType epsilon = INF::AccumulationType::template neutral<typename INF::ValueType>();
 	const typename INF::ReparameterizedModelType &gm = inf.reparameterizedModel();
-	for (typename INF::IndexType i = 0; i < gm.numberOfFactor(); ++i) {
+	for (typename INF::IndexType i = 0; i < gm.numberOfFactors(); ++i) {
 		const typename INF::ReparameterizedModelType::FactorType &factor = gm[i];
 		FastSequence<typename INF::LabelType> factorLabeling(factor.numberOfVariables());
 
