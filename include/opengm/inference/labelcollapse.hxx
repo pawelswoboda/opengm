@@ -153,7 +153,7 @@ public:
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class IN_ITER, class OUT_ITER> void auxiliaryLabeling(IN_ITER, OUT_ITER) const;
-	template<class IN_ITER, class OUT_ITER> void calculateDepth(IN_ITER, OUT_ITER) const;
+	template<class OUTPUT_ITERATOR> void depth(OUTPUT_ITERATOR) const;
 
 private:
 	const GraphicalModelType *gm_;
@@ -342,16 +342,15 @@ LabelCollapse<GM, INF, KIND>::auxiliaryLabeling
 }
 
 template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
-template<class IN_ITER, class OUT_ITER>
+template<class OUTPUT_ITERATOR>
 void
-LabelCollapse<GM, INF, KIND>::calculateDepth
+LabelCollapse<GM, INF, KIND>::depth
 (
-	IN_ITER labeling,
-	OUT_ITER depth
+	OUTPUT_ITERATOR depth
 ) const
 {
 	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
-	builder_.calculateDepth(labeling, depth);
+	builder_.calculateDepth(labeling_.begin(), depth);
 }
 
 } // namespace opengm
