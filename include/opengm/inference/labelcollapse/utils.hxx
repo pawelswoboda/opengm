@@ -50,29 +50,8 @@ class Reordering;
 // A view function which returns the values from the original model if the
 // nodes are not collapsed. If they are, the view function will return the
 // corresponding epsilon value.
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction;
-
-// This functor operates on a factor. It unwraps the underlying factor function
-// and calls the FUNCTOR on this function.
-//
-// We need this intermediate step to get C++ template inference working.
-template<class FUNCTOR>
-class UnwrapFunctionFunctor;
-
-// This functor operates on factor function values. It will determine the new
-// best (smallest for energy minimization) epsilon value which is worse
-// (higher) than the old epsilon value.
-template<class ACC, class VALUE_TYPE>
-class EpsilonFunctor;
-
-// This functor operators on factor function values and is a coordinate functor
-// (receives value and coordinate input iterator as arguments).
-//
-// This functor will write all the labels to the output iterator where the
-// value is less than or equal to their variable’s epsilon value.
-template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
-class NonCollapsedFunctionFunctor;
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -313,9 +292,9 @@ Reordering<GM, ACC>::compare
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
+template<class GM, class ACC>
 class EpsilonFunction
-: public FunctionBase<EpsilonFunction<GM>,
+: public FunctionBase<EpsilonFunction<GM, ACC>,
                       typename GM::ValueType, typename GM::IndexType, typename GM::LabelType>
 {
 public:
@@ -328,12 +307,10 @@ public:
 
 	EpsilonFunction(
 		const FactorType &factor,
-		ValueType epsilon,
 		const std::vector<MappingType> &mappings
 	)
 	: factor_(&factor)
 	, mappings_(&mappings)
-	, epsilon_(epsilon)
 	{
 	}
 
@@ -345,35 +322,84 @@ public:
 private:
 	const FactorType *factor_;
 	const std::vector<MappingType> *mappings_;
-	ValueType epsilon_;
 };
 
-template<class GM>
+template<class GM, class ACC>
 template<class ITERATOR>
-typename EpsilonFunction<GM>::ValueType
-EpsilonFunction<GM>::operator()
+typename EpsilonFunction<GM, ACC>::ValueType
+EpsilonFunction<GM, ACC>::operator()
 (
 	ITERATOR it
 ) const
 {
+	// At first we check which labels of current the factor are collapsed.
+	std::vector<bool> isCollapsed(factor_->numberOfVariables());
 	std::vector<LabelType> modified(factor_->numberOfVariables());
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i, ++it) {
 		IndexType varIdx = factor_->variableIndex(i);
 		LabelType auxLabel = *it;
 
-		if ((*mappings_)[varIdx].isCollapsedAuxiliary(auxLabel))
-			return epsilon_;
+		isCollapsed[i] = (*mappings_)[varIdx].isCollapsedAuxiliary(auxLabel);
 
-		LabelType origLabel = (*mappings_)[varIdx].original(auxLabel);
-		modified[i] = origLabel;
+		if (! isCollapsed[i]) {
+			LabelType origLabel = (*mappings_)[varIdx].original(auxLabel);
+			modified[i] = origLabel;
+		}
 	}
 
-	return factor_->operator()(modified.begin());
+	// If no label is collapsed, we car just return the normal potential of
+	// the wrapped factor.
+	if (std::count(isCollapsed.begin(), isCollapsed.end(), true) == 0)
+		return (*factor_)(modified.begin());
+
+	// Otherwise we fix all the non-collapsed labels and calculate the best
+	// local transition in this factor.
+	FastSequence<IndexType> fixedVars;
+	FastSequence<ValueType> fixedLbls;
+	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
+		if (! isCollapsed[i]) {
+			fixedVars.push_back(i);
+			fixedLbls.push_back(modified[i]);
+		}
+	}
+
+	// TODO: For higher order factor this is not very efficient. Currently we
+	// are iterating over all the factor transistions even if we discard many
+	// of them.
+	//
+	// FIXME:
+	//   - The following code is not written with performance in mind.
+	//   - The following code is ugly.
+	//   - Long story short: The following code sucks.
+	typedef SubShapeWalker<typename FactorType::ShapeIteratorType, FastSequence<IndexType>, FastSequence<ValueType> > Walker;
+	Walker walker(factor_->shapeBegin(), factor_->numberOfVariables(), fixedVars, fixedLbls);
+	ValueType result = ACC::template neutral<ValueType>();
+	for (size_t z = 0; z < walker.subSize(); ++z, ++walker) {
+		bool next = false;
+		for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
+			if (std::find(fixedVars.begin(), fixedVars.end(), i) != fixedVars.end())
+				continue;
+
+			IndexType varIdx = factor_->variableIndex(i);
+			if (! (*mappings_)[varIdx].isCollapsedOriginal(walker.coordinateTuple()[i])) {
+				next = true;
+				break;
+			}
+		}
+
+		if (next)
+			continue;
+
+		ValueType current = (*factor_)(walker.coordinateTuple().begin());
+		if (ACC::bop(current, result))
+			result = current;
+	}
+	return result;
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::LabelType
-EpsilonFunction<GM>::shape
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::LabelType
+EpsilonFunction<GM, ACC>::shape
 (
 	const IndexType idx
 ) const
@@ -382,16 +408,16 @@ EpsilonFunction<GM>::shape
 	return (*mappings_)[varIdx].size();
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::dimension() const
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::IndexType
+EpsilonFunction<GM, ACC>::dimension() const
 {
 	return factor_->numberOfVariables();
 }
 
-template<class GM>
-typename EpsilonFunction<GM>::IndexType
-EpsilonFunction<GM>::size() const
+template<class GM, class ACC>
+typename EpsilonFunction<GM, ACC>::IndexType
+EpsilonFunction<GM, ACC>::size() const
 {
 	IndexType result = 1;
 	for (IndexType i = 0; i < factor_->numberOfVariables(); ++i) {
@@ -399,94 +425,6 @@ EpsilonFunction<GM>::size() const
 	}
 	return result;
 }
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class UnwrapFunctionFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class FUNCTOR>
-class UnwrapFunctionFunctor {
-public:
-	UnwrapFunctionFunctor(FUNCTOR &functor)
-	: functor_(&functor)
-	{
-	}
-
-	// We need this functor class, because the operator() is a template
-	// for a specific function type.
-	//
-	// This way we can access the underlying function object without knowing the
-	// concrete type (C++ infers the template arguments for class methods).
-	template<class FUNCTION>
-	void operator()(const FUNCTION &function) {
-		function.forAllValuesInAnyOrderWithCoordinate(*functor_);
-	}
-
-private:
-	FUNCTOR *functor_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class EpsilonFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class ACC, class VALUE_TYPE>
-class EpsilonFunctor {
-public:
-	EpsilonFunctor(VALUE_TYPE oldValue)
-	: oldValue_(oldValue)
-	, value_(ACC::template neutral<VALUE_TYPE>())
-	{
-	}
-
-	VALUE_TYPE value() const {
-		return value_;
-	}
-
-	void operator()(const VALUE_TYPE v)
-	{
-		if (ACC::ibop(v, oldValue_) && ACC::bop(v, value_)) {
-			value_ = v;
-		}
-	}
-
-private:
-	VALUE_TYPE oldValue_;
-	VALUE_TYPE value_;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-//
-// class NonCollapsedFunctionFunctor
-//
-////////////////////////////////////////////////////////////////////////////////
-
-template<class ACC, class INDEX_TYPE, class VALUE_TYPE, class OUTPUT_ITERATOR>
-class NonCollapsedFunctionFunctor {
-public:
-	NonCollapsedFunctionFunctor(INDEX_TYPE variable, VALUE_TYPE epsilon, OUTPUT_ITERATOR iterator)
-	: iterator_(iterator)
-	, epsilon_(epsilon)
-	, variable_(variable)
-	{
-	}
-
-	template<class INPUT_ITERATOR>
-	void operator()(const VALUE_TYPE v, INPUT_ITERATOR it)
-	{
-		if (ACC::bop(v, epsilon_))
-			*iterator_++ = it[variable_];
-	}
-
-private:
-	OUTPUT_ITERATOR iterator_;
-	VALUE_TYPE epsilon_;
-	INDEX_TYPE variable_;
-};
 
 } // namepasce labelcollapse
 } // namepasce opengm

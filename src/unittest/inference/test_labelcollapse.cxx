@@ -15,31 +15,29 @@
 
 
 typedef opengm::GraphicalModel<double, opengm::Adder> OriginalModelType;
-typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType>::GraphicalModelType AuxiliaryModelType;
+typedef opengm::Minimizer AccumulationType;
+typedef opengm::LabelCollapseAuxTypeGen<OriginalModelType, AccumulationType>::GraphicalModelType AuxiliaryModelType;
 typedef opengm::BlackBoxTestGrid<OriginalModelType> GridTest;
 typedef opengm::BlackBoxTestFull<OriginalModelType> FullTest;
 typedef opengm::BlackBoxTestStar<OriginalModelType> StarTest;
 typedef opengm::InferenceBlackBoxTester<OriginalModelType> BlackBoxTester;
 
-template<
-	opengm::labelcollapse::UncollapsingBehavior UNCOLLAPSING,
-	opengm::labelcollapse::ReparameterizationKind REPA
->
+template<opengm::labelcollapse::ReparameterizationKind REPA>
 void test(BlackBoxTester &tester)
 {
-	std::cout << "+++ Test Min-Sum with Bruteforce" << std::endl;
+	std::cout << " - Test Min-Sum with Bruteforce" << std::endl;
 	{
-		typedef opengm::Bruteforce<AuxiliaryModelType, opengm::Minimizer> Proxy;
-		typedef opengm::LabelCollapse<OriginalModelType, Proxy, UNCOLLAPSING, REPA> Inference;
+		typedef opengm::Bruteforce<AuxiliaryModelType, AccumulationType> Proxy;
+		typedef opengm::LabelCollapse<OriginalModelType, Proxy, REPA> Inference;
 		typename Inference::Parameter parameter;
 		tester.test<Inference>(parameter);
 	}
 
 #ifdef WITH_CPLEX
-	std::cout << "+++ Test Min-Sum with CPLEX" << std::endl;
+	std::cout << " - Test Min-Sum with CPLEX" << std::endl;
 	{
-		typedef opengm::LPCplex<AuxiliaryModelType, opengm::Minimizer> Proxy;
-		typedef opengm::LabelCollapse<OriginalModelType, Proxy, UNCOLLAPSING, REPA> Inference;
+		typedef opengm::LPCplex<AuxiliaryModelType, AccumulationType> Proxy;
+		typedef opengm::LabelCollapse<OriginalModelType, Proxy, REPA> Inference;
 
 		Proxy::Parameter proxy_parameter;
 		proxy_parameter.integerConstraint_ = true;
@@ -48,27 +46,6 @@ void test(BlackBoxTester &tester)
 		tester.test<Inference>(parameter);
 	}
 #endif
-}
-
-template<opengm::labelcollapse::UncollapsingBehavior UNCOLLAPSING>
-void testAllReparameterizations(BlackBoxTester &tester)
-{
-	using namespace opengm::labelcollapse;
-
-	std::cout << "++ no reparameterization" << std::endl;
-	test<UNCOLLAPSING, ReparameterizationNone>(tester);
-
-	std::cout << "++ canonical chain reparameterization" << std::endl;
-	test<UNCOLLAPSING, ReparameterizationChainCanonical>(tester);
-
-	std::cout << "++ uniform chain reparameterization" << std::endl;
-	test<UNCOLLAPSING, ReparameterizationChainUniform>(tester);
-
-	std::cout << "++ custom chain reparameterization" << std::endl;
-	test<UNCOLLAPSING, ReparameterizationChainCustom>(tester);
-
-	std::cout << "++ min max diffusion reparameterization" << std::endl;
-	test<UNCOLLAPSING, ReparameterizationDiffusion>(tester);
 }
 
 
@@ -85,9 +62,19 @@ int main()
 	tester.addTest(new GridTest(3,  3,  5, false,  true, GridTest::RANDOM, opengm::OPTIMAL, 5));
 	tester.addTest(new StarTest(5,      6, false,  true, StarTest::RANDOM, opengm::OPTIMAL, 20));
 
-	std::cout << "+ Test LabelCollapse (unary version)..." << std::endl;
-	testAllReparameterizations<opengm::labelcollapse::Unary>(tester);
+	using namespace opengm::labelcollapse;
+	std::cout << "Test LabelCollapse (no reparameterization)" << std::endl;
+	test<ReparameterizationNone>(tester);
 
-	std::cout << "+ Test LabelCollapse (generic version)..." << std::endl;
-	testAllReparameterizations<opengm::labelcollapse::Generic>(tester);
+	std::cout << "Test LabelCollapse (canonical chain reparameterization)" << std::endl;
+	test<ReparameterizationChainCanonical>(tester);
+
+	std::cout << "Test LabelCollapse (uniform chain reparameterization)" << std::endl;
+	test<ReparameterizationChainUniform>(tester);
+
+	std::cout << "Test LabelCollapse (custom chain reparameterization)" << std::endl;
+	test<ReparameterizationChainCustom>(tester);
+
+	std::cout << "Test LabelCollapse (min max diffusion reparameterization)" << std::endl;
+	test<ReparameterizationDiffusion>(tester);
 }
