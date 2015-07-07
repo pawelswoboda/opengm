@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <typeinfo>
 
+#include <boost/chrono.hpp>
+
 #include <ilcplex/ilocplex.h>
 
 #include "opengm/datastructures/marray/marray.hxx"
@@ -21,6 +23,10 @@
 #include "opengm/inference/visitors/visitors.hxx"
 
 namespace opengm {
+
+namespace hack {
+boost::chrono::milliseconds elapsed;
+}
 
 /// \brief Optimization by Linear Programming (LP) or Integer LP using IBM ILOG CPLEX\n\n
 /// http://www.ilog.com/products/cplex/
@@ -548,12 +554,17 @@ LPCplex<GM, ACC>::infer
          cplex_.addMIPStart(startVar, startVal, IloCplex::MIPStartCheckFeas);
       }
 
+	  typedef boost::chrono::steady_clock ClockType;
+	  ClockType::time_point tp = ClockType::now();
+
       // solve problem
       if(!cplex_.solve()) {
          std::cout << "failed to optimize. " <<cplex_.getStatus() << std::endl;
          return UNKNOWN;
       } 
       cplex_.getValues(sol_, x_);  
+
+	  hack::elapsed += boost::chrono::duration_cast<boost::chrono::milliseconds>(ClockType::now() - tp);
    }
    catch(IloCplex::Exception e) {
       std::cout << "caught CPLEX exception: " << e << std::endl;
