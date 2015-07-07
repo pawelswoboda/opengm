@@ -40,9 +40,6 @@
 
 namespace opengm {
 
-// Forward declaration for type level function. (TODO: Move this to a header.)
-template<class GM, class ACC> struct LabelCollapseAuxTypeGen;
-
 namespace labelcollapse {
 
 // Type level function for calculation of the auxiliary model type.
