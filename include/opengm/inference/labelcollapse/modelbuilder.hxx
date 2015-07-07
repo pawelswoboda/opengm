@@ -108,7 +108,8 @@ public:
 	void uncollapse(const IndexType);
 	template<class INPUT_ITERATOR> void uncollapseLabeling(INPUT_ITERATOR);
 
-	template<class INPUT_ITERATOR> void populate(INPUT_ITERATOR);
+	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
+	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
 	void increaseEpsilonTo(ValueType value);
 
 private:
@@ -233,15 +234,29 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 template<class GM, class ACC>
 template<class ITERATOR>
 void
-ModelBuilder<GM, ACC>::populate
+ModelBuilder<GM, ACC>::populateShape
 (
 	ITERATOR it
 )
 {
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
-		while (numberOfLabels(i) < std::min(*it, original_->numberOfLabels(i)))
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
+		while (!mappings_[i].full() && numberOfLabels(i) < *it)
 			uncollapse(i);
-	}
+
+	expand();
+}
+
+template<class GM, class ACC>
+template<class ITERATOR>
+void
+ModelBuilder<GM, ACC>::populateLabeling
+(
+	ITERATOR it
+)
+{
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
+		while (!mappings_[i].full() && mappings_[i].isCollapsedOriginal(*it))
+			uncollapse(i);
 
 	expand();
 }

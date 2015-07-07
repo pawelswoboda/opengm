@@ -148,7 +148,9 @@ public:
 	InferenceTermination arg(std::vector<LabelType>&, const size_t = 1) const;
 	ValueType bound() const { return bound_; }
 	virtual ValueType value() const { return value_; }
-	template<class INPUT_ITERATOR> void populate(INPUT_ITERATOR);
+
+	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
+	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
@@ -279,12 +281,23 @@ LabelCollapse<GM, INF, KIND>::infer
 template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
 template<class INPUT_ITERATOR>
 void
-LabelCollapse<GM, INF, KIND>::populate
+LabelCollapse<GM, INF, KIND>::populateShape
 (
 	INPUT_ITERATOR it
 )
 {
-	builder_.populate(it);
+	builder_.populateShape(it);
+}
+
+template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class INPUT_ITERATOR>
+void
+LabelCollapse<GM, INF, KIND>::populateLabeling
+(
+	INPUT_ITERATOR it
+)
+{
+	builder_.populateLabeling(it);
 }
 
 template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
