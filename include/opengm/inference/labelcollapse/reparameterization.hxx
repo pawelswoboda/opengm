@@ -318,6 +318,81 @@ trivialMerge
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+// class LabelCollapsePropertyChecker
+//
+////////////////////////////////////////////////////////////////////////////////
+
+class LabelCollapsePropertyChecker {
+public:
+	LabelCollapsePropertyChecker()
+	: result_(false)
+	, countAll_(0)
+	, countLC_(0)
+	{
+	}
+
+	template<class GM>
+	bool operator()(const GM &gm, const LPReparametrisationStorage<GM> &repa)
+	{
+		result_ = false;
+		countAll_ = 0;
+		countLC_ = 0;
+
+		for (typename GM::IndexType i = 0; i < gm.numberOfFactors(); ++i) {
+			OPENGM_ASSERT_OP(gm[i].numberOfVariables(), <=, 2);
+			if (gm[i].numberOfVariables() == 2) {
+				const typename GM::FactorType &factor = gm[i];
+				typename GM::IndexType left = factor.variableIndex(0);
+				typename GM::IndexType right = factor.variableIndex(1);
+
+				marray::Marray<typename GM::ValueType> lpot = copyUnaryFromRepa(gm, left, repa);
+				marray::Marray<typename GM::ValueType> rpot = copyUnaryFromRepa(gm, right, repa);
+				marray::Marray<typename GM::ValueType> ppot = copyPairwiseFromRepa(gm, left, right, repa);
+
+				ShapeWalker<typename GM::FactorType::ShapeIteratorType> walker(factor.shapeBegin(), factor.numberOfVariables());
+				for (typename GM::IndexType j = 0; j < factor.size(); ++j, ++walker) {
+					++countAll_;
+
+					if (lpot(walker.coordinateTuple()[0]) <= (ppot(walker.coordinateTuple().begin()) + 1e-8) &&
+					    rpot(walker.coordinateTuple()[1]) <= (ppot(walker.coordinateTuple().begin()) + 1e-8))
+					{
+						++countLC_;
+					}
+				}
+			}
+		}
+
+		result_ = countAll_ == countLC_;
+		return result_;
+	}
+
+	template<class GM>
+	bool operator()(const GM &gm)
+	{
+		LPReparametrisationStorage<GM> repa(gm);
+		(*this)(gm, repa);
+	}
+
+	bool result() { return result_; }
+	size_t countAll() { return countAll_; }
+	size_t countLC() { return countLC_; }
+
+	std::string str() const
+	{
+		std::stringstream ss;
+		ss << "LC property: " << countLC_ << " / " << countAll_
+		   << " (" << (countLC_ * 100.0 / countAll_) << "%)";
+		return ss.str();
+	}
+
+private:
+	bool result_;
+	size_t countAll_;
+	size_t countLC_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+//
 // class SequenceGeneratorIterator
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -348,7 +423,7 @@ public:
 private:
 	SequenceGeneratorIterator(size_t index, const DecompositionStorageType&);
 
-	size_t index_; 
+	size_t index_;
 	const DecompositionStorageType *storage_;
 	Elements current_;
 };
@@ -542,7 +617,7 @@ SequenceReparameterizer<GM, DERIVED>::forwardPass()
 
 		// Check whether all unary are empty.
 		#ifndef NDEBUG
-		pots = copyUnary(i-1); 
+		pots = copyUnary(i-1);
 		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i-1].first); ++j)
 			OPENGM_ASSERT(is_almost_equal(static_cast<ValueType>(0), pots(j)));
 		#endif
@@ -562,7 +637,7 @@ SequenceReparameterizer<GM, DERIVED>::forwardPass()
 
 		// Check whether minimum of each pencil is zero.
 		#ifndef NDEBUG
-		pots = copyPairwise(i, i-1); 
+		pots = copyPairwise(i, i-1);
 		for (LabelType j = 0; j < gm_.numberOfLabels(sequence_[i].first); ++j) {
 			ValueType min = pots(j, 0);
 			for (LabelType k = 1; k < gm_.numberOfLabels(sequence_[i-1].first); ++k)
@@ -823,7 +898,7 @@ UniformReparameterizer<GM>::backwardPass()
 	// Calculate energy (minimal marginal of last node). The energy is only
 	// used for verifying the reparameterization in debug mode.
 	#ifndef NDEBUG
-	pots = copyUnary(sequence_.size()-1); 
+	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
 	for (LabelType i = 1; i < gm_.numberOfLabels(sequence_[sequence_.size()-1].first); ++i)
 		energy = std::min(energy, pots(i));
@@ -958,7 +1033,7 @@ CustomReparameterizer<GM>::backwardPass()
 	// Calculate energy (minimal marginal of last node). The energy is only
 	// used for verifying the reparameterization in debug mode.
 	#ifndef NDEBUG
-	pots = copyUnary(sequence_.size()-1); 
+	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
 	for (LabelType i = 1; i < gm_.numberOfLabels(sequence_[sequence_.size()-1].first); ++i)
 		energy = std::min(energy, pots(i));
@@ -1057,6 +1132,7 @@ public:
 	void processNode(IndexType);
 	void singlePass();
 	void run();
+	ValueType dualObjective() const;
 
 	const GraphicalModelType& graphicalModel() const { return gm_; }
 	const StorageType& reparameterization() const { return repa_; }
@@ -1067,7 +1143,8 @@ private:
 };
 
 template<class GM>
-MinSumDiffusion<GM>::MinSumDiffusion(
+MinSumDiffusion<GM>::MinSumDiffusion
+(
 	const GraphicalModelType &gm
 )
 : gm_(gm)
@@ -1077,7 +1154,8 @@ MinSumDiffusion<GM>::MinSumDiffusion(
 
 template<class GM>
 void
-MinSumDiffusion<GM>::processNode(
+MinSumDiffusion<GM>::processNode
+(
 	IndexType var
 )
 {
@@ -1128,9 +1206,47 @@ template<class GM>
 void
 MinSumDiffusion<GM>::run()
 {
-	for (unsigned int i = 0; i < 10000; ++i) {
+	unsigned int i = 0;
+	unsigned int noProgress = 0;
+	ValueType dual = dualObjective();
+
+	while (noProgress < 100) {
+		++i;
+		std::cout << "MinSum-Diffusion: iteration " << i << " | ";
+
 		singlePass();
+		ValueType newObjective = dualObjective();
+
+		if (newObjective > dual + 1e-10)
+			noProgress = 0;
+		else
+			++noProgress;
+
+		dual = newObjective;
+		std::cout << "dual: " << dual << " | ";
+
+		LabelCollapsePropertyChecker checker;
+		checker(gm_, repa_);
+		std::cout << checker.str() << std::endl;
 	}
+}
+
+template<class GM>
+typename MinSumDiffusion<GM>::ValueType
+MinSumDiffusion<GM>::dualObjective() const
+{
+	ValueType dual = 0;
+	for (IndexType i = 0; i < gm_.numberOfFactors(); ++i) {
+		marray::Marray<ValueType> result(gm_[i].shapeBegin(), gm_[i].shapeEnd());
+		repa_.copyFactorValues(i, result.begin());
+
+		ValueType min = result(0);
+		for (size_t j = 0; j < result.size(); ++j)
+			min = std::min(min, result(j));
+
+		dual += min;
+	}
+	return dual;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1175,14 +1291,19 @@ public:
 	{
 	}
 
-	const ReparameterizedModelType& reparameterizedModel() const {
+	const ReparameterizedModelType& reparameterizedModel() const
+	{
 		return rm_;
 	}
-	
+
 	void reparameterize()
 	{
 		repa_.Reparametrization() = HelperType::doMagic(*this);
 		repa_.getReparametrizedModel(rm_);
+
+		LabelCollapsePropertyChecker checker;
+		checker(rm_);
+		std::cout << "After reparamaterization: " << checker.str() << std::endl;
 	}
 
 private:
