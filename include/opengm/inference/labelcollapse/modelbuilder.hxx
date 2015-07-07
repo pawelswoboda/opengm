@@ -111,6 +111,7 @@ public:
 	template<class ITERATOR> void uncollapseLabeling(ITERATOR);
 
 	template<class ITERATOR> void populate(ITERATOR);
+	void increaseEpsilonTo(ValueType value);
 
 private:
 	typedef std::vector<LabelType> Stack;
@@ -249,6 +250,17 @@ ModelBuilder<GM, ACC>::populate
 
 template<class GM, class ACC>
 void
+ModelBuilder<GM, ACC>::increaseEpsilonTo
+(
+	ValueType epsilon
+)
+{
+	if (ACC::ibop(epsilon, epsilon_))
+		epsilon_ = epsilon;
+}
+
+template<class GM, class ACC>
+void
 ModelBuilder<GM, ACC>::originalLabeling
 (
 	const std::vector<LabelType> &auxiliary,
@@ -307,8 +319,7 @@ ModelBuilder<GM, ACC>::uncollapse
 
 	// Additional we remember the largest potential of the unary values (Theorem 2).
 	ValueType current = unaryValue(idx, label);
-	if (ACC::ibop(current, epsilon_))
-		epsilon_ = current;
+	increaseEpsilonTo(current);
 
 	rebuildNecessary_ = true;
 }
