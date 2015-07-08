@@ -185,6 +185,9 @@ LabelCollapse<GM, INF, KIND>::LabelCollapse
 	// afterwards need to instantiate a new builder. This should be fixed.
 	repa_.reparameterize();
 	builder_ = ModelBuilderType(repa_.reparameterizedModel());
+
+	// Maybe user code wants to have a look at the model.
+	builder_.buildAuxiliaryModel();
 }
 
 template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
@@ -234,7 +237,8 @@ LabelCollapse<GM, INF, KIND>::infer
 
 	bool exitInf = false;
 	while (!exitInf) {
-		// Build auxiliary model.
+		// Building the model is not really necessary (should be already done
+		// at this point).
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, gm_->numberOfVariables());
@@ -265,6 +269,9 @@ LabelCollapse<GM, INF, KIND>::infer
 			// the current labeling is invalid.
 			builder_.uncollapseLabeling(labeling.begin());
 		}
+
+		// In case user code looks at the model.
+		builder_.buildAuxiliaryModel();
 
 		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) {
 			// Visitor could also return StopInfBoundReached. But that does not
