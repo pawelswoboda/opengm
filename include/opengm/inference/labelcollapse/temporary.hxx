@@ -56,7 +56,7 @@ temporaryTheorem2
 	if (out)
 		*out = labeling;
 
-	std::cout << "Presolving: value " << trwsi.value() << " | bound " << trswi.bound()
+	std::cout << "Presolving: value " << trwsi.value() << " | bound " << trwsi.bound()
 	          << " | labeling";
 	for (size_t i = 0; i < labeling.size(); ++i)
 		std::cout << " " << labeling[i];
@@ -94,7 +94,7 @@ temporaryTheorem3
 
 		INF::AccumulationType::iop(factor(factorLabeling.begin()), epsilon);
 	}
-	std::cout << "epsilon = " << epsilon_ << std::endl;
+	std::cout << "epsilon = " << epsilon << std::endl;
 
 	inf.increaseEpsilonTo(epsilon);
 	// Populating is not necessary, but this triggers epsilon expansion.
