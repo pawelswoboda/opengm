@@ -1161,7 +1161,12 @@ MinSumDiffusion<GM>::processNode
 {
 	typedef marray::Vector<IndexType> Vec;
 	Vec factorIds;
-	gm_.numberOfNthOrderFactorsOfVariable(var, 2, factorIds);
+	size_t count = gm_.numberOfNthOrderFactorsOfVariable(var, 2, factorIds);
+
+	// BUG? If the vector does not contain any elements, constructing iterators
+	// will violate some assertions. This seems strange...
+	if (count == 0)
+		return;
 
 	for (IndexType lab = 0; lab < gm_.numberOfLabels(var); ++lab) {
 		// Accumulation
