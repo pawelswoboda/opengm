@@ -521,7 +521,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 		// END-HACK
 
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
-		ilpSolver.populate(population.begin());
+		ilpSolver.populateShape(population.begin());
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
