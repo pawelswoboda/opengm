@@ -41,6 +41,7 @@ temporaryTheorem2
 	std::vector<typename INF::GraphicalModelType::LabelType> *out = NULL
 )
 {
+	std::cout << "[DBG] BEGIN THEOREM2" << std::endl;
 	typedef TRWSi<typename INF::ReparameterizedModelType, typename INF::AccumulationType> TRWSiType;
 	typename TRWSiType::Parameter param;
 	param.maxNumberOfIterations_ = 300;
@@ -55,8 +56,14 @@ temporaryTheorem2
 	if (out)
 		*out = labeling;
 
-	inf.populateLabeling(labeling.begin());
+	std::cout << "Presolving: value " << trwsi.value() << " | bound " << trswi.bound()
+	          << " | labeling";
+	for (size_t i = 0; i < labeling.size(); ++i)
+		std::cout << " " << labeling[i];
+	std::cout << std::endl;
 
+	inf.populateLabeling(labeling.begin());
+	std::cout << "[DBG] END THEOREM2" << std::endl;
 }
 
 template<class INF>
@@ -67,6 +74,7 @@ temporaryTheorem3
 	std::vector<typename INF::GraphicalModelType::LabelType> *out = NULL
 )
 {
+	std::cout << "[DBG] BEGIN THEOREM3" << std::endl;
 	std::vector<typename INF::LabelType> labeling;
 	temporaryTheorem2(inf, &labeling);
 	if (out)
@@ -86,10 +94,12 @@ temporaryTheorem3
 
 		INF::AccumulationType::iop(factor(factorLabeling.begin()), epsilon);
 	}
+	std::cout << "epsilon = " << epsilon_ << std::endl;
 
 	inf.increaseEpsilonTo(epsilon);
 	// Populating is not necessary, but this triggers epsilon expansion.
 	inf.populateLabeling(labeling.begin());
+	std::cout << "[DBG] END THEOREM3" << std::endl;
 }
 
 } // namespace labelcollapse
