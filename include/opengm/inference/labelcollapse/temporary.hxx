@@ -68,12 +68,12 @@ temporaryTheorem3
 )
 {
 	std::vector<typename INF::LabelType> labeling;
-	std::vector<typename INF::LabelType> auxLabeling;
 	temporaryTheorem2(inf, &labeling);
-	inf.auxiliaryLabeling(labeling, auxLabeling);
-
 	if (out)
 		*out = labeling;
+
+	std::vector<typename INF::LabelType> auxLabeling(labeling.size());
+	inf.auxiliaryLabeling(labeling.begin(), auxLabeling.begin());
 
 	typename INF::ValueType epsilon = INF::AccumulationType::template neutral<typename INF::ValueType>();
 	const typename INF::ReparameterizedModelType &gm = inf.reparameterizedModel();
