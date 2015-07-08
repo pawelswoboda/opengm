@@ -92,6 +92,7 @@ namespace opengm {
       template<class ACC> void lockAndTentacelElimination(); 
       bool isFixed(const typename GM::IndexType)const;
 
+   private:
       void expand(IndexType, IndexType,  std::vector<bool>&);
 
       //General Members
@@ -109,7 +110,6 @@ namespace opengm {
       bool validSubModels_;                      // true if themodified submodels are valid            
       std::vector<MGM> submodels_;               // modified submodels           
       std::vector<IndexType> var2subProblem_;    // subproblem of variable (for fixed variables undefined)
-      std::vector<IndexType> varMap_;
 
       //Tentacles
      std::vector<IndexType> tentacleRoots_;                                                    // Root-node of the tentacles 
@@ -118,6 +118,8 @@ namespace opengm {
      std::vector<std::vector<IndexType> > tentacleVars_;                                       // Variable-list of the tentacles
      std::vector<bool> tentacleFactor_;                                                        // factor is included in a tentacle
      ValueType tentacleConstValue_;
+
+
    };
   
 
@@ -479,8 +481,6 @@ namespace opengm {
          }  
       }
       //std::cout << " numvars : " << submodels_[0].numberOfVariables() <<std::endl;
-      //
-      varMap_ = varMap;
    }
 
 //////////////////////
