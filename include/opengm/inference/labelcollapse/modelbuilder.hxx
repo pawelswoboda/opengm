@@ -221,6 +221,7 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	INPUT_ITERATOR it
 )
 {
+	std::cout << "[DBG] BEGIN UNCOLLAPSING OF LABELING" << std::endl;
 	OPENGM_ASSERT(!rebuildNecessary_);
 
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
@@ -239,6 +240,7 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 		if (mappings_[i].isCollapsedAuxiliary(*it))
 			uncollapse(i);
 	}
+	std::cout << "[DBG] END UNCOLLAPSING OF LABELING" << std::endl;
 
 	expand();
 }
@@ -251,9 +253,11 @@ ModelBuilder<GM, ACC>::populateShape
 	ITERATOR it
 )
 {
+	std::cout << "[DBG] BEGIN SHAPE POPULATION" << std::endl;
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
 		while (!mappings_[i].full() && numberOfLabels(i) < *it)
 			uncollapse(i);
+	std::cout << "[DBG] END SHAPE POPULATION" << std::endl;
 
 	expand();
 }
@@ -266,9 +270,11 @@ ModelBuilder<GM, ACC>::populateLabeling
 	ITERATOR it
 )
 {
+	std::cout << "[DBG] BEGIN LABEL POPULATION" << std::endl;
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
 		while (!mappings_[i].full() && mappings_[i].isCollapsedOriginal(*it))
 			uncollapse(i);
+	std::cout << "[DBG] END LABEL POPULATION" << std::endl;
 
 	expand();
 }
@@ -280,8 +286,10 @@ ModelBuilder<GM, ACC>::increaseEpsilonTo
 	ValueType epsilon
 )
 {
+	std::cout << "[DBG] old/new epsilon: " << epsilon_ << " / ";
 	if (ACC::ibop(epsilon, epsilon_))
 		epsilon_ = epsilon;
+	std::cout << epsilon_ << std::endl;
 }
 
 template<class GM, class ACC>
@@ -349,12 +357,16 @@ ModelBuilder<GM, ACC>::uncollapse
 {
 	internalChecks();
 
+	std::cout << "[DBG] uncollapsing var " << idx << " from " << mappings_[idx].size();
+
 	OPENGM_ASSERT(collapsed_[idx].size() > 0);
 	OPENGM_ASSERT(!mappings_[idx].full());
 
 	LabelType label = collapsed_[idx].back();
 	collapsed_[idx].pop_back();
 	mappings_[idx].insert(label);
+
+	std::cout << " to " << mappings_[idx].size() << " labels" << std::endl;
 
 	// If there is just one collapsed label left, all the auxiliary unaries
 	// and binaries are equal to the original potentials. We can just
@@ -378,9 +390,11 @@ template<class GM, class ACC>
 void
 ModelBuilder<GM, ACC>::expand()
 {
+	std::cout << "[DBG] BEGIN EXPANSION" << std::endl;
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
 		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < epsilon_)
 			uncollapse(i);
+	std::cout << "[DBG] END EXPANSION" << std::endl;
 }
 
 template<class GM, class ACC>
