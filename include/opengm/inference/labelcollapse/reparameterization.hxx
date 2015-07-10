@@ -1211,23 +1211,18 @@ template<class GM>
 void
 MinSumDiffusion<GM>::run()
 {
-	unsigned int i = 0;
-	unsigned int noProgress = 0;
+	const unsigned int maxIterations = 500;
+	const ValueType minDifference = 0.001;
 	ValueType dual = dualObjective();
+	ValueType oldDual = -std::numeric_limits<ValueType>::infinity();
 
-	while (noProgress < 100) {
-		++i;
-		std::cout << "MinSum-Diffusion: iteration " << i << " | ";
+	for (unsigned int i = 0; i < maxIterations && dual > oldDual + minDifference; ++i) {
+		std::cout << "MinSum-Diffusion: iteration " << (i+1) << " | ";
 
 		singlePass();
-		ValueType newObjective = dualObjective();
 
-		if (newObjective > dual + 1e-10)
-			noProgress = 0;
-		else
-			++noProgress;
-
-		dual = newObjective;
+		oldDual = dual;
+		dual = dualObjective();
 		std::cout << "dual: " << dual << " | ";
 
 		LabelCollapsePropertyChecker checker;
