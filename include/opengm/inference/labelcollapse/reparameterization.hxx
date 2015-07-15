@@ -1215,14 +1215,14 @@ MinSumDiffusion<GM>::run()
 	unsigned int noProgress = 0;
 	ValueType dual = dualObjective();
 
-	while (noProgress < 100) {
+	while (noProgress < 4) {
 		++i;
 		std::cout << "MinSum-Diffusion: iteration " << i << " | ";
 
 		singlePass();
 		ValueType newObjective = dualObjective();
 
-		if (newObjective > dual + 1e-10)
+		if (newObjective > dual + 1e-6)
 			noProgress = 0;
 		else
 			++noProgress;
