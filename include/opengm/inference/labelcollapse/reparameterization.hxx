@@ -1421,8 +1421,8 @@ public:
 	static typename TRWSiType::Parameter parameter()
 	{
 		typename TRWSiType::Parameter param;
-		param.maxNumberOfIterations_ = 300;
-		param.setTreeAgreeMaxStableIter(50);
+		param.maxNumberOfIterations_ = 1000;
+		param.setTreeAgreeMaxStableIter(100);
 		param.verbose_ = true;
 		return param;
 	}
