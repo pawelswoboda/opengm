@@ -28,8 +28,6 @@
 #ifndef OPENGM_LABELCOLLAPSE_TEMPORARY_HXX
 #define OPENGM_LABELCOLLAPSE_TEMPORARY_HXX
 
-#include <opengm/inference/trws/trws_trws.hxx>
-
 namespace opengm {
 namespace labelcollapse {
 

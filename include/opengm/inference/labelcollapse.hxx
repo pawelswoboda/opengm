@@ -24,6 +24,18 @@
 // IN THE SOFTWARE.
 //
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// TODO: This is not fucking true. It is not obvious were to call this
+//       function. I suggest calling it anywhere where we are relying on
+//       the model (e.g. population changes the model, etc.)
+//
+//  // Building the model is not really necessary (should be already done
+//  // at this point).
+//  builder_.buildAuxiliaryModel();
+//
+////////////////////////////////////////////////////////////////////////////////
+
 #pragma once
 #ifndef OPENGM_LABELCOLLAPSE_HXX
 #define OPENGM_LABELCOLLAPSE_HXX
@@ -166,7 +178,7 @@ private:
 	const GraphicalModelType *gm_;
 	ReparametrizedModelType rgm;
 	ReparametrizerType repa_;
-	ModelBuilderType builder_;
+	mutable ModelBuilderType builder_; // This is a hack. Sry.
 	Parameter parameter_;
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
@@ -350,6 +362,7 @@ LabelCollapse<GM, INF, KIND>::originalNumberOfLabels
 	OUTPUT_ITERATOR it
 ) const
 {
+	builder_.buildAuxiliaryModel();
 	for (IndexType i = 0; i < gm_->numberOfVariables(); ++i, ++it) {
 		*it = gm_->numberOfLabels(i);
 	}
@@ -363,6 +376,7 @@ LabelCollapse<GM, INF, KIND>::currentNumberOfLabels
 	OUTPUT_ITERATOR it
 ) const
 {
+	builder_.buildAuxiliaryModel();
 	for (IndexType i = 0; i < gm_->numberOfVariables(); ++i, ++it) {
 		*it = builder_.numberOfLabels(i);
 	}
@@ -377,6 +391,7 @@ LabelCollapse<GM, INF, KIND>::auxiliaryLabeling
 	OUT_ITER auxiliary
 ) const
 {
+	builder_.buildAuxiliaryModel();
 	builder_.auxiliaryLabeling(original, auxiliary);
 }
 
@@ -388,6 +403,7 @@ LabelCollapse<GM, INF, KIND>::depth
 	OUTPUT_ITERATOR depth
 ) const
 {
+	builder_.buildAuxiliaryModel();
 	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
 	calculateDepth(labeling_.begin(), depth);
 }
