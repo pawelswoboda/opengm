@@ -1423,6 +1423,7 @@ public:
 		typename TRWSiType::Parameter param;
 		param.maxNumberOfIterations_ = 1000;
 		param.setTreeAgreeMaxStableIter(100);
+		param.precision_ = 0;
 		param.verbose_ = true;
 		return param;
 	}
