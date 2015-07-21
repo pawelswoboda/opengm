@@ -524,7 +524,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
 		ilpSolver.populateShape(population.begin());
-		labelcollapse::temporaryTheorem3(ilpSolver);
+		labelcollapse::temporaryTheorem2(ilpSolver);
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
