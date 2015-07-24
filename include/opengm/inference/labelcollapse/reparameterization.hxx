@@ -541,7 +541,6 @@ SequenceReparameterizer<GM, DERIVED>::run()
 	#ifndef NDEBUG
 	std::cout << "SequenceReparameterizer::run()" << std::endl;
 	#endif
-	repa_ = StorageType(gm_);
 
 	if (sequence_.size() >= 2) {
 		static_cast<DERIVED*>(this)->forwardPass();
@@ -678,7 +677,7 @@ SequenceReparameterizer<GM, DERIVED>::reparameterizeAll
 
 	for (INPUT_ITERATOR it = begin; it != end; ++it) {
 		DERIVED reparameterizer(gm, *it, &result);
-		trivialMerge(reparameterizer.run(), result);
+		result = reparameterizer.run();
 	}
 
 	#ifndef NDEBUG
@@ -1381,7 +1380,7 @@ struct ReparameterizerHelper<T, ReparameterizationTRWS> {
 	// We need to store the TRWSi instance and the Reparameterizer, otherwise
 	// the reparameterized model gets damaged.
 	typedef TRWSi<typename T::OriginalModelType, typename T::AccumulationType> TRWSiType;
-	typedef typename TRWSiType::ReparametrizerType ReparameterizerType;
+	typedef LPReparametrizer<typename T::OriginalModelType, typename T::AccumulationType> ReparameterizerType;
 	typedef typename ReparameterizerType::ReparametrizedGMType ReparameterizedModelType;
 
 	boost::scoped_ptr<TRWSiType> trwsi;
@@ -1403,16 +1402,16 @@ struct ReparameterizerHelper<T, ReparameterizationDiffusion> {
 	ReparameterizerHelper<T, ReparameterizationTRWS> helper;
 };
 
-template<class T, template<class> class REPA, class HELPER, class GM, class RGM>
+template<template<class> class REPA, class HELPER, class GM, class RGM>
 void chainHelper(HELPER &helper, const GM &gm, RGM &rgm)
 {
-	typedef typename HELPER::ReparameterizerType RepT;
 	typedef SequenceGeneratorIterator<GM> GenT;
-
 	typename GenT::Iterators its = GenT::makeIterators(helper.trwsi->getDecompositionStorage());
-	LPReparametrizer<GM, typename T::AccumulationType> repa(gm);
-	repa.Reparametrization() = REPA<GM>::reparameterizeAll(gm, its.first, its.second, &helper.repa->Reparametrization());
-	repa.getReparametrizedModel(rgm);
+
+	LPReparametrisationStorage<GM> trwsiRepa = helper.repa->Reparametrization();
+	helper.repa.reset(new typename HELPER::ReparameterizerType(gm));
+	helper.repa->Reparametrization() = REPA<GM>::reparameterizeAll(gm, its.first, its.second, &trwsiRepa);
+	helper.repa->getReparametrizedModel(rgm);
 }
 
 template<class T>
@@ -1420,7 +1419,7 @@ struct ReparameterizerHelper<T, ReparameterizationChainCanonical> {
 	void doMagic(T &that)
 	{
 		helper.doMagic(that);
-		chainHelper<T, CanonicalReparameterizer>(helper, that.gm_, that.rm_);
+		chainHelper<CanonicalReparameterizer>(helper, that.gm_, that.rm_);
 	}
 
 	ReparameterizerHelper<T, ReparameterizationTRWS> helper;
@@ -1431,7 +1430,7 @@ struct ReparameterizerHelper<T, ReparameterizationChainUniform> {
 	void doMagic(T &that)
 	{
 		helper.doMagic(that);
-		chainHelper<T, UniformReparameterizer>(helper, that.gm_, that.rm_);
+		chainHelper<UniformReparameterizer>(helper, that.gm_, that.rm_);
 	}
 
 	ReparameterizerHelper<T, ReparameterizationTRWS> helper;
@@ -1442,7 +1441,7 @@ struct ReparameterizerHelper<T, ReparameterizationChainCustom> {
 	void doMagic(T &that)
 	{
 		helper.doMagic(that);
-		chainHelper<T, CustomReparameterizer>(helper, that.gm_, that.rm_);
+		chainHelper<CustomReparameterizer>(helper, that.gm_, that.rm_);
 	}
 
 	ReparameterizerHelper<T, ReparameterizationTRWS> helper;
