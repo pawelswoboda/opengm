@@ -390,11 +390,13 @@ template<class GM, class ACC>
 void
 ModelBuilder<GM, ACC>::expand()
 {
+#if 0
 	std::cout << "[DBG] BEGIN EXPANSION" << std::endl;
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
 		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < epsilon_)
 			uncollapse(i);
 	std::cout << "[DBG] END EXPANSION" << std::endl;
+#endif
 }
 
 template<class GM, class ACC>
