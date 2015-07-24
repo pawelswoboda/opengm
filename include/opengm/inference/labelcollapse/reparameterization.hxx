@@ -1144,7 +1144,6 @@ public:
 
 	const GraphicalModelType& graphicalModel() const { return gm_; }
 	const StorageType& reparameterization() const { return repa_; }
-	void reparameterizedModel(ReparameterizedModelType &rm) const;
 
 private:
 	const GraphicalModelType &gm_;
@@ -1162,18 +1161,6 @@ MinSumDiffusion<GM, ACC>::MinSumDiffusion
 {
 	if (repa != NULL)
 		repa_ = *repa;
-}
-
-template<class GM, class ACC>
-void
-MinSumDiffusion<GM, ACC>::reparameterizedModel
-(
-	ReparameterizedModelType &rm
-) const
-{
-	ReparameterizerType reparameterizer(gm_);
-	reparameterizer.Reparametrization() = reparameterization();
-	reparameterizer.getReparametrizedModel(rm);
 }
 
 template<class GM, class ACC>
@@ -1396,7 +1383,10 @@ struct ReparameterizerHelper<T, ReparameterizationDiffusion> {
 		MinSumDiffusion<typename T::OriginalModelType, typename T::AccumulationType>
 		diffusion(that.gm_, &helper.repa->Reparametrization());
 		diffusion.run();
-		diffusion.reparameterizedModel(that.rm_);
+
+		helper.repa.reset(new LPReparametrisationStorage<typename T::OriginalModelType>(that.gm_));
+		helper.repa->Reparametrization() = diffusion.reparameterization();
+		helper.repa->getReparametrizedModel(that.rm_);
 	}
 
 	ReparameterizerHelper<T, ReparameterizationTRWS> helper;
