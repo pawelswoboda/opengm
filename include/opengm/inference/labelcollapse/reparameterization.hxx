@@ -1384,7 +1384,7 @@ struct ReparameterizerHelper<T, ReparameterizationDiffusion> {
 		diffusion(that.gm_, &helper.repa->Reparametrization());
 		diffusion.run();
 
-		helper.repa.reset(new LPReparametrisationStorage<typename T::OriginalModelType>(that.gm_));
+		helper.repa.reset(new LPReparametrizer<typename T::OriginalModelType, typename T::AccumulationType>(that.gm_));
 		helper.repa->Reparametrization() = diffusion.reparameterization();
 		helper.repa->getReparametrizedModel(that.rm_);
 	}
