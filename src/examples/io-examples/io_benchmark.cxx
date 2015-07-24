@@ -61,7 +61,7 @@ int main(int argc, char **argv)
 	{
 		typedef opengm::CombiLP_TRWSi_LC_Gen<
 			GraphicalModelType, AccumulatorType,
-			opengm::labelcollapse::ReparameterizationChainCanonical
+			opengm::labelcollapse::ReparameterizationTRWS
 		> Generator;
 
 		typedef Generator::CombiLPType CombiLPType;
