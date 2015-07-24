@@ -378,9 +378,6 @@ template<class GM, class ACC>
 void
 ModelBuilder<GM, ACC>::expand()
 {
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
-		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < epsilon_)
-			uncollapse(i);
 }
 
 template<class GM, class ACC>
