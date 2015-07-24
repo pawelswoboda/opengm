@@ -404,6 +404,7 @@ LabelCollapse<GM, INF, KIND>::depth
 	OUTPUT_ITERATOR depth
 ) const
 {
+	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
 	calculateDepth(labeling_.begin(), depth);
 }
 
@@ -418,7 +419,6 @@ LabelCollapse<GM, INF, KIND>::calculateDepth
 ) const
 {
 	builder_.buildAuxiliaryModel();
-	OPENGM_ASSERT(termination_ == CONVERGENCE || termination_ == NORMAL);
 	builder_.calculateDepth(labeling, depth);
 }
 
