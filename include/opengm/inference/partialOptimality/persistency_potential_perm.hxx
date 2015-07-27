@@ -36,7 +36,7 @@ public:
    typedef typename GM::LabelType LabelType;
    typedef typename GM::FactorType FactorType;
 
-   Potential(const FactorType& fac, std::vector<std::vector<LabelType> > im); 
+   Potential(const FactorType& fac, const std::vector<LabelType> l, std::vector<std::vector<LabelType> > im); 
    template<class Iterator> ValueType operator()(Iterator begin) const;
    size_t size() const {return fac_->size();}; 
    LabelType shape(const size_t i) const {return fac_->shape(i);}
@@ -50,8 +50,9 @@ public:
 
 private:
    const FactorType* fac_;
+   std::vector<LabelType> l_;
    std::vector<std::vector<LabelType> > im_;
-   std::vector<LabelType> origIt, permIt;
+   mutable std::vector<LabelType> origIt, permIt;
 #ifdef OPENGM_IRI_SUBMODULARIZATION
    // do zrobienia: sprawdz blad w SUBMODULARIZATION! Eksperymenty daja rozne rezultaty, jezeli submodularyzajca jest wlaczona albo nie!
    std::vector<ValueType> Delta1, Delta2;
@@ -62,17 +63,22 @@ template<class GM>
 Potential<GM>::Potential
 ( 
  const FactorType& fac,
+ const std::vector<LabelType> l,
  const std::vector<std::vector<LabelType> > im
 ) :
    fac_(&fac),
+   l_(l),
    im_(im)
 {
    origIt.resize(dimension());
    permIt.resize(dimension());
 
    OPENGM_ASSERT(im_.size() == dimension());
-   for(size_t v=0; v<dimension(); v++)
+   OPENGM_ASSERT(l_.size() == dimension());
+   for(size_t v=0; v<dimension(); v++) {
       OPENGM_ASSERT(im_[v].size() == shape(v));
+      OPENGM_ASSERT(l_[v] < shape(v));
+   }
 
    ComputeReducedPotential(im_);
 }
@@ -98,12 +104,12 @@ Potential<GM>::ComputeReducedPotential(const std::vector<std::vector<typename GM
          }
       }
       for(size_t i=0; i<im[0].size(); i++) {
-         OPENGM_ASSERT(Delta1[i] < std::numeric_limits<LabelType>::max());
-         if(Delta1[i] == std::numeric_limits<LabelType>::max()) throw;
+         //OPENGM_ASSERT(Delta1[i] < std::numeric_limits<LabelType>::max()); // actually potentials can have max() as value
+         if(Delta1[i] == std::numeric_limits<LabelType>::max()) throw RuntimeError("Infinities in potentials not allowed");
       }
       for(size_t j=0; j<im[1].size(); j++) {
-         OPENGM_ASSERT(Delta2[j] < std::numeric_limits<LabelType>::max());
-         if(Delta2[j] == std::numeric_limits<LabelType>::max()) throw;
+         //OPENGM_ASSERT(Delta2[j] < std::numeric_limits<LabelType>::max());
+         if(Delta2[j] == std::numeric_limits<LabelType>::max()) throw RuntimeError("Infinities in potentials not allowed");
       }
    }
 #endif
@@ -114,6 +120,11 @@ template<class Iterator>
 typename GM::ValueType
 Potential<GM>::OrigPotentialValue(Iterator begin) const
 {
+   // make optimum of the improving mapping problem unique, so that optimal solution is not degenerate (for CPLEX)
+   if(dimension() == 1 && *begin != l_[0] && im_[0][*begin] == *begin) {
+      OPENGM_ASSERT(im_[0][l_[0]] == l_[0]);
+      return 1e7;
+   } else {
    // due to const-ness cannot use origIt and permIt directly. However for performance reasons I do not want to allocate Iterators so often but hold memory ready.
    LabelType* origItTmp = const_cast<LabelType *>(origIt.data());
    LabelType* permItTmp = const_cast<LabelType *>(permIt.data());
@@ -126,6 +137,7 @@ Potential<GM>::OrigPotentialValue(Iterator begin) const
    }
 
    return fac_->operator()(origItTmp) - fac_->operator()(permItTmp); 
+   }
 }
 
 template<class GM>
