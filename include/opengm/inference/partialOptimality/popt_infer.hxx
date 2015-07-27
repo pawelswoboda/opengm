@@ -13,9 +13,10 @@
 #ifdef WITH_CPLEX
 #include "popt_iri_cplex.hxx"
 #endif
+#include "../../../../src/external/Shekhovtsov_POpt/code/optim/part_opt/part_opt_opengm.h"
+
 
 namespace opengm {
-
 
 template<class GM, class ACC> 
 class POpt_infer : public Inference<GM, ACC>
@@ -24,7 +25,8 @@ public:
    struct Parameter {
       enum Method {DEE1,DEE2,DEE3,DEE4,Kovtun,MQPBO,IRI_TRWS,
                    IRI_ADSal,IRI_CPLEX,
-                   PBP_TRWS,PBP_CPLEX,PBP_ADSal};
+                   PBP_TRWS,PBP_CPLEX,PBP_ADSal,
+                   IRI_SHEKHOVTSOV};
       std::vector<Method> methodSequence_;
    };
 
@@ -111,6 +113,9 @@ POpt_infer<GM,ACC>::infer(Visitor& visitor)
          PBP::PBP<POpt_Data<GM>,opengm::Minimizer,POpt_IRI_CPLEX> pbp(d_);
          infReturnValue = pbp.infer();
 #endif
+      } else if(parameter_.methodSequence_[i] == Parameter::IRI_SHEKHOVTSOV) {
+         part_opt_opengm<POpt_Data<GM>,opengm::Minimizer> iri(d_);
+         infReturnValue = iri.infer();
       } else {
          std::cout << "method not implemented yet" << std::endl;
          throw; 

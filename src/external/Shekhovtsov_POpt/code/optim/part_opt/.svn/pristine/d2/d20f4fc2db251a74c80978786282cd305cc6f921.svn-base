@@ -1,0 +1,7 @@
+* allow pairwise terms allocate data in the core
+* parameters with std::map
+* template type / vectorizer
++ * color burn pictures
+* truncated quadratic <-> truncated convex diff
+* banded matrix <-> generalized potts
++ * sensetivity analyzis

@@ -96,6 +96,11 @@ POpt_IRI_CPLEX<GM,ACC>::consistent(std::vector<bool>& consistent)
          }
       }
    }
+   size_t noConsistent = 0;
+   for(size_t i=0; i<consistent.size(); i++)
+      if(consistent[i])
+         noConsistent++;
+   std::cout << "# consistent variables = " << noConsistent << " of " << consistent.size() << " overall variables" << std::endl;
 }
 
 template<class GM, class ACC>

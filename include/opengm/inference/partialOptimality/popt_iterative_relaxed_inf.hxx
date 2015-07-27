@@ -19,6 +19,13 @@
 #include <queue>
 #include <ctime>
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <stdlib.h>
+
+#include <stdint.h>
+
 namespace opengm {
 namespace IRI {
 
@@ -164,7 +171,7 @@ private:
    void InitializeImprovingMap();
    void InitializeImmovable();
    void ImproveLabeling(std::vector<LabelType>& l);
-   void ConstructMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im);
+   void ConstructMRF(PersistencyGMType& pgm, const std::vector<LabelType>& l, const std::vector<std::vector<LabelType> >& im);
    void UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im);
    void UpdateMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im, size_t v);
    void ConstructSubsetToOneMap(
@@ -196,6 +203,7 @@ private:
          PersistencyGMType& pgm);
    //bool IsGloballyOptimalSolution(SOLVER& solver);
    size_t NoImmovableLabels(const std::vector<std::vector<bool> >& immovable);
+   void savePartialOptimalityMask(const std::string& name, const std::vector<std::vector<LabelType> >& im) const;
 
    DATA& d_;
    const GM& gm_;
@@ -222,7 +230,14 @@ IRI<DATA,ACC,SOLVER>::IRI(DATA& d, const Parameter& param) :
    gm_(d.graphicalModel()),
    n_(d.graphicalModel().numberOfVariables())
 {
+   if(gm_.factorOrder() > 2) {
+      throw RuntimeError("Only second order models supported");
+   }
    OPENGM_ASSERT(typeid(ACC) == typeid(opengm::Minimizer));
+   //if(typeid(ACC) == typeid(opengm::Minimizer)) {
+   //   throw RuntimeError("Only minimization supported");
+   //}
+
    InitializeImprovingMap();
    InitializeImmovable();
 
@@ -280,7 +295,7 @@ IRI<DATA,ACC,SOLVER>::ImproveLabeling(std::vector<LabelType>& l)
 // construct MRF with cost theta - P^\T * theta
 template<class DATA,class ACC,template <typename,typename> class SOLVER>
 void
-IRI<DATA,ACC,SOLVER>::ConstructMRF(PersistencyGMType& pgm, const std::vector<std::vector<LabelType> >& im)
+IRI<DATA,ACC,SOLVER>::ConstructMRF(PersistencyGMType& pgm, const std::vector<LabelType>& l, const std::vector<std::vector<LabelType> >& im)
 {
    std::clock_t beginTime = clock();
 
@@ -288,12 +303,16 @@ IRI<DATA,ACC,SOLVER>::ConstructMRF(PersistencyGMType& pgm, const std::vector<std
    for(size_t f=0; f<gm_.numberOfFactors(); f++) {
       // get associated variables
       std::vector<IndexType> varFactor(gm_[f].variableIndicesBegin(), gm_[f].variableIndicesEnd());
-      std::vector<std::vector<LabelType> > imFactor(varFactor.size());
+      // get associated sublabeling
+      std::vector<LabelType> subL(varFactor.size());
+      for(size_t v=0; v<varFactor.size(); v++)
+         subL[v] = l_[varFactor[v]];
       // get associated pixelwise improving mappings
+      std::vector<std::vector<LabelType> > imFactor(varFactor.size());
       for(size_t v=0; v<varFactor.size(); v++)
          imFactor[v] = im[varFactor[v]];
       // add modified potential: theta - P^\T * theta
-      PersPotentialType p(gm_[f],imFactor);
+      PersPotentialType p(gm_[f],subL,imFactor);
       pgm.addFactor(pgm.addFunction(p), gm_[f].variableIndicesBegin(), gm_[f].variableIndicesEnd());
    }
 
@@ -624,6 +643,8 @@ IRI<DATA,ACC,SOLVER>::infer()
    typename SOLVER<GM,ACC>::WarmStartParamType warmStartParam;
 
    std::clock_t beginInferenceTime = clock();
+   size_t iter=0;
+   PersistencyGMType pgm;
    // first solve the original problem to get a labeling
    {
       std::clock_t beginTime = clock();
@@ -646,20 +667,18 @@ IRI<DATA,ACC,SOLVER>::infer()
 
       if(solver.IsGloballyOptimalSolution()) {
          std::cout << "Globally optimal solution found by relaxation" << std::endl;
-         return NORMAL;
+         goto FINISH;
       }
       solver.GetWarmStartParam(warmStartParam);
    }
 
    // construct the modified MRF based on the improving mapping
-   PersistencyGMType pgm;
    // build subset to one mapping based on initial labeling l_
    std::cout << "Constructing modified model" << std::endl;
    ConstructSubsetToOneMap(im_,l_,immovable_);
-   ConstructMRF(pgm, im_);
+   ConstructMRF(pgm, l_, im_);
 
    // increment immovable elements until constructed subset to one map can be certified to be improving
-   size_t iter=0;
    while(!AllLabelImmovable(immovable_)) {
       std::cout << "New iteration " << iter << " in improving mapping persistency algorithm" << std::endl;
 
@@ -669,7 +688,7 @@ IRI<DATA,ACC,SOLVER>::infer()
 
       std::cout << "Solving modified model" << std::endl;
       PrimalBoundVisitor<typename IterSolverType::SolverType> visitor(-eps_,5); // visitor stops whenever some integer labeling with value < 0 is found
-      solver.infer(visitor); 
+      solver.infer(visitor);  
 
       solver.GetWarmStartParam(warmStartParam);
 
@@ -698,8 +717,18 @@ IRI<DATA,ACC,SOLVER>::infer()
          std::cout << "Could not obtain improving mapping after 5000 iterations, aborting" << std::endl;
          break;
       }
+
+      /*
+      std::stringstream iterations_str;
+      iterations_str << iter;
+      std::string intermed_file = ("iterative_relaxed_inference_mask_iter_");
+      intermed_file.append(iterations_str.str());
+      intermed_file.append(".pgm");
+      savePartialOptimalityMask(intermed_file,im_);
+      */
    }
-   
+
+FINISH:
    std::cout << "total time = " << double(clock() - beginInferenceTime)/double(CLOCKS_PER_SEC) << std::endl;
    std::cout << "Initial inference time = " << double(initialInferenceTime)/double(CLOCKS_PER_SEC) << std::endl;
    std::cout << "Subsequent inference time = " << double(subsequentInferenceTime)/double(CLOCKS_PER_SEC) << std::endl;
@@ -716,6 +745,132 @@ IRI<DATA,ACC,SOLVER>::infer()
 
    return NORMAL;
 }
+
+
+
+//write tikz image
+template<class DATA,class ACC,template <typename,typename> class SOLVER>
+void 
+IRI<DATA,ACC,SOLVER>::savePartialOptimalityMask(
+      const std::string& name, 
+      const std::vector<std::vector<LabelType> >& im) const
+{
+   size_t n1, n2;
+   if(im.size() == 30*30) {
+      n1 = 30; n2 = 30;
+   } else if(im.size() == 240*320) {
+      n1 = 240; n2 = 320;
+   } else if(im.size() == 240*360) {
+      n1 = 240; n2 = 360;
+   } else if(im.size() == 450*375) {
+      n1 = 450; n2 = 375;
+   } else if(im.size() == 384*288) {
+      n1 = 384; n2 = 288;
+   } else {
+      std::cout << "Could not determine image dimensions" << std::endl;
+      return;
+   }
+
+   /*
+   std::vector<unsigned char> PngBuffer(im.size());
+   for(IndexType i=0; i<im.size(); i++) {
+      size_t x = i / n1;
+      size_t y = i % n2;
+      size_t noExcludedLabels = 0;
+      for(size_t x_i=0; x_i<im[i].size(); x_i++)
+         if(im_[i][x_i] != x_i)
+            noExcludedLabels++;
+      PngBuffer[i] = noExcludedLabels;
+   }
+   std::vector<unsignd char> ImageBuffer;
+   lodepng::encode(ImageBuffer,PngBuffer, n1,n2);
+   lodepng::save_file(ImageBuffer,name);
+   */
+   /*
+   png::image<png::rgb_pixel> image(n1,n2);
+   for(IndexType i=0; i<im.size(); i++) {
+      size_t x = i / n1;
+      size_t y = i % n2;
+      size_t noExcludedLabels = 0;
+      for(size_t x_i=0; x_i<im[i].size(); x_i++)
+         if(im_[i][x_i] != x_i)
+            noExcludedLabels++;
+      image[x][y] = png::rgb_pixel(0,0,noExcludedLabels);
+   }
+
+   image.write(name);
+   return;
+   */
+
+   std::ofstream fout;
+	fout.open(name.c_str());
+	if (!fout.is_open()) throw "Could not open file";
+
+   fout << "P5\n" << n1 << " " << n2 << "\n255\n";
+   for(IndexType i=0; i<im.size(); i++) {
+      size_t x = i / n1;
+      size_t y = i % n2;
+
+      char noExcludedLabels = 0;
+      for(size_t x_i=0; x_i<im[i].size(); x_i++)
+         if(im_[i][x_i] != x_i)
+            noExcludedLabels++;
+      noExcludedLabels = char( double(noExcludedLabels)/im[i].size()*128.0 );
+      fout.write(&noExcludedLabels,1*(sizeof(unsigned char)));
+   }
+
+
+   fout.close();
+   return;
+
+
+	//fout << "\\begin{tikzpicture}[scale=0.25] \n\\tikzstyle{outside}=[circle,thick,draw=red!75,scale=0.3] \n\\tikzstyle{inside}=[circle,thick,draw=yellow!75,fill=yellow!20,scale=0.3] \n\\tikzstyle{boundary}=[circle,thick,draw=green!75,fill=green!20,scale=0.3]" << std::endl;
+
+	//fout  << "\\node[circle,thick,draw=red!75,scale=0.3,label=0:Outside node] at (33,29) {};" << std::endl;
+	//fout  << "\\node[circle,thick,draw=yellow!75,fill=yellow!20,scale=0.3,label=0:Inside node] at (33,25) {};" << std::endl;
+	//fout  << "\\node[circle,thick,draw=green!75,fill=green!20,scale=0.3,label=0:Boundary node] at (33,21) {};" << std::endl;
+
+   // assume that we have a grid with n1 x n2 pixels. Automatically infer n1 and n2 from a precomputed table.
+   // write number of labels that cannot be excluded down at each pixel position
+   for(IndexType i=0; i<im.size(); i++) {
+      size_t x = i / n1;
+      size_t y = i % n2;
+
+      ValueType noExcludedLabels = 0;
+      for(size_t x_i=0; x_i<im[i].size(); x_i++)
+         if(im_[i][x_i] != x_i)
+            noExcludedLabels++;
+
+      fout << "\\node[" << noExcludedLabels << "of" << im[i].size() << "]";
+      fout << " (" <<x<<"a"<<y << ") at (" <<x<<","<<y<< ")  {};" << std::endl;
+	}
+	fout << std::endl << std::endl;
+
+   // write edges
+	fout  << "\\foreach \\from/\\to in{" << std::endl;
+	for(IndexType i=0; i<im.size(); i++) {
+		for(IndexType j=0; j<im.size(); j++) {
+			int x1 = i / n1;
+			int y1 = i % n2;
+			int x2 = j / n1;
+			int y2 = j % n2;
+         if(x1!=x2||y1!=y2)
+            if(abs(x1-x2) <= 1 && abs(y1-y2) <= 1)
+               if(!(abs(x1-x2) == 1 && abs(y1-y2) == 1)) 
+                  if(!(abs(x1-x2) == 0 && abs(y1-y2) == 0)) {
+                     fout << x1 <<"a"<< y1 << "/" << x2<<"a"<< y2;
+                     if(!( i==im.size()-1 && j==im.size()-2)) {
+                        fout << "," << std::endl;
+                     }
+                  }
+      }
+	}
+	fout << "}\\draw (\\from) -- (\\to);" << std::endl;
+	fout << std::endl;
+	//fout << "\\end{tikzpicture}";
+	fout.close();
+}
+
 
 } // namespace IRI
 } // namespace opengm

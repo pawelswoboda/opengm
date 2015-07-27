@@ -1,0 +1,42 @@
+Hi Paul,
+
+So lets start with this. I'v put the code in the archive, maybe I
+should take it to github later on.
+
+Find
+./projects/part_opt/CmakeLists.txt
+run cmake (gui)
+configure the directories that show up there and geenrate.
+Here, a great improvement would be if opengm and hdf5 were found
+automatically, but I do not know how to do it.
+
+Compile, you get
+./bin/test_random (try this first)
+./bin/test_part_opt_opengm
+
+If everything works as expected, look inside
+./code/optim/part_opt/test_part_opt_opengm.cpp
+
+you will find how to invoke my solver with opengm interface:
+#include "part_opt_opengm.h"
+// create your model
+part_opt_opengm<DATA, opengm::Adder> alg(data);
+alg.infer();
+// take the filled DATA
+
+Plug it into your evaluation. The only header to include is
+code/optim/part_opt/part_opt_opengm.h.
+It itself includes only opengm headers and not any mine.
+Link with exttype.lib and part_opt.lib or whatever is get created in
+./lib
+directory.
+
+I do not know where Kolmogorov's maxflow is compiled in opengm. If we
+get to this, I will update to exclude it from part_opt.lib.
+
+Let me know if there are any problems. I tested test_random on mac but
+not test_part_opt_opengm yet. I'll check it today.
+
+Cheers!
+Sasha
+

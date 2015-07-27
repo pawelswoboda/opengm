@@ -127,6 +127,7 @@ PBP<DATA, ACC, SOLVER>::infer()
 {
    std::clock_t beginTime = clock();
    std::vector<std::clock_t> iterationTime;
+   size_t iterations = 1;
 
    // first solve the original problem to get a labeling
    std::vector<LabelType> initLabeling, curLabeling;
@@ -146,10 +147,13 @@ PBP<DATA, ACC, SOLVER>::infer()
             throw RuntimeError("Globally optimal labeling found, but integrality gap persists!");
 
          std::cout << "Globally optimal solution found by relaxation" << std::endl;
-         for(size_t i=0; i<n_; i++)
-            d_.setTrue(i,initLabeling[i]);
-
-         return NORMAL;
+         iterationTime.push_back(clock() - beginTime);
+         goto FINISH;
+         //for(size_t i=0; i<n_; i++)
+         //   d_.setTrue(i,initLabeling[i]);
+         //
+         //std::cout << "Time for iteration 0 = " <<  double(clock() - beginTime) / CLOCKS_PER_SEC << std::endl;
+         //return NORMAL;
       } else {
          solver.consistent(consistent);
       }
@@ -158,7 +162,6 @@ PBP<DATA, ACC, SOLVER>::infer()
    curLabeling = initLabeling;
    iterationTime.push_back(clock() - beginTime);
 
-   size_t iterations = 1;
    while( (updateInterior(initLabeling,curLabeling,consistent,persistencyLoc) > 0) && PersistencyCandidatesExist(persistencyLoc) ) { // shrink interior by pruning variables
 
 
@@ -187,6 +190,7 @@ PBP<DATA, ACC, SOLVER>::infer()
       iterationTime.push_back(clock() - beginTime);
    }
 
+FINISH:
    std::cout << "Found persistent set after " << iterations << " iterations." << endl;
    IndexType p=0;
    for(size_t i=0; i<n_; i++) {
@@ -195,11 +199,17 @@ PBP<DATA, ACC, SOLVER>::infer()
          p++;
       }
    }
+
    std::cout << "Algorithm: Percentage partial optimality = " << double(p)/double(n_) << std::endl;
    std::cout << "Data object: Percentage partial optimality = " << d_.getPOpt() << std::endl;
 
    for(size_t i=0; i<iterationTime.size(); i++)
       std::cout << "Time for iteration " << i << " = " <<  double(iterationTime[i]) / CLOCKS_PER_SEC << std::endl;
+
+   //std::cout << "total time = " << double(iterationTime.back())/double(CLOCKS_PER_SEC) << std::endl;
+   //std::cout << "Initial inference time = " << double(iterationTime[0])/double(CLOCKS_PER_SEC) << std::endl;
+   //std::cout << "Subsequent inference time = " << double(iterationTime.back() - iterationTime[0])/double(CLOCKS_PER_SEC) << std::endl;
+
 
 
    return NORMAL;
@@ -366,6 +376,8 @@ PBP<DATA,ACC,SOLVER>::buildRedGm(
          //const FunctionIdentifierType funcId = redGm.addFunction( function );
          //std::vector<LabelType> * factorIndicesRed = new std::vector<LabelType>(redFactorIndices[factorId]);
          //redGm.addFactor( funcId, factorIndicesRed->begin(), factorIndicesRed->end());
+      } else {
+         OPENGM_ASSERT(redFactorIndices[factorId].size() == 0);
       }
    }
 
