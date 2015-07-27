@@ -74,6 +74,7 @@ inline POptCaller<IO, GM, ACC>::POptCaller(IO& ioIn)
 #ifdef WITH_CPLEX
    POptMethods_.push_back("PBP_CPLEX");
 #endif
+   POptMethods_.push_back("IRI_SHEKHOVTSOV");
 
    POptSequence_.resize(noPOpt_);
    // make list of partial optimality methods to call
@@ -125,6 +126,8 @@ inline void POptCaller<IO, GM, ACC>::runImpl(GM& model, OutputBase& output, cons
          parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_ADSal);
       } else if(POptSequence_[i].compare("PBP_CPLEX") == 0 ) {
          parameter_.methodSequence_.push_back(POpt_ParameterType::PBP_CPLEX);
+      } else if(POptSequence_[i].compare("IRI_SHEKHOVTSOV") == 0 ) {
+         parameter_.methodSequence_.push_back(POpt_ParameterType::IRI_SHEKHOVTSOV);
       } else {
          std::cout << "method not implemented yet" << std::endl;
          throw; // no other methods implemented yet

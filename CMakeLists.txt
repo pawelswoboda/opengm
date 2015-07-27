@@ -84,6 +84,7 @@ OPTION(WITH_MPLP "Include wrapper for MPLP code" OFF)
 OPTION(WITH_OPENMP "Include OpenMP" OFF)
 OPTION(WITH_CONICBUNDLE "Include ConicBundleLibrary" OFF)
 OPTION(WITH_MATLAB "Activate MatLab-Code" OFF)
+OPTION(WITH_SHEKHOVTSOV_POPT "Include Alexander Shekhovtsov's partial optimality code" ON)
 OPTION(BUILD_CONVERTER "Build several converters" OFF)
 OPTION(BUILD_PYTHON_WRAPPER "Build python wrapper" OFF)
 OPTION(BUILD_MATLAB_WRAPPER "Build matlab wrapper" OFF)
@@ -179,6 +180,19 @@ if(WITH_MATLAB)
   #include_directories(${MATLAB_INCLUDE_DIR})
   #add_definitions(-DWITH_MATLAB)
 endif(WITH_MATLAB)
+
+#--------------------------------------------------------------
+# Shekhovtsov's TRWS and partial optimality code
+#--------------------------------------------------------------
+if(WITH_SHEKHOVTSOV_POPT)
+   message(STATUS "build with partial optimality code from Alexander Shekhovtsov")
+   add_definitions(-DWITH_SHEKHOVTSOV_POPT)
+   include_directories(SHEKHOVTSOV_POPT_SRCDIR "${PROJECT_SOURCE_DIR}/src/external/Shekhovtsov_POpt/code" CACHE STRING "source directory for Shekhovtsov's code")
+   include_directories(${SHEKHOVTSOV_POPT_SRCDIR})
+else()
+   message(STATUS "build without partial optimality code from Alexander Shekhovtsov")
+endif()
+
 
 #--------------------------------------------------------------
 # TRWS

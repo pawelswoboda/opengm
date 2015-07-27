@@ -462,3 +462,7 @@ IF(WITH_MPLP)
         MESSAGE ("MPLP not installed, run make externalLibs first and configure again")
     ENDIF(DEFINED MPLP_SRC_FILES_EXIST)
 ENDIF()
+
+IF(WITH_SHEKHOVTSOV_POPT)
+   add_subdirectory(Shekhovtsov_POpt)
+ENDIF()

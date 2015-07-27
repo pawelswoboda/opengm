@@ -155,8 +155,8 @@ public:
    struct Parameter { 
       enum METHOD {SUBSET_TO_ONE, ALL_TO_ONE}; 
       METHOD method_;
-      //Parameter() : method_(SUBSET_TO_ONE) {};
-      Parameter() : method_(ALL_TO_ONE) {};
+      Parameter() : method_(SUBSET_TO_ONE) {};
+      //Parameter() : method_(ALL_TO_ONE) {};
    } param_;
 
    IRI(DATA& d, const Parameter& param = Parameter());
@@ -719,12 +719,15 @@ IRI<DATA,ACC,SOLVER>::infer()
       }
 
       /*
+=======
+>>>>>>> 3a918f279489e7a369958911b40dfd700693e8d0
       std::stringstream iterations_str;
       iterations_str << iter;
       std::string intermed_file = ("iterative_relaxed_inference_mask_iter_");
       intermed_file.append(iterations_str.str());
       intermed_file.append(".pgm");
       savePartialOptimalityMask(intermed_file,im_);
+<<<<<<< HEAD
       */
    }
 
