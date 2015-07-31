@@ -38,7 +38,7 @@
 #include <opengm/utilities/metaprogramming.hxx>
 
 #include "labelcollapse/modelbuilder.hxx"
-#include "labelcollapse/reparameterization.hxx"
+#include "labelcollapse/reparametrization.hxx"
 #include "labelcollapse/utils.hxx"
 #include "labelcollapse/visitor.hxx"
 
