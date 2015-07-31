@@ -393,93 +393,109 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class SequenceGeneratorIterator
+// class SequenceReparametrizerWrapper
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-// FIXME: Having two template arguments is also just a hack.
-// I'm not even sure what was the reason to introduce a second GM. Maybe it is
-// now obselete.
-template<class GM>
-class SequenceGeneratorIterator {
+template<class GM, class ACC, template<class> class SEQ_REPA>
+class SequenceReparametrizerWrapper : public LPReparametrizer<GM, ACC> {
 public:
-	typedef GM GraphicalModelType;
-	typedef typename GraphicalModelType::IndexType IndexType;
-	typedef typename GraphicalModelType::ValueType ValueType;
+	typedef LPReparametrizer<GM, ACC> Parent;
 
-	typedef trws_base::DecompositionStorage<GM> DecompositionStorageType;
+	using typename Parent::GraphicalModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+	using typename Parent::MaskType;
+	using typename Parent::RepaStorageType;
+
+	typedef TRWSi<GM, ACC> TRWSiType;
+	typedef typename TRWSiType::ReparametrizerType ReparametrizerType;
+
 	typedef trws_base::SequenceStorage<GM> SequenceStorageType;
-	typedef std::pair<SequenceGeneratorIterator<GM>, SequenceGeneratorIterator<GM> > Iterators;
-
 	typedef std::pair<IndexType, ValueType> Element;
 	typedef std::vector<Element> Elements;
 
-	bool operator!=(const SequenceGeneratorIterator&);
-	Elements& operator*();
-	SequenceGeneratorIterator<GM>& operator++();
-
-	static Iterators makeIterators(const DecompositionStorageType&);
+	SequenceReparametrizerWrapper(const GraphicalModelType &gm);
+	virtual void reparametrize(const MaskType* = NULL);
+	void getApproximateLabeling(std::vector<LabelType> &labeling);
 
 private:
-	SequenceGeneratorIterator(size_t index, const DecompositionStorageType&);
+	static typename TRWSiType::Parameter trwsiParameter();
 
-	size_t index_;
-	const DecompositionStorageType *storage_;
-	Elements current_;
+	using Parent::_gm;
+	using Parent::_repastorage;
+
+	TRWSiType trwsi_;
+	boost::scoped_ptr<ReparametrizerType> trwsiRepa_;
 };
 
-template<class GM>
-SequenceGeneratorIterator<GM>::SequenceGeneratorIterator
+template<class GM, class ACC, template<class> class SEQ_REPA>
+typename SequenceReparametrizerWrapper<GM, ACC, SEQ_REPA>::TRWSiType::Parameter
+SequenceReparametrizerWrapper<GM, ACC, SEQ_REPA>::trwsiParameter()
+{
+	typename TRWSiType::Parameter result;
+	result.maxNumberOfIterations_ = 1000;
+	result.setTreeAgreeMaxStableIter(100);
+	result.precision_ = 0;
+	result.verbose_ = true;
+	return result;
+}
+
+template<class GM, class ACC, template<class> class SEQ_REPA>
+SequenceReparametrizerWrapper<GM, ACC, SEQ_REPA>::SequenceReparametrizerWrapper
 (
-	size_t index,
-	const DecompositionStorageType &storage
+	const GraphicalModelType &gm
 )
-: index_(index)
-, storage_(&storage)
+: Parent(gm)
+, trwsi_(gm, trwsiParameter())
 {
 }
 
-template<class GM>
-bool
-SequenceGeneratorIterator<GM>::operator!=(const SequenceGeneratorIterator &rhs)
+template<class GM, class ACC, template<class> class SEQ_REPA>
+void
+SequenceReparametrizerWrapper<GM, ACC, SEQ_REPA>::getApproximateLabeling
+(
+	std::vector<LabelType> &labeling
+)
 {
-	return (index_ != rhs.index_) || (storage_ != rhs.storage_);
+	trwsi_.arg(labeling);
 }
 
-template<class GM>
-typename SequenceGeneratorIterator<GM>::Elements&
-SequenceGeneratorIterator<GM>::operator*()
+
+template<class GM, class ACC, template<class> class SEQ_REPA>
+void
+SequenceReparametrizerWrapper<GM, ACC, SEQ_REPA>::reparametrize
+(
+	const MaskType *mask
+)
 {
-	OPENGM_ASSERT_OP(index_, <, storage_->numberOfModels());
-	const SequenceStorageType &seq = storage_->subModel(index_);
-	current_.resize(seq.size());
-	for (IndexType i = 0; i < seq.size(); ++i) {
-		current_[i].first = seq.varIndex(i);
-		current_[i].second = static_cast<ValueType>(1.0)
-		                   / storage_->getSubVariableList(current_[i].first).size();
+	if (mask != NULL) {
+		throw std::runtime_error("SequenceReparametrizerWrapper has no support for mask.");
 	}
-	return current_;
-}
 
-template<class GM>
-SequenceGeneratorIterator<GM>&
-SequenceGeneratorIterator<GM>::operator++()
-{
-	++index_;
-	return *this;
-}
+	typedef typename ReparametrizerType::ReparametrizedGMType SubModelType;
+	SubModelType rgm;
 
-template<class GM>
-typename SequenceGeneratorIterator<GM>::Iterators
-SequenceGeneratorIterator<GM>::makeIterators
-(
-	const DecompositionStorageType &storage
-)
-{
-	return std::make_pair(
-		SequenceGeneratorIterator(0, storage),
-		SequenceGeneratorIterator(storage.numberOfModels(), storage)
-	);
+	_repastorage = RepaStorageType(_gm); // clear old repa
+
+	trwsi_.infer();
+	trwsiRepa_.reset(trwsi_.getReparametrizer());
+	trwsiRepa_->getReparametrizedModel(rgm);
+
+	typename TRWSiType::Storage &sto = trwsi_.getDecompositionStorage();
+	for (size_t i = 0; i < sto.numberOfModels(); ++i) {
+		const SequenceStorageType &seq = sto.subModel(i);
+		Elements current(seq.size());
+		for (IndexType i = 0; i < seq.size(); ++i) {
+			current[i].first = seq.varIndex(i);
+			current[i].second = static_cast<ValueType>(1.0)
+			                  / sto.getSubVariableList(current[i].first).size();
+		}
+
+		SEQ_REPA<SubModelType> reparametrizer(rgm, current);
+		trivialMerge(reparametrizer.run(), _repastorage);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -658,74 +674,6 @@ SequenceReparametrizer<GM, DERIVED>::backwardPass()
 	#endif
 }
 
-template<class GM, class DERIVED>
-template<class INPUT_ITERATOR>
-typename SequenceReparametrizer<GM, DERIVED>::StorageType
-SequenceReparametrizer<GM, DERIVED>::reparametrizeAll
-(
-	const GM &gm,
-	INPUT_ITERATOR begin,
-	INPUT_ITERATOR end
-)
-{
-	#ifndef NDEBUG
-	std::cout << "SequenceReparametrizer::reparametrizeAll()" << std::endl;
-	#endif
-	StorageType repa_(gm);
-	for (INPUT_ITERATOR it = begin; it != end; ++it) {
-		DERIVED reparametrizer(gm, *it);
-		trivialMerge(reparametrizer.run(), repa_);
-	}
-
-	#ifndef NDEBUG
-	typedef typename GM::IndexType IndexType;
-	typedef typename GM::FactorType FactorType;
-	typedef typename FactorType::ShapeIteratorType ShapeIteratorType;
-	std::cout << "-- BEGIN ORIGINAL GM --" << std::endl;
-	for (IndexType i = 0; i < gm.numberOfFactors(); ++i) {
-		std::cout << "FACTOR " << i << ":" << std::endl;
-
-		ShapeWalkerSwitchedOrder<ShapeIteratorType> walker(gm[i].shapeBegin(), gm[i].numberOfVariables());
-		for (IndexType j = 0; j < gm[i].size(); ++j, ++walker) {
-			const FastSequence<LabelType> &labeling = walker.coordinateTuple();
-			for (typename FastSequence<LabelType>::ConstIteratorType it = labeling.begin();
-			     it != labeling.end(); ++it)
-			{
-				std::cout << " " << *it;
-			}
-			std::cout << "  ->  " << gm[i](labeling.begin()) << std::endl;
-		}
-	}
-	std::cout << "-- END ORIGINAL GM --" << std::endl;
-
-	std::cout << "-- BEGIN REPARAMETRIZED GM --" << std::endl;
-	for (IndexType i = 0; i < gm.numberOfFactors(); ++i) {
-		std::cout << "FACTOR " << i << ":" << std::endl;
-
-		ShapeWalkerSwitchedOrder<ShapeIteratorType> walker(gm[i].shapeBegin(), gm[i].numberOfVariables());
-		for (IndexType j = 0; j < gm[i].size(); ++j, ++walker) {
-			const FastSequence<LabelType> &labeling = walker.coordinateTuple();
-			for (typename FastSequence<LabelType>::ConstIteratorType it = labeling.begin();
-			     it != labeling.end(); ++it)
-			{
-				std::cout << " " << *it;
-			}
-			std::cout << "  ->  " << repa_.getFactorValue(i, labeling.begin()) << std::endl;
-		}
-	}
-	std::cout << "-- END REPARAMETRIZED GM --" << std::endl;
-
-	// PrintTestData is only declared if this macro is defined.
-	#ifdef TRWS_DEBUG_OUTPUT
-	std::cout << "-- BEGIN REPARAMETRIZATION --" << std::endl;
-	repa_.PrintTestData(std::cout);
-	std::cout << "-- END REPARAMETRIZATION --" << std::endl;
-	#endif
-	#endif
-
-	return repa_;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 //
 // class CanonicalReparametrizer
@@ -757,7 +705,6 @@ protected:
 
 	using Parent::gm_;
 	using Parent::sequence_;
-	using Parent::repa_;
 
 	void backwardPass();
 
@@ -868,7 +815,6 @@ protected:
 
 	using Parent::gm_;
 	using Parent::sequence_;
-	using Parent::repa_;
 
 	void backwardPass();
 
@@ -995,7 +941,6 @@ protected:
 
 	using Parent::gm_;
 	using Parent::sequence_;
-	using Parent::repa_;
 
 	void backwardPass();
 
@@ -1115,15 +1060,18 @@ CustomReparametrizer<GM>::backwardPass()
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM>
-class MinSumDiffusion {
+template<class GM, class ACC>
+class MinSumDiffusion : public LPReparametrizer<GM, ACC> {
 public:
-	typedef GM GraphicalModelType;
-	typedef typename GM::IndexType IndexType;
-	typedef typename GM::LabelType LabelType;
-	typedef typename GM::ValueType ValueType;
+	typedef LPReparametrizer<GM, ACC> Parent;
 
-	typedef LPReparametrisationStorage<GM> StorageType;
+	using typename Parent::GraphicalModelType;
+	using typename Parent::IndexType;
+	using typename Parent::LabelType;
+	using typename Parent::ValueType;
+	using typename Parent::RepaStorageType;
+	using typename Parent::MaskType;
+
 	typedef marray::Marray<ValueType> Potentials;
 	typedef std::pair<ValueType*, ValueType*> Iterators;
 
@@ -1131,52 +1079,48 @@ public:
 
 	void processNode(IndexType);
 	void singlePass();
-	void run();
+	virtual void reparametrize(const MaskType* = NULL);
 	ValueType dualObjective() const;
 
-	const GraphicalModelType& graphicalModel() const { return gm_; }
-	const StorageType& reparametrization() const { return repa_; }
-
 private:
-	const GraphicalModelType &gm_;
-	StorageType repa_;
+	using Parent::_gm;
+	using Parent::_repastorage;
 };
 
-template<class GM>
-MinSumDiffusion<GM>::MinSumDiffusion
+template<class GM, class ACC>
+MinSumDiffusion<GM, ACC>::MinSumDiffusion
 (
 	const GraphicalModelType &gm
 )
-: gm_(gm)
-, repa_(gm)
+: Parent(gm)
 {
 }
 
-template<class GM>
+template<class GM, class ACC>
 void
-MinSumDiffusion<GM>::processNode
+MinSumDiffusion<GM, ACC>::processNode
 (
 	IndexType var
 )
 {
 	typedef marray::Vector<IndexType> Vec;
 	Vec factorIds;
-	size_t count = gm_.numberOfNthOrderFactorsOfVariable(var, 2, factorIds);
+	size_t count = _gm.numberOfNthOrderFactorsOfVariable(var, 2, factorIds);
 
 	// BUG? If the vector does not contain any elements, constructing iterators
 	// will violate some assertions. This seems strange...
 	if (count == 0)
 		return;
 
-	for (IndexType lab = 0; lab < gm_.numberOfLabels(var); ++lab) {
+	for (IndexType lab = 0; lab < _gm.numberOfLabels(var); ++lab) {
 		// Accumulation
 		for (typename Vec::const_iterator it = factorIds.begin(); it != factorIds.end(); ++it) {
-			IndexType var2 = gm_.secondVariableOfSecondOrderFactor(var, *it);
-			Potentials pot = copyPairwiseFromRepa(gm_, var, var2, repa_);
-			Iterators its = getPencil(gm_, var, var2, repa_);
+			IndexType var2 = _gm.secondVariableOfSecondOrderFactor(var, *it);
+			Potentials pot = copyPairwiseFromRepa(_gm, var, var2, _repastorage);
+			Iterators its = getPencil(_gm, var, var2, _repastorage);
 
 			ValueType min = pot(lab, 0);
-			for (IndexType lab2 = 0; lab2 < gm_.numberOfLabels(var2); ++lab2) {
+			for (IndexType lab2 = 0; lab2 < _gm.numberOfLabels(var2); ++lab2) {
 				min = std::min(min, pot(lab, lab2));
 			}
 
@@ -1184,33 +1128,42 @@ MinSumDiffusion<GM>::processNode
 		}
 
 		// Delta
-		Potentials deltas = copyUnaryFromRepa(gm_, var, repa_);
+		Potentials deltas = copyUnaryFromRepa(_gm, var, _repastorage);
 		std::transform(deltas.begin(), deltas.end(), deltas.begin(),
 			std::bind2nd(std::divides<ValueType>(), static_cast<ValueType>(factorIds.size() + 1)));
 
 		// Diffusion
 		for (typename Vec::const_iterator it = factorIds.begin(); it != factorIds.end(); ++it) {
-			IndexType var2 = gm_.secondVariableOfSecondOrderFactor(var, *it);
-			Iterators its = getPencil(gm_, var, var2, repa_);
+			IndexType var2 = _gm.secondVariableOfSecondOrderFactor(var, *it);
+			Iterators its = getPencil(_gm, var, var2, _repastorage);
 
 			*(its.first + lab) += deltas(lab);
 		}
 	}
 }
 
-template<class GM>
+template<class GM, class ACC>
 void
-MinSumDiffusion<GM>::singlePass()
+MinSumDiffusion<GM, ACC>::singlePass()
 {
-	for (IndexType var = 0; var < gm_.numberOfVariables(); ++var) {
+	for (IndexType var = 0; var < _gm.numberOfVariables(); ++var) {
 		processNode(var);
 	}
 }
 
-template<class GM>
+template<class GM, class ACC>
 void
-MinSumDiffusion<GM>::run()
+MinSumDiffusion<GM, ACC>::reparametrize
+(
+	const MaskType *mask
+)
 {
+	if (mask != NULL) {
+		throw std::runtime_error("MinSumDiffusion has no support for mask.");
+	}
+
+	_repastorage = RepaStorageType(_gm);
+
 	unsigned int i = 0;
 	unsigned int noProgress = 0;
 	ValueType dual = dualObjective();
@@ -1231,19 +1184,20 @@ MinSumDiffusion<GM>::run()
 		std::cout << "dual: " << dual << " | ";
 
 		LabelCollapsePropertyChecker checker;
-		checker(gm_, repa_);
+		checker(_gm, _repastorage);
 		std::cout << checker.str() << std::endl;
 	}
 }
 
-template<class GM>
-typename MinSumDiffusion<GM>::ValueType
-MinSumDiffusion<GM>::dualObjective() const
+template<class GM, class ACC>
+typename MinSumDiffusion<GM, ACC>::ValueType
+MinSumDiffusion<GM, ACC>::dualObjective() const
 {
 	ValueType dual = 0;
-	for (IndexType i = 0; i < gm_.numberOfFactors(); ++i) {
-		marray::Marray<ValueType> result(gm_[i].shapeBegin(), gm_[i].shapeEnd());
-		repa_.copyFactorValues(i, result.begin());
+	for (IndexType i = 0; i < _gm.numberOfFactors(); ++i) {
+		// TODO: This is kind of slow-ish.
+		marray::Marray<ValueType> result(_gm[i].shapeBegin(), _gm[i].shapeEnd());
+		_repastorage.copyFactorValues(i, result.begin());
 
 		ValueType min = result(0);
 		for (size_t j = 0; j < result.size(); ++j)
@@ -1260,151 +1214,41 @@ MinSumDiffusion<GM>::dualObjective() const
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-//
-// FIXME: THE FOLLOWING IMPLEMENTATION IS JUST A HACK TO GET EVERYTHING WORKING.
-//
-// Instead of a common interface we just resort to C++ template metaprogramming.
-// This is not a very good and clean solution. Its also not very extensible.
-//
-
 enum ReparametrizationKind {
 	ReparametrizationNone,
+	ReparametrizationTRWS,
 	ReparametrizationChainCanonical,
 	ReparametrizationChainUniform,
 	ReparametrizationChainCustom,
 	ReparametrizationDiffusion
 };
 
-// Sorry, we need a helper for our hacky wrapper helper...
-template<class T, ReparametrizationKind KIND> struct ReparametrizerHelper;
-template<template<class> class REPA, class T> typename T::ReparametrizationStorageType chainHelper(T &that);
+template<class GM, class ACC, ReparametrizationKind KIND>
+struct ReparametrizerTypeGen;
 
-template<class GM, class ACC, ReparametrizationKind KIND =  ReparametrizationNone>
-class Reparametrizer {
-public:
-	typedef Reparametrizer<GM, ACC, KIND> MyType;
-	typedef GM OriginalModelType;
-	typedef ACC AccumulationType;
-	typedef LPReparametrizer<GM, ACC> ReparametrizerType;
-	typedef LPReparametrisationStorage<GM> ReparametrizationStorageType;
-	typedef typename ReparametrizerType::ReparametrizedGMType ReparametrizedModelType;
-	typedef ReparametrizerHelper<MyType, KIND> HelperType;
-
-	Reparametrizer(const OriginalModelType &gm)
-	: gm_(gm)
-	, repa_(gm)
-	{
-	}
-
-	const ReparametrizedModelType& reparametrizedModel() const
-	{
-		return rm_;
-	}
-
-	void reparametrize()
-	{
-		repa_.Reparametrization() = HelperType::doMagic(*this);
-		repa_.getReparametrizedModel(rm_);
-
-		LabelCollapsePropertyChecker checker;
-		checker(rm_);
-		std::cout << "After reparamaterization: " << checker.str() << std::endl;
-	}
-
-private:
-	const OriginalModelType &gm_;
-	ReparametrizedModelType rm_;
-	ReparametrizerType repa_;
-
-	friend HelperType;
-	template<template<class> class REPA, class T> friend typename T::ReparametrizationStorageType chainHelper(T &that);
+template<class GM, class ACC>
+struct ReparametrizerTypeGen<GM, ACC, ReparametrizationNone> {
+	typedef LPReparametrizer<GM, ACC> Type;
 };
 
-template<class T>
-struct ReparametrizerHelper<T, ReparametrizationNone> {
-	static typename T::ReparametrizationStorageType doMagic(T &that)
-	{
-		#ifndef NDEBUG
-		std::cout << "ReparametrizationNone activated!" << std::endl;
-		#endif
-		return typename T::ReparametrizationStorageType(that.gm_);
-	}
+template<class GM, class ACC>
+struct ReparametrizerTypeGen<GM, ACC, ReparametrizationChainCanonical> {
+	typedef SequenceReparametrizerWrapper<GM, ACC, CanonicalReparametrizer> Type;
 };
 
-template<template<class> class REPA, class T>
-typename T::ReparametrizationStorageType chainHelper(T &that)
-{
-	// FIXME: The whole function is really crappy. (I didn't do it!)
-	typedef TRWSi<typename T::OriginalModelType, typename T::AccumulationType> TRWSiType;
-	typename TRWSiType::Parameter trwsiParam;
-	trwsiParam.maxNumberOfIterations_ = 500;
-	trwsiParam.setTreeAgreeMaxStableIter(50);
-	trwsiParam.verbose_ = true;
-	TRWSiType trwsi(that.gm_, trwsiParam);
-	trwsi.infer();
-
-	typedef typename TRWSiType::ReparametrizerType ReparametrizerType;
-	typedef typename ReparametrizerType::ReparametrizedGMType TRWSiGMType;
-	TRWSiGMType gm;
-	boost::scoped_ptr<ReparametrizerType> trwsiReparametrizer(trwsi.getReparametrizer());
-	trwsiReparametrizer->reparametrize();
-	trwsiReparametrizer->getReparametrizedModel(gm);
-	typename T::ReparametrizationStorageType result = trwsiReparametrizer->Reparametrization();
-
-	typedef SequenceGeneratorIterator<typename T::OriginalModelType> SequenceGeneratorIteratorType;
-	typename SequenceGeneratorIteratorType::Iterators its = SequenceGeneratorIteratorType::makeIterators(trwsi.getDecompositionStorage());
-	trivialMerge(REPA<TRWSiGMType>::reparametrizeAll(gm, its.first, its.second), result);
-	return result;
-}
-
-template<class T>
-struct ReparametrizerHelper<T, ReparametrizationChainCanonical> {
-	static typename T::ReparametrizationStorageType doMagic(T &that)
-	{
-		#ifndef NDEBUG
-		std::cout << "ReparametrizationCanonical activated!" << std::endl;
-		#endif
-
-		return chainHelper<CanonicalReparametrizer>(that);
-	}
+template<class GM, class ACC>
+struct ReparametrizerTypeGen<GM, ACC, ReparametrizationChainUniform> {
+	typedef SequenceReparametrizerWrapper<GM, ACC, UniformReparametrizer> Type;
 };
 
-template<class T>
-struct ReparametrizerHelper<T, ReparametrizationChainUniform> {
-	static typename T::ReparametrizationStorageType doMagic(T &that)
-	{
-		#ifndef NDEBUG
-		std::cout << "ReparametrizationUniform activated!" << std::endl;
-		#endif
-
-		return chainHelper<UniformReparametrizer>(that);
-	}
+template<class GM, class ACC>
+struct ReparametrizerTypeGen<GM, ACC, ReparametrizationChainCustom> {
+	typedef SequenceReparametrizerWrapper<GM, ACC, CustomReparametrizer> Type;
 };
 
-template<class T>
-struct ReparametrizerHelper<T, ReparametrizationChainCustom> {
-	static typename T::ReparametrizationStorageType doMagic(T &that)
-	{
-		#ifndef NDEBUG
-		std::cout << "ReparametrizationCustom activated!" << std::endl;
-		#endif
-
-		return chainHelper<CustomReparametrizer>(that);
-	}
-};
-
-template<class T>
-struct ReparametrizerHelper<T, ReparametrizationDiffusion> {
-	static typename T::ReparametrizationStorageType doMagic(T &that)
-	{
-		#ifndef NDEBUG
-		std::cout << "ReparametrizationDiffusion activated!" << std::endl;
-		#endif
-
-		MinSumDiffusion<typename T::OriginalModelType> diffusion(that.gm_);
-		diffusion.run();
-		return diffusion.reparametrization();
-	}
+template<class GM, class ACC>
+struct ReparametrizerTypeGen<GM, ACC, ReparametrizationDiffusion> {
+	typedef MinSumDiffusion<GM, ACC> Type;
 };
 
 } // namespace labelcollapse

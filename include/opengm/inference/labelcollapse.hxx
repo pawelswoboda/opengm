@@ -67,9 +67,7 @@ struct LabelCollapseAuxTypeGen;
 
 template<class GM, class ACC>
 struct LabelCollapseAuxTypeGen {
-	// HACK: We are only interested in the the type and so we pass an arbitrary
-	// ACC (AccumulationType).
-	typedef typename labelcollapse::Reparametrizer<GM, opengm::Minimizer>::ReparametrizedModelType ReparametrizedModelType;
+	typedef typename LPReparametrizer<GM, ACC>::ReparametrizedGMType ReparametrizedModelType;
 	typedef typename labelcollapse::ModelBuilderAuxTypeGen<ReparametrizedModelType, ACC>::GraphicalModelType GraphicalModelType;
 };
 
@@ -108,7 +106,7 @@ public:
 	typedef LabelCollapseAuxTypeGen<GraphicalModelType, AccumulationType> AuxTypeGen;
 	typedef typename AuxTypeGen::ReparametrizedModelType ReparametrizedModelType;
 	typedef typename AuxTypeGen::GraphicalModelType AuxiliaryModelType;
-	typedef typename labelcollapse::Reparametrizer<GraphicalModelType, AccumulationType, KIND> ReparametrizerType;
+	typedef typename labelcollapse::ReparametrizerTypeGen<GraphicalModelType, AccumulationType, KIND>::Type ReparametrizerType;
 	typedef typename labelcollapse::ModelBuilder<ReparametrizedModelType, AccumulationType> ModelBuilderType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
@@ -161,10 +159,10 @@ public:
 
 private:
 	const GraphicalModelType *gm_;
+	ReparametrizedModelType rgm;
 	ReparametrizerType repa_;
 	ModelBuilderType builder_;
 	const Parameter parameter_;
-
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
 	ValueType value_;
@@ -179,13 +177,14 @@ LabelCollapse<GM, INF, KIND>::LabelCollapse
 )
 : gm_(&gm)
 , repa_(gm)
-, builder_(repa_.reparametrizedModel())
+, builder_(ReparametrizedModelType())
 , parameter_(parameter)
 {
 	// FIXME: This is a bit clumsy. We first construct all the objects and
-	// afterwards need to instantiate a new builder. This should be fixed.
+	// afterwards need to instantiate a *new* builder. This should be fixed.
 	repa_.reparametrize();
-	builder_ = ModelBuilderType(repa_.reparametrizedModel());
+	repa_.getReparametrizedModel(rgm);
+	builder_ = ModelBuilderType(rgm);
 
 	// Maybe user code wants to have a look at the model.
 	builder_.buildAuxiliaryModel();
