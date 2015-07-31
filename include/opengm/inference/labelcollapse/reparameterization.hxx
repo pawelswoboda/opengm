@@ -1,5 +1,5 @@
 //
-// File: reparameterization.hxx
+// File: reparametrization.hxx
 //
 // This file is part of OpenGM.
 //
@@ -25,8 +25,8 @@
 //
 
 #pragma once
-#ifndef OPENGM_LABELCOLLAPSE_REPARAMETERIZATION_HXX
-#define OPENGM_LABELCOLLAPSE_REPARAMETERIZATION_HXX
+#ifndef OPENGM_LABELCOLLAPSE_REPARAMETRIZATION_HXX
+#define OPENGM_LABELCOLLAPSE_REPARAMETRIZATION_HXX
 
 #include <boost/scoped_ptr.hpp>
 
@@ -38,7 +38,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// FIXME: THE WHOLE REPARAMETERIZATION MACHINERY IN **THIS** HEADER FILE
+// FIXME: THE WHOLE REPARAMETRIZATION MACHINERY IN **THIS** HEADER FILE
 // ONLY WORKS FOR UNARY/PAIRWISE MARKOV RANDOM FIELDS. SORRY.
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -484,13 +484,13 @@ SequenceGeneratorIterator<GM>::makeIterators
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class SequenceReparameterizer
+// class SequenceReparametrizer
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 // Uses CRTP pattern for static polymorphism.
 template<class GM, class DERIVED>
-class SequenceReparameterizer {
+class SequenceReparametrizer {
 public:
 	typedef GM GraphicalModelType;
 	typedef typename GM::IndexType IndexType;
@@ -503,11 +503,11 @@ public:
 	typedef marray::Marray<ValueType> Potentials;
 	typedef std::pair<ValueType*, ValueType*> Iterators;
 
-	SequenceReparameterizer(const GraphicalModelType&, const SequenceType&);
+	SequenceReparametrizer(const GraphicalModelType&, const SequenceType&);
 	StorageType run();
 
 	template<class INPUT_ITERATOR>
-	static StorageType reparameterizeAll(const GM &gm, INPUT_ITERATOR begin, INPUT_ITERATOR end);
+	static StorageType reparametrizeAll(const GM &gm, INPUT_ITERATOR begin, INPUT_ITERATOR end);
 
 protected:
 	void forwardPass();
@@ -523,7 +523,7 @@ protected:
 };
 
 template<class GM, class DERIVED>
-SequenceReparameterizer<GM, DERIVED>::SequenceReparameterizer
+SequenceReparametrizer<GM, DERIVED>::SequenceReparametrizer
 (
 	const GraphicalModelType &gm,
 	const SequenceType &sequence
@@ -535,11 +535,11 @@ SequenceReparameterizer<GM, DERIVED>::SequenceReparameterizer
 }
 
 template<class GM, class DERIVED>
-typename SequenceReparameterizer<GM, DERIVED>::StorageType
-SequenceReparameterizer<GM, DERIVED>::run()
+typename SequenceReparametrizer<GM, DERIVED>::StorageType
+SequenceReparametrizer<GM, DERIVED>::run()
 {
 	#ifndef NDEBUG
-	std::cout << "SequenceReparameterizer::run()" << std::endl;
+	std::cout << "SequenceReparametrizer::run()" << std::endl;
 	#endif
 	repa_ = StorageType(gm_);
 
@@ -552,8 +552,8 @@ SequenceReparameterizer<GM, DERIVED>::run()
 }
 
 template<class GM, class DERIVED>
-typename SequenceReparameterizer<GM, DERIVED>::Potentials
-SequenceReparameterizer<GM, DERIVED>::copyUnary
+typename SequenceReparametrizer<GM, DERIVED>::Potentials
+SequenceReparametrizer<GM, DERIVED>::copyUnary
 (
 	IndexType idx
 ) const
@@ -564,8 +564,8 @@ SequenceReparameterizer<GM, DERIVED>::copyUnary
 }
 
 template<class GM, class DERIVED>
-typename SequenceReparameterizer<GM, DERIVED>::Potentials
-SequenceReparameterizer<GM, DERIVED>::copyPairwise
+typename SequenceReparametrizer<GM, DERIVED>::Potentials
+SequenceReparametrizer<GM, DERIVED>::copyPairwise
 (
 	IndexType i,
 	IndexType j
@@ -580,8 +580,8 @@ SequenceReparameterizer<GM, DERIVED>::copyPairwise
 }
 
 template<class GM, class DERIVED>
-typename SequenceReparameterizer<GM, DERIVED>::Iterators
-SequenceReparameterizer<GM, DERIVED>::pencil
+typename SequenceReparametrizer<GM, DERIVED>::Iterators
+SequenceReparametrizer<GM, DERIVED>::pencil
 (
 	IndexType i,
 	IndexType j
@@ -597,10 +597,10 @@ SequenceReparameterizer<GM, DERIVED>::pencil
 
 template<class GM, class DERIVED>
 void
-SequenceReparameterizer<GM, DERIVED>::forwardPass()
+SequenceReparametrizer<GM, DERIVED>::forwardPass()
 {
 	#ifndef NDEBUG
-	std::cout << "SequenceReparameterizer::forwardPass()" << std::endl;
+	std::cout << "SequenceReparametrizer::forwardPass()" << std::endl;
 	#endif
 	Potentials pots;
 	Iterators its;
@@ -651,17 +651,17 @@ SequenceReparameterizer<GM, DERIVED>::forwardPass()
 
 template<class GM, class DERIVED>
 void
-SequenceReparameterizer<GM, DERIVED>::backwardPass()
+SequenceReparametrizer<GM, DERIVED>::backwardPass()
 {
 	#ifndef NDEBUG
-	std::cout << "SequenceReparameterizer::backwardPass()" << std::endl;
+	std::cout << "SequenceReparametrizer::backwardPass()" << std::endl;
 	#endif
 }
 
 template<class GM, class DERIVED>
 template<class INPUT_ITERATOR>
-typename SequenceReparameterizer<GM, DERIVED>::StorageType
-SequenceReparameterizer<GM, DERIVED>::reparameterizeAll
+typename SequenceReparametrizer<GM, DERIVED>::StorageType
+SequenceReparametrizer<GM, DERIVED>::reparametrizeAll
 (
 	const GM &gm,
 	INPUT_ITERATOR begin,
@@ -669,12 +669,12 @@ SequenceReparameterizer<GM, DERIVED>::reparameterizeAll
 )
 {
 	#ifndef NDEBUG
-	std::cout << "SequenceReparameterizer::reparameterizeAll()" << std::endl;
+	std::cout << "SequenceReparametrizer::reparametrizeAll()" << std::endl;
 	#endif
 	StorageType repa_(gm);
 	for (INPUT_ITERATOR it = begin; it != end; ++it) {
-		DERIVED reparameterizer(gm, *it);
-		trivialMerge(reparameterizer.run(), repa_);
+		DERIVED reparametrizer(gm, *it);
+		trivialMerge(reparametrizer.run(), repa_);
 	}
 
 	#ifndef NDEBUG
@@ -728,14 +728,14 @@ SequenceReparameterizer<GM, DERIVED>::reparameterizeAll
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class CanonicalReparameterizer
+// class CanonicalReparametrizer
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 template<class GM>
-class CanonicalReparameterizer : public SequenceReparameterizer<GM, CanonicalReparameterizer<GM> > {
+class CanonicalReparametrizer : public SequenceReparametrizer<GM, CanonicalReparametrizer<GM> > {
 public:
-	typedef SequenceReparameterizer<GM, CanonicalReparameterizer<GM> > Parent;
+	typedef SequenceReparametrizer<GM, CanonicalReparametrizer<GM> > Parent;
 
 	using typename Parent::GraphicalModelType;
 	using typename Parent::IndexType;
@@ -748,7 +748,7 @@ public:
 	using typename Parent::Potentials;
 	using typename Parent::Iterators;
 
-	CanonicalReparameterizer(const GraphicalModelType&, const SequenceType&);
+	CanonicalReparametrizer(const GraphicalModelType&, const SequenceType&);
 
 protected:
 	using Parent::copyUnary;
@@ -765,7 +765,7 @@ protected:
 };
 
 template<class GM>
-CanonicalReparameterizer<GM>::CanonicalReparameterizer
+CanonicalReparametrizer<GM>::CanonicalReparametrizer
 (
 	const GraphicalModelType &gm,
 	const SequenceType &sequence
@@ -776,16 +776,16 @@ CanonicalReparameterizer<GM>::CanonicalReparameterizer
 
 template<class GM>
 void
-CanonicalReparameterizer<GM>::backwardPass()
+CanonicalReparametrizer<GM>::backwardPass()
 {
 	#ifndef NDEBUG
-	std::cout << "CanonicalReparameterizer::backwardPass()" << std::endl;
+	std::cout << "CanonicalReparametrizer::backwardPass()" << std::endl;
 	#endif
 	Potentials pots;
 	Iterators its;
 
 	// Calculate energy (minimal marginal of last node). The energy is only
-	// used for verifying the reparameterization in debug mode.
+	// used for verifying the reparametrization in debug mode.
 	#ifndef NDEBUG
 	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
@@ -839,14 +839,14 @@ CanonicalReparameterizer<GM>::backwardPass()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class UniformReparameterizer
+// class UniformReparametrizer
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 template<class GM>
-class UniformReparameterizer : public SequenceReparameterizer<GM, UniformReparameterizer<GM> > {
+class UniformReparametrizer : public SequenceReparametrizer<GM, UniformReparametrizer<GM> > {
 public:
-	typedef SequenceReparameterizer<GM, UniformReparameterizer<GM> > Parent;
+	typedef SequenceReparametrizer<GM, UniformReparametrizer<GM> > Parent;
 
 	using typename Parent::GraphicalModelType;
 	using typename Parent::IndexType;
@@ -859,7 +859,7 @@ public:
 	using typename Parent::Potentials;
 	using typename Parent::Iterators;
 
-	UniformReparameterizer(const GraphicalModelType&, const SequenceType&);
+	UniformReparametrizer(const GraphicalModelType&, const SequenceType&);
 
 protected:
 	using Parent::copyUnary;
@@ -876,7 +876,7 @@ protected:
 };
 
 template<class GM>
-UniformReparameterizer<GM>::UniformReparameterizer
+UniformReparametrizer<GM>::UniformReparametrizer
 (
 	const GraphicalModelType &gm,
 	const SequenceType &sequence
@@ -887,16 +887,16 @@ UniformReparameterizer<GM>::UniformReparameterizer
 
 template<class GM>
 void
-UniformReparameterizer<GM>::backwardPass()
+UniformReparametrizer<GM>::backwardPass()
 {
 	#ifndef NDEBUG
-	std::cout << "UniformReparameterizer::backwardPass()" << std::endl;
+	std::cout << "UniformReparametrizer::backwardPass()" << std::endl;
 	#endif
 	Potentials pots;
 	Iterators its;
 
 	// Calculate energy (minimal marginal of last node). The energy is only
-	// used for verifying the reparameterization in debug mode.
+	// used for verifying the reparametrization in debug mode.
 	#ifndef NDEBUG
 	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
@@ -966,14 +966,14 @@ UniformReparameterizer<GM>::backwardPass()
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class CustomReparameterizer
+// class CustomReparametrizer
 //
 ////////////////////////////////////////////////////////////////////////////////
 
 template<class GM>
-class CustomReparameterizer : public SequenceReparameterizer<GM, CustomReparameterizer<GM> > {
+class CustomReparametrizer : public SequenceReparametrizer<GM, CustomReparametrizer<GM> > {
 public:
-	typedef SequenceReparameterizer<GM, CustomReparameterizer<GM> > Parent;
+	typedef SequenceReparametrizer<GM, CustomReparametrizer<GM> > Parent;
 
 	using typename Parent::GraphicalModelType;
 	using typename Parent::IndexType;
@@ -986,7 +986,7 @@ public:
 	using typename Parent::Potentials;
 	using typename Parent::Iterators;
 
-	CustomReparameterizer(const GraphicalModelType&, const SequenceType&);
+	CustomReparametrizer(const GraphicalModelType&, const SequenceType&);
 
 protected:
 	using Parent::copyUnary;
@@ -1006,7 +1006,7 @@ private:
 };
 
 template<class GM>
-CustomReparameterizer<GM>::CustomReparameterizer
+CustomReparametrizer<GM>::CustomReparametrizer
 (
 	const GraphicalModelType &gm,
 	const SequenceType &sequence
@@ -1022,16 +1022,16 @@ CustomReparameterizer<GM>::CustomReparameterizer
 
 template<class GM>
 void
-CustomReparameterizer<GM>::backwardPass()
+CustomReparametrizer<GM>::backwardPass()
 {
 	#ifndef NDEBUG
-	std::cout << "CustomReparameterizer::backwardPass()" << std::endl;
+	std::cout << "CustomReparametrizer::backwardPass()" << std::endl;
 	#endif
 	Potentials pots;
 	Iterators its;
 
 	// Calculate energy (minimal marginal of last node). The energy is only
-	// used for verifying the reparameterization in debug mode.
+	// used for verifying the reparametrization in debug mode.
 	#ifndef NDEBUG
 	pots = copyUnary(sequence_.size()-1);
 	ValueType energy = pots(0);
@@ -1135,7 +1135,7 @@ public:
 	ValueType dualObjective() const;
 
 	const GraphicalModelType& graphicalModel() const { return gm_; }
-	const StorageType& reparameterization() const { return repa_; }
+	const StorageType& reparametrization() const { return repa_; }
 
 private:
 	const GraphicalModelType &gm_;
@@ -1256,7 +1256,7 @@ MinSumDiffusion<GM>::dualObjective() const
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// class Reparameterizer and friends
+// class Reparametrizer and friends
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1267,41 +1267,41 @@ MinSumDiffusion<GM>::dualObjective() const
 // This is not a very good and clean solution. Its also not very extensible.
 //
 
-enum ReparameterizationKind {
-	ReparameterizationNone,
-	ReparameterizationChainCanonical,
-	ReparameterizationChainUniform,
-	ReparameterizationChainCustom,
-	ReparameterizationDiffusion
+enum ReparametrizationKind {
+	ReparametrizationNone,
+	ReparametrizationChainCanonical,
+	ReparametrizationChainUniform,
+	ReparametrizationChainCustom,
+	ReparametrizationDiffusion
 };
 
 // Sorry, we need a helper for our hacky wrapper helper...
-template<class T, ReparameterizationKind KIND> struct ReparameterizerHelper;
-template<template<class> class REPA, class T> typename T::ReparameterizationStorageType chainHelper(T &that);
+template<class T, ReparametrizationKind KIND> struct ReparametrizerHelper;
+template<template<class> class REPA, class T> typename T::ReparametrizationStorageType chainHelper(T &that);
 
-template<class GM, class ACC, ReparameterizationKind KIND =  ReparameterizationNone>
-class Reparameterizer {
+template<class GM, class ACC, ReparametrizationKind KIND =  ReparametrizationNone>
+class Reparametrizer {
 public:
-	typedef Reparameterizer<GM, ACC, KIND> MyType;
+	typedef Reparametrizer<GM, ACC, KIND> MyType;
 	typedef GM OriginalModelType;
 	typedef ACC AccumulationType;
-	typedef LPReparametrizer<GM, ACC> ReparameterizerType;
-	typedef LPReparametrisationStorage<GM> ReparameterizationStorageType;
-	typedef typename ReparameterizerType::ReparametrizedGMType ReparameterizedModelType;
-	typedef ReparameterizerHelper<MyType, KIND> HelperType;
+	typedef LPReparametrizer<GM, ACC> ReparametrizerType;
+	typedef LPReparametrisationStorage<GM> ReparametrizationStorageType;
+	typedef typename ReparametrizerType::ReparametrizedGMType ReparametrizedModelType;
+	typedef ReparametrizerHelper<MyType, KIND> HelperType;
 
-	Reparameterizer(const OriginalModelType &gm)
+	Reparametrizer(const OriginalModelType &gm)
 	: gm_(gm)
 	, repa_(gm)
 	{
 	}
 
-	const ReparameterizedModelType& reparameterizedModel() const
+	const ReparametrizedModelType& reparametrizedModel() const
 	{
 		return rm_;
 	}
 
-	void reparameterize()
+	void reparametrize()
 	{
 		repa_.Reparametrization() = HelperType::doMagic(*this);
 		repa_.getReparametrizedModel(rm_);
@@ -1313,26 +1313,26 @@ public:
 
 private:
 	const OriginalModelType &gm_;
-	ReparameterizedModelType rm_;
-	ReparameterizerType repa_;
+	ReparametrizedModelType rm_;
+	ReparametrizerType repa_;
 
 	friend HelperType;
-	template<template<class> class REPA, class T> friend typename T::ReparameterizationStorageType chainHelper(T &that);
+	template<template<class> class REPA, class T> friend typename T::ReparametrizationStorageType chainHelper(T &that);
 };
 
 template<class T>
-struct ReparameterizerHelper<T, ReparameterizationNone> {
-	static typename T::ReparameterizationStorageType doMagic(T &that)
+struct ReparametrizerHelper<T, ReparametrizationNone> {
+	static typename T::ReparametrizationStorageType doMagic(T &that)
 	{
 		#ifndef NDEBUG
-		std::cout << "ReparameterizationNone activated!" << std::endl;
+		std::cout << "ReparametrizationNone activated!" << std::endl;
 		#endif
-		return typename T::ReparameterizationStorageType(that.gm_);
+		return typename T::ReparametrizationStorageType(that.gm_);
 	}
 };
 
 template<template<class> class REPA, class T>
-typename T::ReparameterizationStorageType chainHelper(T &that)
+typename T::ReparametrizationStorageType chainHelper(T &that)
 {
 	// FIXME: The whole function is really crappy. (I didn't do it!)
 	typedef TRWSi<typename T::OriginalModelType, typename T::AccumulationType> TRWSiType;
@@ -1349,61 +1349,61 @@ typename T::ReparameterizationStorageType chainHelper(T &that)
 	boost::scoped_ptr<ReparametrizerType> trwsiReparametrizer(trwsi.getReparametrizer());
 	trwsiReparametrizer->reparametrize();
 	trwsiReparametrizer->getReparametrizedModel(gm);
-	typename T::ReparameterizationStorageType result = trwsiReparametrizer->Reparametrization();
+	typename T::ReparametrizationStorageType result = trwsiReparametrizer->Reparametrization();
 
 	typedef SequenceGeneratorIterator<typename T::OriginalModelType> SequenceGeneratorIteratorType;
 	typename SequenceGeneratorIteratorType::Iterators its = SequenceGeneratorIteratorType::makeIterators(trwsi.getDecompositionStorage());
-	trivialMerge(REPA<TRWSiGMType>::reparameterizeAll(gm, its.first, its.second), result);
+	trivialMerge(REPA<TRWSiGMType>::reparametrizeAll(gm, its.first, its.second), result);
 	return result;
 }
 
 template<class T>
-struct ReparameterizerHelper<T, ReparameterizationChainCanonical> {
-	static typename T::ReparameterizationStorageType doMagic(T &that)
+struct ReparametrizerHelper<T, ReparametrizationChainCanonical> {
+	static typename T::ReparametrizationStorageType doMagic(T &that)
 	{
 		#ifndef NDEBUG
-		std::cout << "ReparameterizationCanonical activated!" << std::endl;
+		std::cout << "ReparametrizationCanonical activated!" << std::endl;
 		#endif
 
-		return chainHelper<CanonicalReparameterizer>(that);
+		return chainHelper<CanonicalReparametrizer>(that);
 	}
 };
 
 template<class T>
-struct ReparameterizerHelper<T, ReparameterizationChainUniform> {
-	static typename T::ReparameterizationStorageType doMagic(T &that)
+struct ReparametrizerHelper<T, ReparametrizationChainUniform> {
+	static typename T::ReparametrizationStorageType doMagic(T &that)
 	{
 		#ifndef NDEBUG
-		std::cout << "ReparameterizationUniform activated!" << std::endl;
+		std::cout << "ReparametrizationUniform activated!" << std::endl;
 		#endif
 
-		return chainHelper<UniformReparameterizer>(that);
+		return chainHelper<UniformReparametrizer>(that);
 	}
 };
 
 template<class T>
-struct ReparameterizerHelper<T, ReparameterizationChainCustom> {
-	static typename T::ReparameterizationStorageType doMagic(T &that)
+struct ReparametrizerHelper<T, ReparametrizationChainCustom> {
+	static typename T::ReparametrizationStorageType doMagic(T &that)
 	{
 		#ifndef NDEBUG
-		std::cout << "ReparameterizationCustom activated!" << std::endl;
+		std::cout << "ReparametrizationCustom activated!" << std::endl;
 		#endif
 
-		return chainHelper<CustomReparameterizer>(that);
+		return chainHelper<CustomReparametrizer>(that);
 	}
 };
 
 template<class T>
-struct ReparameterizerHelper<T, ReparameterizationDiffusion> {
-	static typename T::ReparameterizationStorageType doMagic(T &that)
+struct ReparametrizerHelper<T, ReparametrizationDiffusion> {
+	static typename T::ReparametrizationStorageType doMagic(T &that)
 	{
 		#ifndef NDEBUG
-		std::cout << "ReparameterizationDiffusion activated!" << std::endl;
+		std::cout << "ReparametrizationDiffusion activated!" << std::endl;
 		#endif
 
 		MinSumDiffusion<typename T::OriginalModelType> diffusion(that.gm_);
 		diffusion.run();
-		return diffusion.reparameterization();
+		return diffusion.reparametrization();
 	}
 };
 
