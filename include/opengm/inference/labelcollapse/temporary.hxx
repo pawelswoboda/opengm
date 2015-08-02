@@ -42,22 +42,12 @@ temporaryTheorem2
 )
 {
 	std::cout << "[DBG] BEGIN THEOREM2" << std::endl;
-	typedef TRWSi<typename INF::ReparameterizedModelType, typename INF::AccumulationType> TRWSiType;
-	typename TRWSiType::Parameter param;
-	param.maxNumberOfIterations_ = 300;
-	param.setTreeAgreeMaxStableIter(50);
-	param.verbose_ = true;
-
-	TRWSiType trwsi(inf.reparameterizedModel(), param);
-	trwsi.infer();
-
 	std::vector<typename INF::LabelType> labeling;
-	trwsi.arg(labeling);
+	inf.reparametrizer().getApproximateLabeling(labeling);
 	if (out)
 		*out = labeling;
 
-	std::cout << "Presolving: value " << trwsi.value() << " | bound " << trwsi.bound()
-	          << " | labeling";
+	std::cout << "Presolving: ";
 	for (size_t i = 0; i < labeling.size(); ++i)
 		std::cout << " " << labeling[i];
 	std::cout << std::endl;
