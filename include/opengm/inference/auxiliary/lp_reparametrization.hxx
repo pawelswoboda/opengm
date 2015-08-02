@@ -41,24 +41,37 @@ public:
 
 	const UnaryFactor& get(IndexType factorIndex,IndexType relativeVarIndex)const//const access
 	{
-		OPENGM_ASSERT(factorIndex < _gm.numberOfFactors());
+		OPENGM_ASSERT(factorIndex < _gm->numberOfFactors());
 		OPENGM_ASSERT(relativeVarIndex < _dualVariables[factorIndex].size());
 		return _dualVariables[factorIndex][relativeVarIndex];
 	}
 	std::pair<uIterator,uIterator> getIterators(IndexType factorIndex,IndexType relativeVarIndex)
 				{
-		OPENGM_ASSERT(factorIndex < _gm.numberOfFactors());
+		OPENGM_ASSERT(factorIndex < _gm->numberOfFactors());
 		OPENGM_ASSERT(relativeVarIndex < _dualVariables[factorIndex].size());
 		UnaryFactor& uf=_dualVariables[factorIndex][relativeVarIndex];
 		uIterator begin=&uf[0];
 		return std::make_pair(begin,begin+uf.size());
 				}
 
+	template<class OUTPUT_ITERATOR>
+	void copyFactorValues(IndexType findex, OUTPUT_ITERATOR it) const
+	{
+		OPENGM_ASSERT(findex < _gm->numberOfFactors());
+		const typename GM::FactorType& factor = (*_gm)[findex];
+
+		typedef ShapeWalker<typename GraphicalModelType::FactorType::ShapeIteratorType> ShapeWalkerType;
+		ShapeWalkerType walker(factor.shapeBegin(), factor.numberOfVariables());
+		for (IndexType i = 0; i < factor.size(); ++i, ++walker, ++it) {
+			*it = getFactorValue(findex, walker.coordinateTuple().begin());
+		}
+	}
+
 	template<class ITERATOR>
 	ValueType getFactorValue(IndexType findex,ITERATOR it)const
 	{
-		OPENGM_ASSERT(findex < _gm.numberOfFactors());
-		const typename GM::FactorType& factor=_gm[findex];
+		OPENGM_ASSERT(findex < _gm->numberOfFactors());
+		const typename GM::FactorType& factor=(*_gm)[findex];
 
 		ValueType res=0;//factor(it);
 		if (factor.numberOfVariables()>1)
@@ -79,15 +92,15 @@ public:
 
 	ValueType getVariableValue(IndexType varIndex,LabelType label)const
 	{
-		OPENGM_ASSERT(varIndex < _gm.numberOfVariables());
+		OPENGM_ASSERT(varIndex < _gm->numberOfVariables());
 		ValueType res=0.0;
-		for (IndexType i=0;i<_gm.numberOfFactors(varIndex);++i)
+		for (IndexType i=0;i<_gm->numberOfFactors(varIndex);++i)
 		{
-			IndexType factorId=_gm.factorOfVariable(varIndex,i);
-			OPENGM_ASSERT(factorId < _gm.numberOfFactors());
-			if (_gm[factorId].numberOfVariables()==1)
+			IndexType factorId=_gm->factorOfVariable(varIndex,i);
+			OPENGM_ASSERT(factorId < _gm->numberOfFactors());
+			if ((*_gm)[factorId].numberOfVariables()==1)
 			{
-				res+=_gm[factorId](&label);
+				res+=(*_gm)[factorId](&label);
 				continue;
 			}
 
@@ -106,29 +119,27 @@ public:
 		trws_base::exception_check(it!=_localIdMap[factorId].end(),"LPReparametrisationStorage:localId() - factor and variable are not connected!");
 		return it->second;};
 
-	const GM& graphicalModel()const{return _gm;}
+	const GM& graphicalModel()const{return *_gm;}
 
 	template<class VECTOR>
 	void serialize(VECTOR* pserialization)const;
 	template<class VECTOR>
 	void deserialize(const VECTOR& serialization);
 private:
-	LPReparametrisationStorage(const LPReparametrisationStorage&);//TODO: carefully implement, when needed
-	LPReparametrisationStorage& operator=(const LPReparametrisationStorage&);//TODO: carefully implement, when needed
-	const GM& _gm;
+	const GM* _gm;
 	std::vector<VecUnaryFactors> _dualVariables;
 	std::vector<VarIdMapType> _localIdMap;
 };
 
 template<class GM>
 LPReparametrisationStorage<GM>::LPReparametrisationStorage(const GM& gm)
-:_gm(gm),_localIdMap(gm.numberOfFactors())
+:_gm(&gm),_localIdMap(gm.numberOfFactors())
  {
-	_dualVariables.resize(_gm.numberOfFactors());
+	_dualVariables.resize(_gm->numberOfFactors());
 	//for all factors with order > 1
-	for (IndexType findex=0;findex<_gm.numberOfFactors();++findex)
+	for (IndexType findex=0;findex<_gm->numberOfFactors();++findex)
 	{
-		IndexType numVars=_gm[findex].numberOfVariables();
+		IndexType numVars=(*_gm)[findex].numberOfVariables();
 		VarIdMapType& mapFindex=_localIdMap[findex];
 		if (numVars>=2)
 		{
@@ -136,11 +147,11 @@ LPReparametrisationStorage<GM>::LPReparametrisationStorage(const GM& gm)
 			_dualVariables[findex].resize(numVars);
 			//std::valarray<IndexType> v(numVars);
 			std::vector<IndexType> v(numVars);
-			_gm[findex].variableIndices(&v[0]);
+			(*_gm)[findex].variableIndices(&v[0]);
 			for (IndexType n=0;n<numVars;++n)
 			{
-				//_dualVariables[findex][n].assign(_gm.numberOfLabels(v[n]),0.0);//TODO. Do it like this
-				_dualVariables[findex][n].resize(_gm.numberOfLabels(v[n]));
+				//_dualVariables[findex][n].assign(_gm->numberOfLabels(v[n]),0.0);//TODO. Do it like this
+				_dualVariables[findex][n].resize(_gm->numberOfLabels(v[n]));
 				mapFindex[v[n]]=n;
 			}
 		}
@@ -187,11 +198,11 @@ template<class VECTOR>
 void LPReparametrisationStorage<GM>::deserialize(const VECTOR& serialization)
 {
 	size_t i=0;
-	 for (IndexType factorId=0;factorId<_gm.numberOfFactors();++factorId)
+	 for (IndexType factorId=0;factorId<_gm->numberOfFactors();++factorId)
 	 {
 		 OPENGM_ASSERT(factorId<_dualVariables.size());
-		 if (_gm[factorId].numberOfVariables()==1) continue;
-		 for (IndexType localId=0;localId<_gm[factorId].numberOfVariables();++localId)
+		 if ((*_gm)[factorId].numberOfVariables()==1) continue;
+		 for (IndexType localId=0;localId<(*_gm)[factorId].numberOfVariables();++localId)
 		 {
 			OPENGM_ASSERT(localId<_dualVariables[factorId].size());
 			for (LabelType label=0;label<_dualVariables[factorId][localId].size();++label)
@@ -308,7 +319,7 @@ public:
 	 * The last parameter - number of border p/w factors incident to varID for all variables
 	 */
 	static void getGMMaskBorder(const GM& gm,const MaskType& mask,std::vector<std::pair<IndexType,IndexType> >* pborderFactors ,std::vector<IndexType>* pborderFactorCounter);
-private:
+protected:
 	const GM& _gm;
 	RepaStorageType _repastorage;
 };
