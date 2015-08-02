@@ -139,6 +139,7 @@ public:
 	const GraphicalModelType& graphicalModel() const { return *gm_; }
 	const ReparametrizedModelType &reparametrizedModel() const { return repa_.reparametrizedModel(); }
 	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
+	const ReparametrizerType& reparametrizer() const { return repa_; }
 
 	InferenceTermination infer();
 	template<class VISITOR> InferenceTermination infer(VISITOR&);
