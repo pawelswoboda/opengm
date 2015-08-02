@@ -163,7 +163,7 @@ private:
 	ReparametrizedModelType rgm;
 	ReparametrizerType repa_;
 	ModelBuilderType builder_;
-	const Parameter parameter_;
+	Parameter parameter_;
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
 	ValueType value_;
@@ -235,6 +235,7 @@ LabelCollapse<GM, INF, KIND>::infer
 	value_ = AccumulationType::template neutral<ValueType>();
 
 	visitor.begin(*this);
+	std::vector<LabelType> labeling;
 
 	bool exitInf = false;
 	while (!exitInf) {
@@ -243,6 +244,9 @@ LabelCollapse<GM, INF, KIND>::infer
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, gm_->numberOfVariables());
+
+		// FIXME: Serious hack.
+		parameter_.proxy.mipStartLabeling_ = labeling;
 
 		// Run inference on auxiliary model and cache the results.
 		typename Proxy::Inference inf(gm, parameter_.proxy);
@@ -255,7 +259,6 @@ LabelCollapse<GM, INF, KIND>::infer
 		}
 
 		bound_ = inf.value();
-		std::vector<LabelType> labeling;
 		inf.arg(labeling, 1); // FIXME: Check result value.
 
 		// If the labeling is valid, we are done.
