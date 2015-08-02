@@ -313,7 +313,7 @@ public:
 	void reparametrize(const ImmovableLabelingType& immovableLabeling){};
 	virtual void getReparametrizedModel(ReparametrizedGMType& gm)const;
 	const GM& graphicalModel()const{return _gm;}
-private:
+protected:
 	const GM& _gm;
 	RepaStorageType _repastorage;
 };
