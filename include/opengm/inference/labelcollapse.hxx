@@ -401,7 +401,6 @@ LabelCollapse<GM, INF, KIND>::calculateDepth
 	OUT_ITER depth
 ) const
 {
-	builder_.buildAuxiliaryModel();
 	builder_.calculateDepth(labeling, depth);
 }
 
