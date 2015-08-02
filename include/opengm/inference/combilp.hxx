@@ -2,11 +2,21 @@
  * combiLP.hxx
  *
  *  Created on: Sep 16, 2013
- *      Author: bsavchyn
+ *  Author: bsavchyn
  */
 
-#ifndef COMBILP_HXX_
-#define COMBILP_HXX_
+#ifndef OPENGM_COMBILP_HXX
+#define OPENGM_COMBILP_HXX
+
+// To enable detailed debug output enable the following preprocessor macro:
+// #define OPENGM_COMBILP_DEBUG
+//
+// FIXME: The above macro should be a parameter, maybe?
+// FIXME: Downstream code should also consider enabling TRWS_DEBUG_OUTPUT.
+//        This is not very intuitive behavior for CombiLP.
+
+#include <boost/scoped_ptr.hpp>
+
 #include <opengm/graphicalmodel/graphicalmodel_manipulator.hxx>
 #include <opengm/inference/lpcplex.hxx>
 #include <opengm/inference/auxiliary/lp_reparametrization.hxx>
@@ -15,563 +25,773 @@
 
 namespace opengm{
 
-   namespace combilp_base{
+namespace combilp {
+	template<class GM>
+	void dilateMask(const GM &, typename GM::IndexType, std::vector<bool>&);
 
-      template<class FACTOR>
-      void MakeFactorVariablesTrue(const FACTOR& f,std::vector<bool>* pmask)
-      {
-         for (typename FACTOR::VariablesIteratorType it=f.variableIndicesBegin();
-              it!=f.variableIndicesEnd();++it)
-            (*pmask)[*it]=true;
-      }
+	template<class GM>
+	void dilateMask(const GM&, std::vector<bool>&);
 
-      template<class GM>
-      void DilateMask(const GM& gm,typename GM::IndexType varId,std::vector<bool>* pmask)
-      {
-         typename GM::IndexType numberOfFactors=gm.numberOfFactors(varId);
-         for (typename GM::IndexType localFactorId=0;localFactorId<numberOfFactors;++localFactorId)
-         {
-            const typename GM::FactorType& f=gm[gm.factorOfVariable(varId,localFactorId)];
-            if (f.numberOfVariables()>1)
-               MakeFactorVariablesTrue(f,pmask);
-         }
-      }
+	template<class GM>
+	bool mismatchingLabels(const std::vector<typename GM::LabelType>&,const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::vector<typename GM::IndexType>&);
 
-/*
- * inmask and poutmask should be different objects!
- */
-      template<class GM>
-      void DilateMask(const GM& gm,const std::vector<bool>& inmask, std::vector<bool>* poutmask)
-      {
-         *poutmask=inmask;
-         for (typename GM::IndexType varId=0;varId<inmask.size();++varId)
-            if (inmask[varId]) DilateMask(gm,varId,poutmask);
+	template<class GM>
+	bool mismatchingLabelsDense(const GM&, const std::vector<typename GM::LabelType>&, const std::vector<typename GM::LabelType>&, const std::vector<bool>&, std::vector<typename GM::IndexType>&, typename GM::ValueType&);
 
-      }
+	template<class GM>
+	void getMaskBoundary(const GM&, const std::vector<bool>&, std::vector<bool>&);
 
-      template<class GM>
-      bool LabelingMatching(const std::vector<typename GM::LabelType>& labeling1,const std::vector<typename GM::LabelType>& labeling2,
-                            const std::vector<bool>& mask,std::list<typename GM::IndexType>* presult)
-      {
-         OPENGM_ASSERT(labeling1.size()==mask.size());
-         OPENGM_ASSERT(labeling2.size()==mask.size());
-         presult->clear();
-         for (typename GM::IndexType varId=0;varId<mask.size();++varId)
-            if ((mask[varId]) && (labeling1[varId]!=labeling2[varId]))
-               presult->push_back(varId);
-
-         return presult->empty();
-      }
-
-      template<class GM>
-      void GetMaskBoundary(const GM& gm,const std::vector<bool>& mask,std::vector<bool>* boundmask)
-      {
-         boundmask->assign(mask.size(),false);
-         for (typename GM::IndexType varId=0;varId<mask.size();++varId)
-         {
-            if (!mask[varId]) continue;
-
-            typename GM::IndexType numberOfFactors=gm.numberOfFactors(varId);
-            for (typename GM::IndexType localFactorId=0;localFactorId<numberOfFactors;++localFactorId)
-            {
-               if ((*boundmask)[varId]) break;
-
-               const typename GM::FactorType& f=gm[gm.factorOfVariable(varId,localFactorId)];
-               if (f.numberOfVariables()>1)
-               {
-                  for (typename GM::FactorType::VariablesIteratorType it=f.variableIndicesBegin();
-                       it!=f.variableIndicesEnd();++it)
-                     if (!mask[*it])
-                     {
-                        (*boundmask)[varId]=true;
-                        break;
-                     }
-               }
-            }
-         }
-      }
-
-//template<class LPREPARAMETRIZERPARAMETERS>
-      struct CombiLP_base_Parameter{
-
-         CombiLP_base_Parameter(size_t maxNumberOfILPCycles=100,
-                                bool verbose=false,
-                                const std::string& reparametrizedModelFileName="",//will not be saved if empty
-                                bool singleReparametrization=true,
-                                bool saveProblemMasks=false,
-                                std::string maskFileNamePre=""):
-            maxNumberOfILPCycles_(maxNumberOfILPCycles),
-            verbose_(verbose),
-            reparametrizedModelFileName_(reparametrizedModelFileName),
-            singleReparametrization_(singleReparametrization),
-            saveProblemMasks_(saveProblemMasks),
-            maskFileNamePre_(maskFileNamePre),
-            threads_(1)
-            {};
-         virtual ~CombiLP_base_Parameter(){};
-         size_t maxNumberOfILPCycles_;
-         bool verbose_;
-         std::string reparametrizedModelFileName_;
-         bool singleReparametrization_;
-         bool saveProblemMasks_;
-         std::string maskFileNamePre_;
-         size_t threads_;
-
-#ifdef TRWS_DEBUG_OUTPUT
-         virtual void print(std::ostream& fout)const
-            {
-               fout <<"maxNumberOfILPCycles="<<maxNumberOfILPCycles_<<std::endl;
-               fout <<"verbose"<<verbose_<<std::endl;
-               fout <<"reparametrizedModelFileName="<<reparametrizedModelFileName_<<std::endl;
-               fout <<"singleReparametrization="<<singleReparametrization_<<std::endl;
-               fout <<"saveProblemMasks="<<saveProblemMasks_<<std::endl;
-               fout <<"maskFileNamePre="<<maskFileNamePre_<<std::endl;
-            }
-#endif
-      };
-
-
-
-      template<class GM, class ACC, class LPREPARAMETRIZER>//TODO: remove default ILP solver
-      class CombiLP_base
-      {
-      public:
-         typedef ACC AccumulationType;
-         typedef GM GraphicalModelType;
-
-         OPENGM_GM_TYPE_TYPEDEFS;
-
-         typedef CombiLP_base_Parameter Parameter;
-         typedef LPREPARAMETRIZER ReparametrizerType;
-         typedef typename ReparametrizerType::MaskType MaskType;
-
-         typedef typename opengm::GraphicalModelManipulator<typename ReparametrizerType::ReparametrizedGMType> GMManipulatorType;
-
-         typedef LPCplex<typename GMManipulatorType::MGM, Minimizer> LPCPLEX;//TODO: move to template parameters
-
-         CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-                      , std::ostream& fout=std::cout
-#endif
-            );
-         virtual ~CombiLP_base(){};
-
-         const GraphicalModelType& graphicalModel() const { return _lpparametrizer->graphicalModel(); }
-
-         template <class VISITORWRAPPER> InferenceTermination infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis);
-
-         InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
-            {
-               out = _labeling;
-               return opengm::NORMAL;
-            }
-
-         ValueType value() const{return _value;};
-         ValueType bound() const{return _bound;}
-
-         void ReparametrizeAndSave();
-      private:
-         void _Reparametrize(typename ReparametrizerType::ReparametrizedGMType* pgm,const MaskType& mask);
-         InferenceTermination _PerformILPInference(GMManipulatorType& modelManipulator,std::vector<LabelType>* plabeling);
-         Parameter _parameter;
-         ReparametrizerType& _lpparametrizer;
-         std::vector<LabelType> _labeling;
-         ValueType _value;
-         ValueType _bound;
-#ifdef TRWS_DEBUG_OUTPUT
-         std::ostream& _fout;
-#endif
-      };
-
-      template<class GM, class ACC, class LPREPARAMETRIZER>
-      CombiLP_base<GM,ACC,LPREPARAMETRIZER>::CombiLP_base(LPREPARAMETRIZER& reparametrizer, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-                                                          , std::ostream& fout
-#endif
-         )
-   :  _parameter(param)
-   ,_lpparametrizer(reparametrizer)
-   ,_labeling(_lpparametrizer.graphicalModel().numberOfVariables(),std::numeric_limits<LabelType>::max())
-   ,_value(ACC::template neutral<ValueType>())
-   ,_bound(ACC::template ineutral<ValueType>())
-#ifdef TRWS_DEBUG_OUTPUT
-   ,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
-#endif
-      {
-      };
-
-      template<class GM, class ACC, class LPREPARAMETRIZER>
-      InferenceTermination CombiLP_base<GM,ACC,LPREPARAMETRIZER>::_PerformILPInference(GMManipulatorType& modelManipulator,std::vector<LabelType>* plabeling)
-      {
-         InferenceTermination terminationILP=NORMAL;
-         modelManipulator.buildModifiedSubModels();
-
-         std::vector<std::vector<LabelType> > submodelLabelings(modelManipulator.numberOfSubmodels());
-         for (size_t modelIndex=0;modelIndex<modelManipulator.numberOfSubmodels();++modelIndex)
-         {
-            const typename GMManipulatorType::MGM& model=modelManipulator.getModifiedSubModel(modelIndex);
-            submodelLabelings[modelIndex].resize(model.numberOfVariables());
-            typename LPCPLEX::Parameter param;
-            param.integerConstraint_=true;
-            param.numberOfThreads_= _parameter.threads_;
-            param.timeLimit_ = 3600;                       // TODO: Make this a parameter (1h)
-            param.workMem_= 1024*6;                        // TODO: Make this a parameter (6GB)
-            LPCPLEX ilpSolver(model,param);
-            terminationILP=ilpSolver.infer();
-
-            if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE)){
-               return terminationILP;
-               //std::cout << "WARNING: solving ILP failed!"<<std::endl;
-               //return NORMAL;
-            }
-            else
-               ilpSolver.arg(submodelLabelings[modelIndex]);
-         }
-
-         modelManipulator.modifiedSubStates2OriginalState(submodelLabelings,*plabeling);
-         return terminationILP;
-      }
-
-      template<class GM, class ACC, class LPREPARAMETRIZER>
-      template <class VISITORWRAPPER>
-      InferenceTermination CombiLP_base<GM,ACC,LPREPARAMETRIZER>::infer(MaskType& mask,const std::vector<LabelType>& lp_labeling,VISITORWRAPPER& vis)
-      {
-#ifdef TRWS_DEBUG_OUTPUT
-         if (!_parameter.singleReparametrization_)
-            _fout << "Applying reparametrization for each ILP run ..."<<std::endl;
-         else
-            _fout << "Applying a single uniform reparametrization..."<<std::endl;
-
-         _fout <<"Switching to ILP."<<std::endl;
-#endif
-
-         bool startILP=true;
-         typename ReparametrizerType::ReparametrizedGMType gm;
-         bool reparametrizedFlag=false;
-         InferenceTermination terminationId=TIMEOUT;
-
-         for (size_t i=0;(startILP && (i<_parameter.maxNumberOfILPCycles_));++i)
-         {
-
-            if( vis() != visitors::VisitorReturnFlag::ContinueInf ){
-               return TIMEOUT;
-            }
-
-#ifdef TRWS_DEBUG_OUTPUT
-            _fout << "Subproblem "<<i<<" size="<<std::count(mask.begin(),mask.end(),true)<<std::endl;
-#endif
-
-            MaskType boundmask(mask.size());
-            GetMaskBoundary(_lpparametrizer.graphicalModel(),mask,&boundmask);
-
-#ifdef TRWS_DEBUG_OUTPUT
-            if (_parameter.saveProblemMasks_)
-            {
-               OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-mask-"+trws_base::any2string(i)+".txt"),mask.begin(),mask.end());
-               OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-boundmask-"+trws_base::any2string(i)+".txt"),boundmask.begin(),boundmask.end());
-            }
-#endif
-
-            if (_parameter.singleReparametrization_ && (!reparametrizedFlag) )
-            {
-#ifdef TRWS_DEBUG_OUTPUT
-               _fout << "Reparametrizing..."<<std::endl;
-#endif
-               _Reparametrize(&gm,MaskType(mask.size(),true));
-               reparametrizedFlag=true;
-            }
-            else if (!_parameter.singleReparametrization_)
-            {
-#ifdef TRWS_DEBUG_OUTPUT
-               _fout << "Reparametrizing..."<<std::endl;
-#endif
-               _Reparametrize(&gm,mask);
-            }
-
-            OPENGM_ASSERT(mask.size()==gm.numberOfVariables());
-
-            GMManipulatorType modelManipulator(gm,GMManipulatorType::DROP);
-            modelManipulator.unlock();
-            modelManipulator.freeAllVariables();
-            for (IndexType varId=0;varId<mask.size();++varId)
-               if (mask[varId]==0) modelManipulator.fixVariable(varId,lp_labeling[varId]);
-            modelManipulator.lock();
-
-            InferenceTermination terminationILP;
-            std::vector<LabelType> labeling;
-            terminationILP=_PerformILPInference(modelManipulator,&labeling);
-            if ((terminationILP!=NORMAL) && (terminationILP!=CONVERGENCE))
-            {
-               _labeling=lp_labeling;
-#ifdef TRWS_DEBUG_OUTPUT
-               _fout << "ILP solver failed to solve the problem. LP solver results will be saved." <<std::endl;
-#endif
-               
-               //return NORMAL;
-               return terminationILP;
-            }
-
-#ifdef TRWS_DEBUG_OUTPUT
-            _fout <<"Boundary size="<<std::count(boundmask.begin(),boundmask.end(),true)<<std::endl;
-#endif
-
-            std::list<IndexType> result;
-            if (LabelingMatching<GM>(lp_labeling,labeling,boundmask,&result))
-            {
-               startILP=false;
-               _labeling=labeling;
-               _value=_bound=_lpparametrizer.graphicalModel().evaluate(_labeling);
-               terminationId=NORMAL;
-#ifdef TRWS_DEBUG_OUTPUT
-               _fout <<"Solved! Optimal energy="<<value()<<std::endl;
-#endif
-            }
-            else
-            {
-#ifdef TRWS_DEBUG_OUTPUT
-               _fout <<"Adding "<<result.size()<<" nodes."<<std::endl;
-               if (_parameter.saveProblemMasks_)
-                  OUT::saveContainer(std::string(_parameter.maskFileNamePre_+"-added-"+trws_base::any2string(i)+".txt"),result.begin(),result.end());
-#endif
-               for (typename std::list<IndexType>::const_iterator it=result.begin();it!=result.end();++it)
-                  DilateMask(gm,*it,&mask);
-            }
-         }
-
-         return terminationId;
-      }
-
-
-      template<class GM, class ACC, class LPREPARAMETRIZER>
-      void CombiLP_base<GM,ACC,LPREPARAMETRIZER>::
-      _Reparametrize(typename ReparametrizerType::ReparametrizedGMType* pgm,const MaskType& mask)
-      {
-         _lpparametrizer.reparametrize(&mask);
-         _lpparametrizer.getReparametrizedModel(*pgm);
-      }
-
-      template<class GM, class ACC, class LPREPARAMETRIZER>
-      void CombiLP_base<GM,ACC,LPREPARAMETRIZER>::
-      ReparametrizeAndSave()
-      {
-         typename ReparametrizerType::ReparametrizedGMType gm;
-         _Reparametrize(&gm,MaskType(_lpparametrizer.graphicalModel().numberOfVariables(),true));
-         store_into_explicit(gm, _parameter.reparametrizedModelFileName_);
-      }
-
-   }//namespace combilp_base  =========================================================================
-
-   template<class LPSOLVERPARAMETERS,class REPARAMETRIZERPARAMETERS>
-   struct CombiLP_Parameter : public combilp_base::CombiLP_base_Parameter
-   {
-      typedef combilp_base::CombiLP_base_Parameter parent;
-      CombiLP_Parameter(const LPSOLVERPARAMETERS& lpsolverParameter=LPSOLVERPARAMETERS(),
-			const REPARAMETRIZERPARAMETERS& repaParameter=REPARAMETRIZERPARAMETERS(),
-			size_t maxNumberOfILPCycles=100,
-			bool verbose=false,
-			bool saveReparametrizedModel=false,
-			const std::string& reparametrizedModelFileName="",
-			bool singleReparametrization=true,
-			bool saveProblemMasks=false,
-			std::string maskFileNamePre=""):
-         parent(maxNumberOfILPCycles,
-                verbose,
-                reparametrizedModelFileName,
-                singleReparametrization,
-                saveProblemMasks,
-                maskFileNamePre),
-         lpsolverParameter_(lpsolverParameter),
-         repaParameter_(repaParameter)
-         {
-         };
-      LPSOLVERPARAMETERS lpsolverParameter_;
-      REPARAMETRIZERPARAMETERS repaParameter_;
-
-#ifdef TRWS_DEBUG_OUTPUT
-      void print(std::ostream& fout)const
-         {
-            parent::print(fout);
-            fout << "== lpsolverParameters: =="<<std::endl;
-            lpsolverParameter_.print(fout);
-         }
-#endif
-   };
-
-   /// \brief CombiLP\n\n
-   /// Savchynskyy, B. and Kappes, J. H. and Swoboda, P. and Schnoerr, C.:
-   /// "Global MAP-Optimality by Shrinking the Combinatorial Search Area with Convex Relaxation".
-   /// In NIPS, 2013.
-   /// \ingroup inference 
-
-   template<class GM, class ACC, class LPSOLVER>//TODO: remove default ILP solver
-   class CombiLP : public Inference<GM, ACC>
-   {
-   public:
-      typedef typename LPSOLVER::ReparametrizerType ReparametrizerType;
-      typedef combilp_base::CombiLP_base<GM,ACC,ReparametrizerType> BaseType;
-
-      typedef ACC AccumulationType;
-      typedef GM GraphicalModelType;
-
-      OPENGM_GM_TYPE_TYPEDEFS;
-      typedef visitors::VerboseVisitor<CombiLP<GM, ACC, LPSOLVER> > VerboseVisitorType;
-      typedef visitors::EmptyVisitor<CombiLP<GM, ACC, LPSOLVER> >   EmptyVisitorType;
-      typedef visitors::TimingVisitor<CombiLP<GM, ACC, LPSOLVER> >  TimingVisitorType;
-
-      typedef CombiLP_Parameter<typename LPSOLVER::Parameter,typename ReparametrizerType::Parameter> Parameter;
-      typedef typename ReparametrizerType::MaskType MaskType;
-      typedef typename BaseType::GMManipulatorType GMManipulatorType;
-
-      typedef LPCplex<typename GMManipulatorType::MGM, ACC> LPCPLEX;//TODO: move to template parameters
-
-      CombiLP(const GraphicalModelType& gm, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-              , std::ostream& fout=std::cout
-#endif
-         );
-      virtual ~CombiLP(){if (_plpparametrizer!=0) delete _plpparametrizer;};
-      std::string name() const{ return "CombiLP"; }
-      const GraphicalModelType& graphicalModel() const { return _lpsolver.graphicalModel(); }
-      InferenceTermination infer()
-         {
-            EmptyVisitorType vis;
-            return infer(vis);
-         };
-
-      template<class VISITOR> InferenceTermination infer(VISITOR & visitor);
-
-      InferenceTermination arg(std::vector<LabelType>& out, const size_t = 1) const
-         {
-            out = _labeling;
-            return opengm::NORMAL;
-         }
-      virtual ValueType bound() const{return _bound;};
-      virtual ValueType value() const{return _value;};
-   private:
-      Parameter _parameter;
-      LPSOLVER _lpsolver;
-      ReparametrizerType* _plpparametrizer;
-      BaseType _base;
-      std::vector<LabelType> _labeling;
-      ValueType _value;
-      ValueType _bound;
-#ifdef TRWS_DEBUG_OUTPUT
-      std::ostream& _fout;
-#endif
-   };
-
-   template<class GM, class ACC, class LPSOLVER>
-   CombiLP<GM,ACC,LPSOLVER>::CombiLP(const GraphicalModelType& gm, const Parameter& param
-#ifdef TRWS_DEBUG_OUTPUT
-                                     , std::ostream& fout
-#endif
-      )
-  : _parameter(param)
-  ,_lpsolver(gm,param.lpsolverParameter_
-#ifdef TRWS_DEBUG_OUTPUT
-             ,(param.lpsolverParameter_.verbose_ ? fout : *OUT::nullstream::Instance())//fout
-#endif
-     )
-  ,_plpparametrizer(_lpsolver.getReparametrizer(_parameter.repaParameter_))//TODO: parameters of the reparametrizer come here
-  ,_base(*_plpparametrizer, param
-#ifdef TRWS_DEBUG_OUTPUT
-         ,fout
-#endif
-     )
-  ,_labeling(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
-  ,_value(_lpsolver.value())
-  ,_bound(_lpsolver.bound())
-#ifdef TRWS_DEBUG_OUTPUT
-  ,_fout(param.verbose_ ? fout : *OUT::nullstream::Instance())//(fout)
-#endif
-   {
-#ifdef TRWS_DEBUG_OUTPUT
-      _fout << "Parameters of the "<< name() <<" algorithm:"<<std::endl;
-      param.print(_fout);
-#endif
-   };
-
-   template<class GM, class ACC, class LPSOLVER>
-   template<class VISITOR>
-   InferenceTermination CombiLP<GM,ACC,LPSOLVER>::infer(VISITOR & visitor)
-   {
-#ifdef TRWS_DEBUG_OUTPUT
-      _fout <<"Running LP solver "<<_lpsolver.name()<<std::endl;
-#endif
-      visitor.begin(*this);
-
-      _lpsolver.infer();
-      _value=_lpsolver.value();
-      _bound=_lpsolver.bound();
-      _lpsolver.arg(_labeling);
-
-      if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
-         visitor.end(*this);
-         return NORMAL;
-      }
-
-      std::vector<LabelType> labeling_lp;
-      MaskType initialmask;
-      _plpparametrizer->reparametrize();
-      //_plpparametrizer->getArcConsistency(&initialmask,&labeling_lp);
-      _lpsolver.getTreeAgreement(initialmask,&labeling_lp);
-
-#ifdef TRWS_DEBUG_OUTPUT
-      _fout <<"Energy of the labeling consistent with the arc consistency ="<<_lpsolver.graphicalModel().evaluate(labeling_lp)<<std::endl;
-      _fout <<"Arc inconsistent set size ="<<std::count(initialmask.begin(),initialmask.end(),false)<<std::endl;
-#endif
-
-#ifdef TRWS_DEBUG_OUTPUT
-      _fout << "Trivializing."<<std::endl;
-#endif
-
-#ifdef	WITH_HDF5
-      if (_parameter.reparametrizedModelFileName_.compare("")!=0)
-      {
-#ifdef	TRWS_DEBUG_OUTPUT
-         _fout << "Saving reparametrized model..."<<std::endl;
-#endif
-         if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
-            visitor.end(*this);
-            return NORMAL;
-         }
-         _base.ReparametrizeAndSave();
-         if( visitor(*this) != visitors::VisitorReturnFlag::ContinueInf ){
-            visitor.end(*this);
-            return NORMAL;
-         }
-      }
-#endif
-
-      if (std::count(initialmask.begin(),initialmask.end(),false)==0)
-         return NORMAL;
-
-      trws_base::transform_inplace(initialmask.begin(),initialmask.end(),std::logical_not<bool>());
-
-      MaskType mask;
-      combilp_base::DilateMask(_lpsolver.graphicalModel(),initialmask,&mask);
-
-      visitors::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> > vis(&visitor,this);
-      InferenceTermination terminationVal=_base.infer(mask,labeling_lp,vis);
-      //InferenceTermination terminationVal=_base.infer(mask,labeling_lp,trws_base::VisitorWrapper<VISITOR,CombiLP<GM,ACC,LPSOLVER> >(&visitor,this));
-      if ( (terminationVal==NORMAL) || (terminationVal==CONVERGENCE) )
-      {
-         _value=_base.value();
-         _bound=_base.bound();
-         _base.arg(_labeling);
-      }
-      /*else{
-         visitor.end(*this);
-         return ;  
-         }*/
-
-      visitor.end(*this);
-      //return terminationVal;
-      return NORMAL;
-   }
-
-
+	template<class GM>
+	GraphicalModelManipulator<GM> maskToManipulator(const GM &, const std::vector<typename GM::LabelType> &, const std::vector<bool> &);
 }
 
+template<class LP>
+struct CombiLP_ILP_TypeGen
+{
+	typedef typename GraphicalModelManipulator<
+		typename LP::ReparametrizerType::ReparametrizedGMType
+	>::MGM
+	GraphicalModelType;
+};
 
-#endif /* COMBILP_HXX_ */
+////////////////////////////////////////////////////////////////////////////////
+//
+// class CombiLP
+//
+////////////////////////////////////////////////////////////////////////////////
+
+//
+// The LP solver template argument should be an inference algorithm working on
+// the original GrahpicalModel GM.
+//
+// The ILP solver template argument should be an inference algorithm working on
+// an auxiliary GraphicalModel. The auxiliary type can be generated by using
+// the type generator CombiLP_ILP_TypeGen<LPSOLVER>::GraphicalModelType.
+//
+// Example usage:
+//
+// typedef TRWSi<GM, ACC> LPSOLVER;
+// typedef typename CombiLP_ILP_TypeGen<LPSOLVER>::GraphicalModelType GM_AUX;
+// typedef LPCplex<GM_AUX ,ACC> ILPSOLVER;
+//
+// typedef CombiLP<GM, ACC, LPSOLVER, ILPSOLVER> Inference;
+// Inference inf(gm);
+// inf.infer();
+// [...]
+//
+
+/// \brief CombiLP\n\n
+/// Savchynskyy, B. and Kappes, J. H. and Swoboda, P. and Schnoerr, C.:
+/// "Global MAP-Optimality by Shrinking the Combinatorial Search Area with Convex Relaxation".
+/// In NIPS, 2013.
+/// \ingroup inference
+template<class GM, class ACC, class LP, class ILP>
+class CombiLP : public Inference<GM, ACC>
+{
+public:
+	//
+	// Types
+	//
+	typedef ACC AccumulationType;
+	typedef GM GraphicalModelType;
+	typedef LP LPSolverType;
+	typedef ILP ILPSolverType;
+	OPENGM_GM_TYPE_TYPEDEFS;
+	typedef std::vector<LabelType> Labeling;
+
+	typedef visitors::VerboseVisitor< CombiLP<GM, ACC, LP, ILP> > VerboseVisitorType;
+	typedef visitors::EmptyVisitor< CombiLP<GM, ACC, LP, ILP> > EmptyVisitorType;
+	typedef visitors::TimingVisitor< CombiLP<GM, ACC, LP, ILP> > TimingVisitorType;
+
+	typedef typename LPSolverType::ReparametrizerType ReparametrizerType;
+	typedef typename ReparametrizerType::ReparametrizedGMType ReparametrizedGMType;
+	typedef typename ReparametrizerType::MaskType MaskType;
+	typedef GraphicalModelManipulator<ReparametrizedGMType> ManipulatorType;
+
+	struct Parameter
+	{
+		typedef typename LPSolverType::Parameter LPParameterType;
+		typedef typename ILPSolverType::Parameter ILPParameterType;
+		typedef typename ReparametrizerType::Parameter RepaParameterType;
+
+		Parameter
+		(
+			LPParameterType lpsolverParameter = LPParameterType(),
+			RepaParameterType repaParameter = RepaParameterType(),
+			ILPParameterType ilpsolverParameter = ILPParameterType(),
+			size_t maxNumberOfILPCycles = 100,
+			bool verbose = false,
+			std::string reparametrizedModelFileName = "",
+			bool singleReparametrization = true,
+			bool saveProblemMasks = false,
+			std::string maskFileNamePre = "",
+			size_t threads = 1
+		)
+		: maxNumberOfILPCycles_(maxNumberOfILPCycles)
+		, verbose_(verbose)
+		, reparametrizedModelFileName_(reparametrizedModelFileName)
+		, singleReparametrization_(singleReparametrization)
+		, saveProblemMasks_(saveProblemMasks)
+		, maskFileNamePre_(maskFileNamePre)
+		, threads_(threads)
+		{
+		}
+
+		size_t maxNumberOfILPCycles_;
+		bool verbose_;
+		std::string reparametrizedModelFileName_;
+		bool singleReparametrization_;
+		bool saveProblemMasks_;
+		std::string maskFileNamePre_;
+		size_t threads_;
+
+		LPParameterType lpsolverParameter_;
+		ILPParameterType ilpsolverParameter_;
+		RepaParameterType repaParameter_;
+
+#ifdef OPENGM_COMBILP_DEBUG
+		void
+		print() const
+		{
+			std::cout << "maxNumberOfILPCycles=" << maxNumberOfILPCycles_ << std::endl;
+			std::cout << "verbose" << verbose_ << std::endl;
+			std::cout << "reparametrizedModelFileName=" << reparametrizedModelFileName_ << std::endl;
+			std::cout << "singleReparametrization=" << singleReparametrization_ << std::endl;
+			std::cout << "saveProblemMasks=" << saveProblemMasks_ << std::endl;
+			std::cout << "maskFileNamePre=" << maskFileNamePre_ << std::endl;
+#ifdef TRWS_DEBUG_OUTPUT
+			std::cout << "== lpsolverParameters: ==" << std::endl;
+			lpsolverParameter_.print(std::cout);
+#endif
+		}
+#endif
+	};
+
+	//
+	// Methods
+	//
+	CombiLP(const GraphicalModelType& gm, const Parameter& param);
+	std::string name() const{ return "CombiLP"; }
+	const GraphicalModelType& graphicalModel() const { return gm_; }
+
+	InferenceTermination infer();
+	template<class VISITOR> InferenceTermination infer(VISITOR&);
+	InferenceTermination arg(Labeling &out, const size_t = 1) const;
+	ValueType bound() const { return bound_; }
+	ValueType value() const { return value_; }
+
+private:
+	//
+	// Methods
+	//
+	void performLP();
+	template<class VISITOR> InferenceTermination performILP(VISITOR&);
+
+	InferenceTermination inferenceOnSubmodels(const ManipulatorType&, Labeling&) const;
+	bool checkOptimality(const ReparametrizedGMType&, const MaskType&, const Labeling&, std::vector<IndexType>&);
+	void addNodes(const ReparametrizedGMType&, const std::vector<IndexType>&);
+
+	void debugSaveProblemMasks(size_t, const MaskType&) const;
+	void debugSaveProblemMasksMismatches(size_t, const std::vector<IndexType>&) const;
+
+	//
+	// Members
+	//
+	Parameter parameter_;
+	GraphicalModelType gm_;
+	std::vector<LabelType> labeling_;
+	ValueType value_;
+	ValueType bound_;
+	MaskType mask_;
+
+	// The first phase of CombiLP uses a TRWS solver. For the second phase
+	// we need a reparameterizer and the concept is very tightly coupled to
+	// the TRWS solver.
+	//
+	// (TRWS uses a TreeDecompositionStorage and stores unary values. After
+	// solving the model, the TreeDecompositionStorage has changed all those
+	// values. The reparameterizer reuses all those values.)
+	//
+	// The current solution is to extract the reparameterizer during the first
+	// pass. The problem is that the reparameterizer uses internal pointers to
+	// the TRWS structures. So we need to keep the TRWS instance also alive.
+	//
+	// Sounds complicated...
+	//
+	// FIXME: Decouple TRWSi and Reparametrizer.
+	LPSolverType trwsi_;
+	boost::scoped_ptr<ReparametrizerType> reparametrizer_;
+};
+
+template<class GM, class ACC, class LP, class ILP>
+CombiLP<GM, ACC, LP, ILP>::CombiLP
+(
+	const GraphicalModelType& gm,
+	const Parameter& param
+)
+: parameter_(param)
+, gm_(gm)
+, labeling_(gm.numberOfVariables(),std::numeric_limits<LabelType>::max())
+, value_(ACC::template neutral<ValueType>())
+, bound_(ACC::template ineutral<ValueType>())
+, trwsi_(gm_, parameter_.lpsolverParameter_)
+, reparametrizer_(trwsi_.getReparametrizer(parameter_.repaParameter_))
+{
+#ifdef OPENGM_COMBILP_DEBUG
+	std::cout << "Parameters of the " << name() << " algorithm:" << std::endl;
+	param.print();
+#endif
+};
+
+template<class GM, class ACC, class LP, class ILP>
+InferenceTermination
+CombiLP<GM, ACC, LP, ILP>::infer()
+{
+	EmptyVisitorType visitor;
+	return infer(visitor);
+};
+
+template<class GM, class ACC, class LP, class ILP>
+template<class VISITOR>
+InferenceTermination
+CombiLP<GM, ACC, LP, ILP>::infer
+(
+	VISITOR &visitor
+)
+{
+	visitor.begin(*this);
+	performLP();
+
+	// If all nodes are strict-arc-consistent then we already have calculated
+	// the globally optimal solution.
+	if ( (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) ||
+	     (std::count(mask_.begin(), mask_.end(), true) == 0) )
+	{
+		visitor.end(*this);
+		return NORMAL;
+	}
+
+	InferenceTermination result = performILP(visitor);
+	visitor.end(*this);
+	return result;
+}
+
+template<class GM, class ACC, class LP, class ILP>
+InferenceTermination
+CombiLP<GM, ACC, LP, ILP>::arg
+(
+	Labeling& labeling,
+	const size_t idx
+) const
+{
+	if (idx != 1)
+		return UNKNOWN;
+
+	labeling = labeling_;
+
+	// FIXME: Return the correct inference result.
+	return NORMAL;
+}
+
+template<class GM, class ACC, class LP, class ILP>
+void
+CombiLP<GM, ACC, LP, ILP>::performLP()
+{
+	// FIXME: The TRWSi solver is a class member. See comment in class
+	// definition. Obviously it would be better, if we could decouple this.
+	LPSolverType &solver = trwsi_;
+
+#ifdef OPENGM_COMBILP_DEBUG
+	std::cout << "Running LP solver "<< solver.name() << std::endl;
+#endif
+
+	solver.infer();
+	value_ = solver.value();
+	bound_ = solver.bound();
+	solver.getTreeAgreement(mask_, &labeling_);
+
+#ifdef OPENGM_COMBILP_DEBUG
+	std::cout << "Energy of the labeling consistent with the arc consistency =" << gm_.evaluate(labeling_) << std::endl;
+	std::cout << "Arc inconsistent set size =" << std::count(mask_.begin(),mask_.end(),false) << std::endl;
+	std::cout << "Trivializing." << std::endl;
+#endif
+
+	// FIXME?: Why do we reparameterize the model again? The LPSolver already
+	// did this. There is no need for instantiating a reparametrizer here, is it?
+#ifdef WITH_HDF5
+	if (parameter_.reparametrizedModelFileName_.compare("") != 0) {
+#ifdef OPENGM_COMBILP_DEBUG
+		std::cout << "Saving reparametrized model..." << std::endl;
+#endif
+		boost::scoped_ptr<ReparametrizerType> reparametrizer(solver.getReparametrizer(parameter_.repaParameter_));
+		typename ReparametrizerType::ReparametrizedGMType gm;
+		MaskType mask(reparametrizer->graphicalModel().numberOfVariables(), true);
+		reparametrizer->reparametrize(&mask);
+		reparametrizer->getReparametrizedModel(gm);
+		store_into_explicit(gm, parameter_.reparametrizedModelFileName_);
+	}
+#endif
+
+	// Negate the mask. All non-strict-arc-consistent nodes are now “true”.
+	OPENGM_ASSERT_OP(mask_.size(), ==, gm_.numberOfVariables());
+	std::transform(mask_.begin(), mask_.end(), mask_.begin(), std::logical_not<bool>());
+}
+
+// TODO: Clean this method.
+template<class GM, class ACC, class LP, class ILP>
+template<class VISITOR>
+InferenceTermination
+CombiLP<GM, ACC, LP, ILP>::performILP
+(
+	VISITOR &visitor
+)
+{
+#ifdef OPENGM_COMBILP_DEBUG
+	std::cout << "Switching to ILP." << std::endl
+	          << (parameter_.singleReparametrization_
+	             ? "Applying a single uniform reparametrization..."
+	             : "Applying reparametrization for each ILP run...")
+	          << std::endl;
+#endif
+
+	// FIXME: The reparametrizer is a class member. See comment in class
+	// definition. Obviously it would be better, if we could decouple this.
+	boost::scoped_ptr<ReparametrizerType> &reparametrizer = reparametrizer_;
+
+	// Do not need to dilate the mask in the newer approach.
+	// TODO: Throw away non-dense version?
+	if (parameter_.singleReparametrization_)
+		combilp::dilateMask(gm_, mask_);
+
+	typename ReparametrizerType::ReparametrizedGMType gm;
+	bool quitInference = false;
+	bool reparametrizedFlag = false; // TODO: Throw away non-dense version?
+	InferenceTermination result = TIMEOUT;
+
+	// Main loop for iteration. In each iteration we run the ILP solver on the
+	// different subproblems. If the labeling has mismatches compared to the
+	// strict-arc-consistent labeling (on the “border”) we grow the ILP
+	// subproblem.
+	//
+	// These steps are repeated as long as the iterationen counter is below the
+	// user supplied maximum value and there were any mismatches. If there were
+	// no mismatches in the previous iteration we are done and we can just
+	// concatenate all the labelings.
+	for ( size_t iteration = 0
+	    ; !quitInference && iteration < parameter_.maxNumberOfILPCycles_
+		; ++iteration )
+	{
+		// The visitor can tell us to stop. He can also see the gap
+		// between value_ (always decreasing) and bound (always increasing). He
+		// can either raise a timeout or say that the gap is small enough.
+		switch (visitor(*this)) {
+		case visitors::VisitorReturnFlag::StopInfBoundReached:
+			return CONVERGENCE;
+			break;
+		case visitors::VisitorReturnFlag::StopInfTimeout:
+			// TODO: Should we update intermediate values before quitting?
+			return TIMEOUT;
+			break;
+		default:
+			break;
+		}
+
+#ifdef OPENGM_COMBILP_DEBUG
+		std::cout << "ILP iteration " << iteration << " (size = "
+		          << std::count(mask_.begin(), mask_.end(), true)
+		          << ")" << std::endl;
+#endif
+
+		//
+		// Calculates boundary mask.
+		//
+		MaskType boundaryMask(mask_.size());
+		combilp::getMaskBoundary(gm_, mask_, boundaryMask);
+		debugSaveProblemMasks(iteration, boundaryMask);
+
+		//
+		// Performs reparameterization.
+		//
+		// The reparametrized flag determines if reparamaterization should be
+		// performed. For the non-dense CombiLP we only run reparameterization
+		// once and we use a full mask.
+		//
+		// For Dense CombiLP the reparametrize is wil not be cleared and we
+		// run the reparameterization in each iteration but with the updated
+		// mask.
+		//
+		if (!reparametrizedFlag) {
+#ifdef OPENGM_COMBILP_DEBUG
+			std::cout << "Reparametrizing..." << std::endl;
+#endif
+			const MaskType fullMask(mask_.size(), true);
+			const MaskType *mask = parameter_.singleReparametrization_ ? &fullMask : &mask_;
+
+			reparametrizer->reparametrize(mask);
+			reparametrizer->getReparametrizedModel(gm);
+
+			if (parameter_.singleReparametrization_) {
+				reparametrizedFlag = true;
+			}
+		}
+
+		//
+		// Splits original model into subproblems using the current mask.
+		// Runs MRF inference on each of the subproblems.
+		//
+		Labeling labeling;
+		ManipulatorType manipulator = combilp::maskToManipulator(gm, labeling_, mask_);
+		InferenceTermination inf = inferenceOnSubmodels(manipulator, labeling);
+		if ((inf != NORMAL) && (inf != CONVERGENCE)) {
+#ifdef OPENGM_COMBILP_DEBUG
+			std::cout << "ILP solver failed to solve the problem. Best attained results will be saved." << std::endl;
+#endif
+			return inf;
+		}
+
+		//
+		// Checks for optimality and get list of mismatching labels.
+		//
+		std::vector<IndexType> mismatches;
+		if (checkOptimality(gm, boundaryMask, labeling, mismatches)) {
+			quitInference = true;
+			labeling_ = labeling;
+			value_ = bound_ = gm_.evaluate(labeling_);
+			result = NORMAL;
+#ifdef OPENGM_COMBILP_DEBUG
+			std::cout << "Solved! Optimal energy=" << value() << std::endl;
+#endif
+		} else {
+			debugSaveProblemMasksMismatches(iteration, mismatches);
+			addNodes(gm, mismatches);
+		}
+	}
+
+	return result;
+}
+
+template<class GM, class ACC, class LP, class ILP>
+InferenceTermination
+CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
+(
+	const ManipulatorType &manipulator,
+	Labeling &labeling
+) const
+{
+	std::vector<Labeling> labelings(manipulator.numberOfSubmodels());
+
+	for (size_t i = 0; i < manipulator.numberOfSubmodels(); ++i) {
+		const typename ManipulatorType::MGM &model = manipulator.getModifiedSubModel(i);
+		Labeling &labeling = labelings[i];
+
+		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
+		InferenceTermination result = ilpSolver.infer();
+		if (result != NORMAL && result != CONVERGENCE)
+			return result;
+
+		labeling.resize(model.numberOfVariables());
+		ilpSolver.arg(labelings[i]);
+	}
+
+	manipulator.modifiedSubStates2OriginalState(labelings, labeling);
+	return NORMAL;
+}
+
+template<class GM, class ACC, class LP, class ILP>
+bool
+CombiLP<GM, ACC, LP, ILP>::checkOptimality
+(
+	const ReparametrizedGMType &gm,
+	const MaskType &boundaryMask,
+	const Labeling &labeling,
+	std::vector<IndexType> &mismatches
+)
+{
+#ifdef OPENGM_COMBILP_DEBUG
+	std::cout << "Boundary size=" << std::count(boundaryMask.begin(),boundaryMask.end(),true) << std::endl;
+#endif
+
+	bool isOptimal = false;
+	ValueType gap=0;
+
+	//
+	// Checks if there are labeling mismatches on border.
+	//
+	if (parameter_.singleReparametrization_) {
+		isOptimal = combilp::mismatchingLabels<GM>(labeling_, labeling, boundaryMask, mismatches);
+	} else {
+		isOptimal = combilp::mismatchingLabelsDense(gm, labeling_, labeling, mask_, mismatches, gap);
+	}
+
+	//
+	// Adjust bound. For dense version of CombiLP only.
+	//
+	if (! parameter_.singleReparametrization_) {
+		std::vector<bool> imask = mask_;
+		std::transform(imask.begin(), imask.end(), imask.begin(), std::logical_not<bool>());
+
+		ValueType newValue = gm.evaluate(labeling);
+		ValueType newBound = gm.evaluate(labeling, mask_)
+		                   + gm.evaluate(labeling, imask);
+
+		if (ACC::bop(newValue, value_)) {
+			value_ = newValue;
+			labeling_ = labeling;
+		}
+
+		// for ACC == Minimizer equivalent to: bound_ -= std::min(bound_, newBound)
+		ACC::iop(bound_, newBound, bound_);
+
+#ifdef OPENGM_COMBILP_DEBUG
+		std::cout << "newvalue=" << newValue << "; best value=" << value_ << std::endl;
+		std::cout << "newbound=" << newBound << "; best bound=" << bound_ << std::endl;
+		std::cout << "new gap=" << gap << std::endl;
+#endif
+	}
+
+	// Either no mismatches, or value equals bound.
+	return isOptimal || (std::abs(value_ - bound_) <= std::numeric_limits<ValueType>::epsilon() * value_);
+}
+
+template<class GM, class ACC, class LP, class ILP>
+void
+CombiLP<GM, ACC, LP, ILP>::addNodes
+(
+	const ReparametrizedGMType &gm,
+	const std::vector<IndexType> &mismatches
+)
+{
+#ifdef OPENGM_COMBILP_DEBUG
+	std::cout << "Adding " << mismatches.size() << " nodes." << std::endl;
+#endif
+	typedef typename std::vector<IndexType>::const_iterator Iterator;
+
+	// Expand the mask. For the non-dense version we need to add all
+	// neighbooring node.
+	//
+	// For the dense version we just need to flag the specific node.
+	for (Iterator it = mismatches.begin(); it != mismatches.end(); ++it) {
+		if (parameter_.singleReparametrization_)
+			combilp::dilateMask(gm, *it, mask_);
+		else
+			mask_[*it]=true;
+	}
+}
+
+template<class GM, class ACC, class LP, class ILP>
+void
+CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasks
+(
+	size_t iteration,
+	const MaskType &boundaryMask
+) const
+{
+	// FIXME: The helper functions are only defined if the TRWSi enables
+	// them. This is not intuitive behavior for CombiLP.
+#if defined(OPENGM_COMBILP_DEBUG) && defined(TRWS_DEBUG_OUTPUT)
+	if (parameter_.saveProblemMasks_) {
+		std::stringstream s;
+		s << parameter_.maskFileNamePre_ << "-mask-"
+		  << std::setw(4) << std::setfill('0') << iteration
+		  << ".txt";
+		OUT::saveContainer(s.str(), mask_.begin(), mask_.end());
+
+		s.str(std::string());
+		s << parameter_.maskFileNamePre_ << "-boundaryMask-"
+		  << std::setw(4) << std::setfill('0') << iteration
+		  << ".txt";
+		OUT::saveContainer(s.str(), boundaryMask.begin(), boundaryMask.end());
+	}
+#endif
+}
+
+template<class GM, class ACC, class LP, class ILP>
+void
+CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasksMismatches
+(
+	size_t iteration,
+	const std::vector<IndexType> &mismatches
+) const
+{
+	// FIXME: The helper functions are only defined if the TRWSi enables
+	// them. This is not intuitive behavior for CombiLP.
+#if defined(OPENGM_COMBILP_DEBUG) && defined(TRWS_DEBUG_OUTPUT)
+	if (parameter_.saveProblemMasks_) {
+		std::stringstream s;
+		s << parameter_.maskFileNamePre_ << "-added-"
+		  << std::setw(4) << std::setfill('0') << iteration
+		  << ".txt";
+		OUT::saveContainer(s.str(), mismatches.begin(), mismatches.end());
+	}
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// internal helper functions
+//
+////////////////////////////////////////////////////////////////////////////////
+
+namespace combilp{
+
+	template<class GM>
+	void
+	dilateMask
+	(
+		const GM &gm,
+		typename GM::IndexType varId,
+		std::vector<bool> &mask
+	)
+	{
+		typedef typename GM::IndexType IndexType;
+		typedef typename GM::FactorType FactorType;
+		OPENGM_ASSERT_OP(varId, <, gm.numberOfVariables());
+		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
+
+		// Sets all mask for all variables in factor to true.
+		typename GM::IndexType numberOfFactors = gm.numberOfFactors(varId);
+		for (IndexType i = 0; i < gm.numberOfFactors(varId); ++i) {
+			const FactorType &f = gm[ gm.factorOfVariable(varId, i) ];
+
+			for (IndexType j = 0; j < f.numberOfVariables(); ++j)
+				mask[ f.variableIndex(j) ] = true;
+		}
+	}
+
+	template<class GM>
+	void
+	dilateMask
+	(
+		const GM &gm,
+		std::vector<bool> &mask
+	)
+	{
+		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
+		for (typename GM::IndexType i = 0; i < gm.numberOfVariables(); ++i)
+			if (mask[i])
+				dilateMask(gm, i, mask);
+	}
+
+	// Easier label mismatching for NON-dense version of CombiLP.
+	template<class GM>
+	bool
+	mismatchingLabels
+	(
+		const std::vector<typename GM::LabelType> &labeling1,
+		const std::vector<typename GM::LabelType> &labeling2,
+		const std::vector<bool> &mask,
+		std::vector<typename GM::IndexType> &result
+	)
+	{
+		OPENGM_ASSERT_OP(labeling1.size(), ==, mask.size());
+		OPENGM_ASSERT_OP(labeling2.size(), ==, mask.size());
+		result.clear();
+		for (typename GM::IndexType varId = 0;varId < mask.size(); ++varId)
+			if ((mask[varId]) && (labeling1[varId] != labeling2[varId]))
+				result.push_back(varId);
+		return result.empty();
+	}
+
+	// Label mismatching function used by dense version of CombiLP.
+	// TODO: Needs cleanup.
+	template<class GM>
+	bool
+	mismatchingLabelsDense
+	(
+		const GM &gm,
+		const std::vector<typename GM::LabelType> &labeling_out,
+		const std::vector<typename GM::LabelType> &labeling_in,
+		const std::vector<bool> &mask_in,
+		std::vector<typename GM::IndexType> &result,
+		typename GM::ValueType& gap
+	)
+	{
+		OPENGM_ASSERT_OP(labeling_in.size(), ==, mask_in.size());
+		OPENGM_ASSERT_OP(labeling_out.size(), ==, mask_in.size());
+		result.clear();
+
+		//go over all border p/w potentials and check that the corresponding edge 0
+		//FIXME: Make types nicer.
+		std::vector< std::pair<typename GM::IndexType, typename GM::IndexType> > borderFactors;
+		std::vector<typename GM::IndexType> borderFactorCounter(gm.numberOfVariables(),0);//!< is not needed below, just to fit function parameters list
+		LPReparametrizer<GM, Minimizer>::getGMMaskBorder(gm, mask_in, &borderFactors, &borderFactorCounter);//!< Minimizer does not play any role in this code, just to instantiate the template
+
+		gap=0;
+		std::vector<typename GM::LabelType> ind(2, 0);
+		// FIXME: Make types nicer.
+		for (typename std::vector<std::pair<typename GM::IndexType,typename GM::IndexType> >::const_iterator fit=borderFactors.begin();
+							fit!=borderFactors.end();++fit) {
+			typename GM::IndexType var_out=gm[fit->first].variableIndex(fit->second);
+			typename GM::IndexType var_in=gm[fit->first].variableIndex(1-fit->second);
+
+			ind[fit->second]=labeling_out[var_out];
+			ind[1-fit->second]=labeling_in[var_in];
+
+			if (fabs(gm[fit->first](ind.begin())) > 1e-15)//BSD: improve this line to get an optimal edge and be independent on numerical issues
+			{
+				gap += gm[fit->first](ind.begin());
+				result.push_back(var_out);
+			}
+		}
+
+		return result.empty();
+	}
+
+	template<class GM>
+	void
+	getMaskBoundary
+	(
+		const GM &gm,
+		const std::vector<bool> &mask,
+		std::vector<bool> &boundaryMask
+	)
+	{
+		typedef typename GM::IndexType IndexType;
+		typedef typename GM::FactorType FactorType;
+		OPENGM_ASSERT_OP(mask.size(), ==, gm.numberOfVariables());
+
+		boundaryMask.assign(mask.size(), false);
+		for (IndexType i = 0; i < mask.size(); ++i) {
+			if (! mask[i]) continue;
+
+			for (IndexType j = 0; j < gm.numberOfFactors(i); ++j) {
+				if (boundaryMask[i]) break;
+
+				typedef typename FactorType::VariablesIteratorType Iter;
+				const FactorType& f = gm[ gm.factorOfVariable(i, j) ];
+				for (Iter it = f.variableIndicesBegin(); it != f.variableIndicesEnd(); ++it) {
+					if (! mask[*it]) {
+						boundaryMask[i] = true;
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	template<class GM>
+	GraphicalModelManipulator<GM>
+	maskToManipulator
+	(
+		const GM &gm,
+		const std::vector<typename GM::LabelType> &labeling,
+		const std::vector<bool> &mask
+	)
+	{
+		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, labeling.size());
+		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, mask.size());
+		GraphicalModelManipulator<GM> result(gm, GraphicalModelManipulator<GM>::DROP);
+
+		for (typename GM::IndexType i = 0; i < gm.numberOfVariables(); ++i)
+			if (! mask[i])
+				result.fixVariable(i, labeling[i]);
+
+		result.lock();
+		result.buildModifiedSubModels();
+		return result;
+	}
+
+} // namespace combilp
+} // namespace opengm
+
+#endif
