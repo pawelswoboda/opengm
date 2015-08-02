@@ -111,10 +111,14 @@ public:
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
+#if 0
 	typedef visitors::EmptyVisitor<MyType> EmptyVisitorType;
 	typedef visitors::VerboseVisitor<MyType> VerboseVisitorType;
 	typedef visitors::TimingVisitor<MyType> TimingVisitorType;
 	typedef visitors::LabelCollapseStatisticsVisitor<MyType> StatisticsVisitorType;
+#else
+	typedef visitors::LabelCollapseStatisticsVisitor<MyType> EmptyVisitorType;
+#endif
 
 	typedef typename std::vector<LabelType>::const_iterator LabelIterator;
 
