@@ -1251,62 +1251,6 @@ struct ReparametrizerTypeGen<GM, ACC, ReparametrizationDiffusion> {
 	typedef MinSumDiffusion<GM, ACC> Type;
 };
 
-template<class GM, class ACC>
-class Reparametrizer<GM, ACC, ReparametrizationTRWS> {
-public:
-	typedef Reparametrizer<GM, ACC, ReparametrizationTRWS> MyType;
-	typedef GM OriginalModelType;
-	typedef ACC AccumulationType;
-	typedef TRWSi<OriginalModelType, AccumulationType> TRWSiType;
-	typedef typename TRWSiType::ReparametrizerType ReparametrizerType;
-	typedef typename ReparametrizerType::ReparametrizedGMType ReparametrizedModelType;
-
-	static typename TRWSiType::Parameter parameter()
-	{
-		typename TRWSiType::Parameter param;
-		param.maxNumberOfIterations_ = 300;
-		param.setTreeAgreeMaxStableIter(50);
-		param.verbose_ = true;
-		return param;
-	}
-
-	Reparametrizer(const OriginalModelType &gm)
-	: gm_(gm)
-	, trwsi_(gm, parameter())
-	{
-	}
-
-	const ReparametrizedModelType& reparameterizedModel() const
-	{
-		return rm_;
-	}
-
-	std::vector<typename OriginalModelType::LabelType> labeling() const {
-		std::vector<typename OriginalModelType::LabelType> labeling;
-		trwsi_.arg(labeling);
-		return labeling;
-	}
-
-	void reparameterize()
-	{
-		trwsi_.infer();
-		repa_.reset(trwsi_.getReparametrizer());
-
-		repa_->reparametrize();
-		repa_->getReparametrizedModel(rm_);
-
-		LabelCollapsePropertyChecker checker;
-		checker(rm_);
-		std::cout << "After reparamaterization: " << checker.str() << std::endl;
-	}
-
-private:
-	const OriginalModelType &gm_;
-	TRWSiType trwsi_;
-	boost::scoped_ptr<ReparametrizerType> repa_;
-	ReparametrizedModelType rm_;
-};
-
 } // namespace labelcollapse
 } // namespace opengm
 
