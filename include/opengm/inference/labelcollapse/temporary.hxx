@@ -1,5 +1,5 @@
 //
-// File: reparameterization.hxx
+// File: reparametrization.hxx
 //
 // This file is part of OpenGM.
 //
@@ -74,9 +74,9 @@ temporaryTheorem3
 	inf.auxiliaryLabeling(labeling.begin(), auxLabeling.begin());
 
 	typename INF::ValueType epsilon = INF::AccumulationType::template neutral<typename INF::ValueType>();
-	const typename INF::ReparameterizedModelType &gm = inf.reparameterizedModel();
+	const typename INF::ReparametrizedModelType &gm = inf.reparametrizedModel();
 	for (typename INF::IndexType i = 0; i < gm.numberOfFactors(); ++i) {
-		const typename INF::ReparameterizedModelType::FactorType &factor = gm[i];
+		const typename INF::ReparametrizedModelType::FactorType &factor = gm[i];
 		FastSequence<typename INF::LabelType> factorLabeling(factor.numberOfVariables());
 
 		for(typename INF::IndexType j = 0; j < factor.numberOfVariables(); ++j)

@@ -208,15 +208,15 @@ private:
 	MaskType mask_;
 
 	// The first phase of CombiLP uses a TRWS solver. For the second phase
-	// we need a reparameterizer and the concept is very tightly coupled to
+	// we need a reparametrizer and the concept is very tightly coupled to
 	// the TRWS solver.
 	//
 	// (TRWS uses a TreeDecompositionStorage and stores unary values. After
 	// solving the model, the TreeDecompositionStorage has changed all those
-	// values. The reparameterizer reuses all those values.)
+	// values. The reparametrizer reuses all those values.)
 	//
-	// The current solution is to extract the reparameterizer during the first
-	// pass. The problem is that the reparameterizer uses internal pointers to
+	// The current solution is to extract the reparametrizer during the first
+	// pass. The problem is that the reparametrizer uses internal pointers to
 	// the TRWS structures. So we need to keep the TRWS instance also alive.
 	//
 	// Sounds complicated...
@@ -319,7 +319,7 @@ CombiLP<GM, ACC, LP, ILP>::performLP()
 	std::cout << "Trivializing." << std::endl;
 #endif
 
-	// FIXME?: Why do we reparameterize the model again? The LPSolver already
+	// FIXME?: Why do we reparametrize the model again? The LPSolver already
 	// did this. There is no need for instantiating a reparametrizer here, is it?
 #ifdef WITH_HDF5
 	if (parameter_.reparametrizedModelFileName_.compare("") != 0) {
@@ -421,14 +421,14 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 		debugSaveProblemMasks(iteration, boundaryMask);
 
 		//
-		// Performs reparameterization.
+		// Performs reparametrization.
 		//
 		// The reparametrized flag determines if reparamaterization should be
-		// performed. For the non-dense CombiLP we only run reparameterization
+		// performed. For the non-dense CombiLP we only run reparametrization
 		// once and we use a full mask.
 		//
 		// For Dense CombiLP the reparametrize is wil not be cleared and we
-		// run the reparameterization in each iteration but with the updated
+		// run the reparametrization in each iteration but with the updated
 		// mask.
 		//
 		if (!reparametrizedFlag) {

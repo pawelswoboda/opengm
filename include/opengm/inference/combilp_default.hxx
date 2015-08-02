@@ -24,7 +24,7 @@ struct CombiLP_TRWSi_Gen {
 	typedef CombiLP<GM, ACC, LPSolverType, ILPSolverType> CombiLPType;
 };
 
-template<class GM, class ACC, labelcollapse::ReparameterizationKind REPA = labelcollapse::ReparameterizationNone>
+template<class GM, class ACC, labelcollapse::ReparametrizationKind REPA = labelcollapse::ReparametrizationNone>
 struct CombiLP_TRWSi_LC_Gen {
 	typedef TRWSi<GM, ACC> LPSolverType;
 	typedef typename CombiLP_ILP_TypeGen<LPSolverType>::GraphicalModelType ReparametrizedGMType;
