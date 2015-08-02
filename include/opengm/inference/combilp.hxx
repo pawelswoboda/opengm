@@ -23,6 +23,8 @@
 #include <opengm/inference/trws/output_debug_utils.hxx>
 #include <opengm/inference/trws/trws_base.hxx>
 
+#include "labelcollapse/temporary.hxx"
+
 namespace opengm{
 
 namespace combilp {
@@ -187,12 +189,13 @@ private:
 	void performLP();
 	template<class VISITOR> InferenceTermination performILP(VISITOR&);
 
-	InferenceTermination inferenceOnSubmodels(const ManipulatorType&, Labeling&) const;
+	InferenceTermination inferenceOnSubmodels(const ManipulatorType&, Labeling&, Labeling&, Labeling&, Labeling&) const;
 	bool checkOptimality(const ReparametrizedGMType&, const MaskType&, const Labeling&, std::vector<IndexType>&);
 	void addNodes(const ReparametrizedGMType&, const std::vector<IndexType>&);
 
 	void debugSaveProblemMasks(size_t, const MaskType&) const;
 	void debugSaveProblemMasksMismatches(size_t, const std::vector<IndexType>&) const;
+	void debugPrintDepth(const Labeling&, const Labeling&, const Labeling &) const;
 
 	//
 	// Members
@@ -368,6 +371,13 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 	bool reparametrizedFlag = false; // TODO: Throw away non-dense version?
 	InferenceTermination result = TIMEOUT;
 
+	// BEGIN-HACK
+	// Target shape for LabelCollapse population of label space.
+	Labeling targetShape(gm_.numberOfVariables());
+	Labeling depth(gm_.numberOfVariables());
+	Labeling trwsiLabeling(gm_.numberOfVariables());
+	// END-HACK
+
 	// Main loop for iteration. In each iteration we run the ILP solver on the
 	// different subproblems. If the labeling has mismatches compared to the
 	// strict-arc-consistent labeling (on the “border”) we grow the ILP
@@ -386,6 +396,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 		// can either raise a timeout or say that the gap is small enough.
 		switch (visitor(*this)) {
 		case visitors::VisitorReturnFlag::StopInfBoundReached:
+			debugPrintDepth(targetShape, depth, trwsiLabeling);
 			return CONVERGENCE;
 			break;
 		case visitors::VisitorReturnFlag::StopInfTimeout:
@@ -441,7 +452,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 		//
 		Labeling labeling;
 		ManipulatorType manipulator = combilp::maskToManipulator(gm, labeling_, mask_);
-		InferenceTermination inf = inferenceOnSubmodels(manipulator, labeling);
+		InferenceTermination inf = inferenceOnSubmodels(manipulator, labeling, targetShape, depth, trwsiLabeling);
 		if ((inf != NORMAL) && (inf != CONVERGENCE)) {
 #ifdef OPENGM_COMBILP_DEBUG
 			std::cout << "ILP solver failed to solve the problem. Best attained results will be saved." << std::endl;
@@ -461,6 +472,7 @@ CombiLP<GM, ACC, LP, ILP>::performILP
 #ifdef OPENGM_COMBILP_DEBUG
 			std::cout << "Solved! Optimal energy=" << value() << std::endl;
 #endif
+			debugPrintDepth(targetShape, depth, trwsiLabeling);
 		} else {
 			debugSaveProblemMasksMismatches(iteration, mismatches);
 			addNodes(gm, mismatches);
@@ -475,22 +487,73 @@ InferenceTermination
 CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 (
 	const ManipulatorType &manipulator,
-	Labeling &labeling
+	Labeling &labeling,
+	Labeling &targetShape,
+	Labeling &depth,
+	Labeling &trwsiLabeling
 ) const
 {
 	std::vector<Labeling> labelings(manipulator.numberOfSubmodels());
+
+	// BEGIN-HACK
+	std::cout << "targetShape =";
+	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i)
+		std::cout << " " << targetShape[i];
+	std::cout << std::endl;
+	// END-HACK
 
 	for (size_t i = 0; i < manipulator.numberOfSubmodels(); ++i) {
 		const typename ManipulatorType::MGM &model = manipulator.getModifiedSubModel(i);
 		Labeling &labeling = labelings[i];
 
+		// BEGIN-HACK
+		std::vector<LabelType> population(model.numberOfVariables());
+		for (IndexType j = 0; j < gm_.numberOfVariables(); ++j) {
+			if (manipulator.fixVariable_[j] ||
+			    (manipulator.var2subProblem_[j] != i))
+			{
+				continue;
+			}
+
+			population[ manipulator.varMap_[j] ] = targetShape[j];
+		}
+
+		std::cout << "population[" << i << "] =";
+		for (IndexType j = 0; j < model.numberOfVariables(); ++j)
+			std::cout << " " << population[j];
+		std::cout << std::endl;
+		// END-HACK
+
+		Labeling subTrwsiLabeling;
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
+		ilpSolver.populateShape(population.begin());
+		labelcollapse::temporaryTheorem3(ilpSolver, &subTrwsiLabeling);
+		ilpSolver.calculateDepth(subTrwsiLabeling.begin(), subTrwsiLabeling.begin());
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
 
 		labeling.resize(model.numberOfVariables());
 		ilpSolver.arg(labelings[i]);
+
+		// BEGIN-HACK
+		std::vector<LabelType> subDepth(model.numberOfVariables());
+		ilpSolver.currentNumberOfLabels(population.begin());
+		ilpSolver.depth(subDepth.begin());
+		for (IndexType j = 0; j < gm_.numberOfVariables(); ++j) {
+			if (manipulator.fixVariable_[j] ||
+			    (manipulator.var2subProblem_[j] != i))
+			{
+				continue;
+			}
+
+			IndexType subVar = manipulator.varMap_[j];
+
+			targetShape[j] = population[subVar];
+			depth[j] = subDepth[subVar];
+			trwsiLabeling[j] = subTrwsiLabeling[subVar];
+		}
+		// END-HACK
 	}
 
 	manipulator.modifiedSubStates2OriginalState(labelings, labeling);
@@ -624,6 +687,29 @@ CombiLP<GM, ACC, LP, ILP>::debugSaveProblemMasksMismatches
 		OUT::saveContainer(s.str(), mismatches.begin(), mismatches.end());
 	}
 #endif
+}
+
+template<class GM, class ACC, class LP, class ILP>
+void
+CombiLP<GM, ACC, LP, ILP>::debugPrintDepth
+(
+	const Labeling &targetShape,
+	const Labeling &depth,
+	const Labeling &trwsi
+) const
+{
+	std::cout << "-- BEGIN DEPTH STATS --" << std::endl;
+	std::cout << "# FORMAT: node / mask / label / shape / origShape / trwsi" << std::endl;
+	for (IndexType i = 0; i < gm_.numberOfVariables(); ++i) {
+		std::cout << i << " / "
+		          << (mask_[i] ? 1 : 0) << " / "
+		          << depth[i] << " / "
+		          << targetShape[i] << " / "
+		          << gm_.numberOfLabels(i) << " / "
+		          << trwsi[i]
+		          << std::endl;
+	}
+	std::cout << "-- END DEPTH STATS --" << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
