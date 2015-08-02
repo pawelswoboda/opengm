@@ -1252,14 +1252,14 @@ struct ReparametrizerTypeGen<GM, ACC, ReparametrizationDiffusion> {
 };
 
 template<class GM, class ACC>
-class Reparameterizer<GM, ACC, ReparameterizationTRWS> {
+class Reparametrizer<GM, ACC, ReparametrizationTRWS> {
 public:
-	typedef Reparameterizer<GM, ACC, ReparameterizationTRWS> MyType;
+	typedef Reparametrizer<GM, ACC, ReparametrizationTRWS> MyType;
 	typedef GM OriginalModelType;
 	typedef ACC AccumulationType;
 	typedef TRWSi<OriginalModelType, AccumulationType> TRWSiType;
-	typedef typename TRWSiType::ReparametrizerType ReparameterizerType;
-	typedef typename ReparameterizerType::ReparametrizedGMType ReparameterizedModelType;
+	typedef typename TRWSiType::ReparametrizerType ReparametrizerType;
+	typedef typename ReparametrizerType::ReparametrizedGMType ReparametrizedModelType;
 
 	static typename TRWSiType::Parameter parameter()
 	{
@@ -1270,13 +1270,13 @@ public:
 		return param;
 	}
 
-	Reparameterizer(const OriginalModelType &gm)
+	Reparametrizer(const OriginalModelType &gm)
 	: gm_(gm)
 	, trwsi_(gm, parameter())
 	{
 	}
 
-	const ReparameterizedModelType& reparameterizedModel() const
+	const ReparametrizedModelType& reparameterizedModel() const
 	{
 		return rm_;
 	}
@@ -1303,8 +1303,8 @@ public:
 private:
 	const OriginalModelType &gm_;
 	TRWSiType trwsi_;
-	boost::scoped_ptr<ReparameterizerType> repa_;
-	ReparameterizedModelType rm_;
+	boost::scoped_ptr<ReparametrizerType> repa_;
+	ReparametrizedModelType rm_;
 };
 
 } // namespace labelcollapse
