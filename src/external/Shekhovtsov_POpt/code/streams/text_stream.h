@@ -1,6 +1,8 @@
 #ifndef text_stream_h
 #define text_stream_h
 
+#include <stdio.h>
+
 //#include "advstreaming.h"
 #include "virtual_stream.h"
 
