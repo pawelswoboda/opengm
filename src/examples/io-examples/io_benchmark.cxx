@@ -117,14 +117,14 @@ int main(int argc, char **argv)
 	// Convert labeling of reduced model and check if the solutions match.
 	//
 
-	std::vector<LabelType> labelingConvertetd;
-	popt.getPOpt_Data().ReducedToOriginalLabeling(labelingConvertetd, labelingReduced);
+	std::vector<LabelType> labelingConverted;
+	popt.getPOpt_Data().ReducedToOriginalLabeling(labelingConverted, labelingReduced);
 
 	printLabeling(labelingOriginal,   "CPLEX labeling: ");
-	printLabeling(labelingConvertetd, "POpt labeling:  ");
+	printLabeling(labelingConverted, "POpt labeling:  ");
 
 	ValueType solOriginal = gm.evaluate(labelingOriginal.begin());
-	ValueType solConverted = gm.evaluate(labelingConvertetd.begin());
+	ValueType solConverted = gm.evaluate(labelingConverted.begin());
 
 	std::cout << std::endl
 	          << "CPLEX solution: " << solOriginal << std::endl
