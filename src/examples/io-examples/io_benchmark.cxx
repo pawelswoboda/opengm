@@ -99,11 +99,14 @@ int main(int argc, char **argv)
 	typedef opengm::POpt_Data<GraphicalModelType> POptDataType;
 	typedef typename POptDataType::ReducedGmType ReducedModelType;
 
+	std::vector<LabelType> labelingPOpt;
 	ReducedModelType rm;
 	typename POptInferType::Parameter poptparam;
 	poptparam.methodSequence_.push_back(POptInferType::Parameter::IRI_SHEKHOVTSOV);
 	POptInferType popt(gm, poptparam);
-	popt.infer();
+	typename POptInferType::VerboseVisitorType visitor;
+	popt.infer(visitor);
+	popt.arg(labelingPOpt);
 	popt.getPOpt_Data().reducedGraphicalModel(rm);
 
 	//
@@ -120,13 +123,16 @@ int main(int argc, char **argv)
 	std::vector<LabelType> labelingConverted;
 	popt.getPOpt_Data().ReducedToOriginalLabeling(labelingConverted, labelingReduced);
 
-	printLabeling(labelingOriginal,   "CPLEX labeling: ");
+	printLabeling(labelingPOpt,      "POpt labeling:  ");
+	printLabeling(labelingOriginal,  "CPLEX labeling: ");
 	printLabeling(labelingConverted, "POpt labeling:  ");
 
+	ValueType solPOpt = gm.evaluate(labelingPOpt.begin());
 	ValueType solOriginal = gm.evaluate(labelingOriginal.begin());
 	ValueType solConverted = gm.evaluate(labelingConverted.begin());
 
 	std::cout << std::endl
+	          << "POpt solution:  " << solPOpt << std::endl
 	          << "CPLEX solution: " << solOriginal << std::endl
 	          << "POpt solution:  " << solConverted << std::endl;
 
