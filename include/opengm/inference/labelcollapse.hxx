@@ -287,25 +287,39 @@ LabelCollapse<GM, INF, KIND>::infer
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
-template<class INPUT_ITERATOR>
+template<class ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::populateShape
 (
-	INPUT_ITERATOR it
+	ITERATOR it
 )
 {
-	builder_.populateShape(it);
+	for (IndexType i = 0; i < gm_->numberOfVariables(); ++i, ++it)
+		while (builder_.isUncollapsable(i) && builder_.numberOfLabels(i) < *it)
+			builder_.uncollapse(i);
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
-template<class INPUT_ITERATOR>
+template<class ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::populateLabeling
 (
-	INPUT_ITERATOR it
+	ITERATOR it
 )
 {
-	builder_.populateLabeling(it);
+	std::vector<LabelType> auxiliaryLabeling;
+	builder_.auxiliaryLabeling(it, auxiliaryLabeling.begin());
+
+	// We have an auxiliary labeling, but we need a label shape (remember that
+	// there is the additional zeroth label which represents all collapsed
+	// labels).
+	std::transform(
+		auxiliaryLabeling.begin(), auxiliaryLabeling.end(),
+		auxiliaryLabeling.begin(),
+		std::bind2nd(std::plus<LabelType>(), 1)
+	);
+
+	populateShape(auxiliaryLabeling.begin());
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>

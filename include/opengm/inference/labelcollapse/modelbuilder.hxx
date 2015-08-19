@@ -109,9 +109,6 @@ public:
 	bool uncollapse(const IndexType);
 	template<class INPUT_ITERATOR> bool uncollapseLabeling(INPUT_ITERATOR);
 
-	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
-	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
-
 private:
 	typedef std::vector<LabelType> Stack;
 
@@ -226,32 +223,6 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 	}
 
 	return result;
-}
-
-template<class GM, class ACC>
-template<class ITERATOR>
-void
-ModelBuilder<GM, ACC>::populateShape
-(
-	ITERATOR it
-)
-{
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
-		while (!mappings_[i].full() && numberOfLabels(i) < *it)
-			uncollapse(i);
-}
-
-template<class GM, class ACC>
-template<class ITERATOR>
-void
-ModelBuilder<GM, ACC>::populateLabeling
-(
-	ITERATOR it
-)
-{
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
-		while (!mappings_[i].full() && mappings_[i].isCollapsedOriginal(*it))
-			uncollapse(i);
 }
 
 template<class GM, class ACC>
