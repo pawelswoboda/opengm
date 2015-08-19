@@ -114,7 +114,6 @@ public:
 private:
 	typedef std::vector<LabelType> Stack;
 
-	ValueType unaryValue(IndexType var, LabelType lbl);
 	void internalChecks() const;
 
 	const OriginalModelType *original_;
@@ -334,9 +333,6 @@ ModelBuilder<GM, ACC>::uncollapse
 
 	internalChecks();
 
-	// Additional we remember the largest potential of the unary values (Theorem 2).
-	ValueType current = unaryValue(idx, label);
-
 	rebuildNecessary_ = true;
 }
 
@@ -358,25 +354,6 @@ ModelBuilder<GM, ACC>::internalChecks() const
 		}
 	}
 #endif
-}
-
-template<class GM, class ACC>
-typename ModelBuilder<GM, ACC>::ValueType
-ModelBuilder<GM, ACC>::unaryValue
-(
-	IndexType var,
-	LabelType lbl
-)
-{
-	marray::Vector<IndexType> factorIds;
-	size_t count = original_->numberOfNthOrderFactorsOfVariable(var, 1, factorIds);
-	OPENGM_ASSERT_OP(count, ==, 1);
-	OPENGM_ASSERT_OP((*original_)[factorIds[0]].variableIndex(0), ==, var);
-	const typename OriginalModelType::FactorType &factor = (*original_)[factorIds[0]];
-
-	opengm::FastSequence<LabelType> labeling(1);
-	labeling[0] = lbl;
-	return factor(labeling.begin());
 }
 
 } // namespace labelcollapse
