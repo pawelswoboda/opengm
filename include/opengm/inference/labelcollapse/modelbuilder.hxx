@@ -105,8 +105,9 @@ public:
 	template<class IN_ITER, class OUT_ITER> void calculateDepth(IN_ITER, OUT_ITER) const;
 	LabelType numberOfLabels(IndexType i) const { return mappings_[i].size(); }
 
-	void uncollapse(const IndexType);
-	template<class INPUT_ITERATOR> void uncollapseLabeling(INPUT_ITERATOR);
+	bool isUncollapsable(const IndexType);
+	bool uncollapse(const IndexType);
+	template<class INPUT_ITERATOR> bool uncollapseLabeling(INPUT_ITERATOR);
 
 	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
 	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
@@ -210,18 +211,21 @@ ModelBuilder<GM, ACC>::isValidLabeling
 
 template<class GM, class ACC>
 template<class INPUT_ITERATOR>
-void
+bool
 ModelBuilder<GM, ACC>::uncollapseLabeling
 (
 	INPUT_ITERATOR it
 )
 {
 	OPENGM_ASSERT(!rebuildNecessary_);
+	bool result = false;
 
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
 		if (mappings_[i].isCollapsedAuxiliary(*it))
-			uncollapse(i);
+			result = result || uncollapse(i);
 	}
+
+	return result;
 }
 
 template<class GM, class ACC>
@@ -307,7 +311,17 @@ ModelBuilder<GM, ACC>::calculateDepth
 }
 
 template<class GM, class ACC>
-void
+bool
+ModelBuilder<GM, ACC>::isUncollapsable
+(
+	const IndexType idx
+)
+{
+	return !mappings_[idx].full();
+}
+
+template<class GM, class ACC>
+bool
 ModelBuilder<GM, ACC>::uncollapse
 (
 	const IndexType idx
@@ -315,25 +329,29 @@ ModelBuilder<GM, ACC>::uncollapse
 {
 	internalChecks();
 
-	OPENGM_ASSERT(collapsed_[idx].size() > 0);
-	OPENGM_ASSERT(!mappings_[idx].full());
+	if (!mappings_[idx].full()) {
+		OPENGM_ASSERT(collapsed_[idx].size() > 0);
 
-	LabelType label = collapsed_[idx].back();
-	collapsed_[idx].pop_back();
-	mappings_[idx].insert(label);
-
-	// If there is just one collapsed label left, all the auxiliary unaries
-	// and binaries are equal to the original potentials. We can just
-	// uncollapse it.
-	//
-	// We just pop it here, because the Mapping class automatically handles
-	// this case. (Checked in debug mode.)
-	if (collapsed_[idx].size() == 1)
+		LabelType label = collapsed_[idx].back();
 		collapsed_[idx].pop_back();
+		mappings_[idx].insert(label);
 
-	internalChecks();
+		// If there is just one collapsed label left, all the auxiliary unaries
+		// and binaries are equal to the original potentials. We can just
+		// uncollapse it.
+		//
+		// We just pop it here, because the Mapping class automatically handles
+		// this case. (Checked in debug mode.)
+		if (collapsed_[idx].size() == 1)
+			collapsed_[idx].pop_back();
 
-	rebuildNecessary_ = true;
+		internalChecks();
+
+		rebuildNecessary_ = true;
+		return true;
+	}
+
+	return false;
 }
 
 template<class GM, class ACC>
