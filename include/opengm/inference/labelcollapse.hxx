@@ -150,7 +150,6 @@ public:
 
 	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
 	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
-	void increaseEpsilonTo(ValueType value);
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
@@ -307,16 +306,6 @@ LabelCollapse<GM, INF, KIND>::populateLabeling
 )
 {
 	builder_.populateLabeling(it);
-}
-
-template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
-void
-LabelCollapse<GM, INF, KIND>::increaseEpsilonTo
-(
-	ValueType value
-)
-{
-	builder_.increaseEpsilonTo(value);
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>

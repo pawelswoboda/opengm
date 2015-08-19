@@ -110,20 +110,17 @@ public:
 
 	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
 	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
-	void increaseEpsilonTo(ValueType value);
 
 private:
 	typedef std::vector<LabelType> Stack;
 
 	ValueType unaryValue(IndexType var, LabelType lbl);
-	void expand();
 	void internalChecks() const;
 
 	const OriginalModelType *original_;
 	AuxiliaryModelType auxiliary_;
 	std::vector<MappingType> mappings_;
 	bool rebuildNecessary_;
-	ValueType epsilon_;
 	std::vector<Stack> collapsed_;
 };
 
@@ -135,7 +132,6 @@ ModelBuilder<GM, ACC>::ModelBuilder
 : original_(&gm)
 , mappings_(gm.numberOfFactors(), MappingType(0))
 , rebuildNecessary_(true)
-, epsilon_(ACC::template ineutral<ValueType>())
 , collapsed_(gm.numberOfVariables())
 {
 	// First set up the mapping. This is needed for the later uncollapsing
@@ -227,8 +223,6 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 		if (mappings_[i].isCollapsedAuxiliary(*it))
 			uncollapse(i);
 	}
-
-	expand();
 }
 
 template<class GM, class ACC>
@@ -242,8 +236,6 @@ ModelBuilder<GM, ACC>::populateShape
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
 		while (!mappings_[i].full() && numberOfLabels(i) < *it)
 			uncollapse(i);
-
-	expand();
 }
 
 template<class GM, class ACC>
@@ -257,19 +249,6 @@ ModelBuilder<GM, ACC>::populateLabeling
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
 		while (!mappings_[i].full() && mappings_[i].isCollapsedOriginal(*it))
 			uncollapse(i);
-
-	expand();
-}
-
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::increaseEpsilonTo
-(
-	ValueType epsilon
-)
-{
-	if (ACC::ibop(epsilon, epsilon_))
-		epsilon_ = epsilon;
 }
 
 template<class GM, class ACC>
@@ -357,18 +336,8 @@ ModelBuilder<GM, ACC>::uncollapse
 
 	// Additional we remember the largest potential of the unary values (Theorem 2).
 	ValueType current = unaryValue(idx, label);
-	increaseEpsilonTo(current);
 
 	rebuildNecessary_ = true;
-}
-
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::expand()
-{
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
-		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < epsilon_)
-			uncollapse(i);
 }
 
 template<class GM, class ACC>
