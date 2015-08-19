@@ -235,8 +235,8 @@ LabelCollapse<GM, INF, KIND>::infer
 
 	visitor.begin(*this);
 
-	bool exitInf = false;
-	while (!exitInf) {
+	bool again = true;
+	while (again) {
 		// Building the model is not really necessary (should be already done
 		// at this point).
 		builder_.buildAuxiliaryModel();
@@ -257,21 +257,19 @@ LabelCollapse<GM, INF, KIND>::infer
 		std::vector<LabelType> labeling;
 		inf.arg(labeling, 1); // FIXME: Check result value.
 
-		// If the labeling is valid, we are done.
-		if (builder_.isValidLabeling(labeling.begin())) {
-			exitInf = true;
+		// Update the model. This will try to make more labels available where
+		// the current labeling is invalid.
+		// If no update was necessary (i.e. the labeling is valid), we are done.
+		again = builder_.uncollapseLabeling(labeling.begin());
+
+		if (! again) {
 			termination_ = NORMAL;
 			value_ = inf.value();
-
 			builder_.originalLabeling(labeling.begin(), labeling_.begin());
 		} else {
-			// Update the model. This will try to make more labels available where
-			// the current labeling is invalid.
-			builder_.uncollapseLabeling(labeling.begin());
+			// In case user code looks at the model.
+			builder_.buildAuxiliaryModel();
 		}
-
-		// In case user code looks at the model.
-		builder_.buildAuxiliaryModel();
 
 		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) {
 			// Visitor could also return StopInfBoundReached. But that does not
