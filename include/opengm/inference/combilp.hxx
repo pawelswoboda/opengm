@@ -507,6 +507,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 		// BEGIN-HACK
 		std::vector<LabelType> population(model.numberOfVariables());
+		std::vector<LabelType> subTrwsiLabeling(model.numberOfVariables());
 		for (IndexType j = 0; j < gm_.numberOfVariables(); ++j) {
 			if (manipulator.fixVariable_[j] ||
 			    (manipulator.var2subProblem_[j] != i))
@@ -515,6 +516,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 			}
 
 			population[ manipulator.varMap_[j] ] = targetShape[j];
+			subTrwsiLabeling[ manipulator.varMap_[j] ] = labeling_[j];
 		}
 
 		std::cout << "population[" << i << "] =";
@@ -525,9 +527,8 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 		//Labeling subTrwsiLabeling;
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
-		ilpSolver.populateShape(population.begin());
-		//labelcollapse::temporaryTheorem2(ilpSolver, &subTrwsiLabeling);
-		//ilpSolver.calculateDepth(subTrwsiLabeling.begin(), subTrwsiLabeling.begin());
+		//ilpSolver.populateShape(population.begin());
+		ilpSolver.populateFusionMove(subTrwsiLabeling.begin());
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
@@ -550,7 +551,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 			targetShape[j] = population[subVar];
 			depth[j] = subDepth[subVar];
-			//trwsiLabeling[j] = subTrwsiLabeling[subVar];
+			trwsiLabeling[j] = subTrwsiLabeling[subVar];
 		}
 		// END-HACK
 	}
