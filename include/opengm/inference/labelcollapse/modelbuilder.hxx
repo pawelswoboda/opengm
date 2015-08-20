@@ -102,28 +102,26 @@ public:
 	template<class IN_ITER> bool isValidLabeling(IN_ITER) const;
 	template<class IN_ITER, class OUT_ITER> void originalLabeling(IN_ITER, OUT_ITER) const;
 	template<class IN_ITER, class OUT_ITER> void auxiliaryLabeling(IN_ITER, OUT_ITER) const;
+
+	template<class IN_ITER, class OUT_ITER> bool moveToAuxiliary(IN_ITER, OUT_ITER) const;
+	template<class OUT_ITER> void initialLabeling(OUT_ITER) const;
+
 	template<class IN_ITER, class OUT_ITER> void calculateDepth(IN_ITER, OUT_ITER) const;
 	LabelType numberOfLabels(IndexType i) const { return mappings_[i].size(); }
 
-	void uncollapse(const IndexType);
-	template<class INPUT_ITERATOR> void uncollapseLabeling(INPUT_ITERATOR);
-
-	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
-	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
-	void increaseEpsilonTo(ValueType value);
+	bool isUncollapsable(const IndexType);
+	bool uncollapse(const IndexType);
+	template<class INPUT_ITERATOR> bool uncollapseLabeling(INPUT_ITERATOR);
 
 private:
 	typedef std::vector<LabelType> Stack;
 
-	ValueType unaryValue(IndexType var, LabelType lbl);
-	void expand();
 	void internalChecks() const;
 
 	const OriginalModelType *original_;
 	AuxiliaryModelType auxiliary_;
 	std::vector<MappingType> mappings_;
 	bool rebuildNecessary_;
-	ValueType epsilon_;
 	std::vector<Stack> collapsed_;
 };
 
@@ -135,7 +133,6 @@ ModelBuilder<GM, ACC>::ModelBuilder
 : original_(&gm)
 , mappings_(gm.numberOfFactors(), MappingType(0))
 , rebuildNecessary_(true)
-, epsilon_(ACC::template ineutral<ValueType>())
 , collapsed_(gm.numberOfVariables())
 {
 	// First set up the mapping. This is needed for the later uncollapsing
@@ -215,7 +212,7 @@ ModelBuilder<GM, ACC>::isValidLabeling
 
 template<class GM, class ACC>
 template<class INPUT_ITERATOR>
-void
+bool
 ModelBuilder<GM, ACC>::uncollapseLabeling
 (
 	INPUT_ITERATOR it
@@ -223,6 +220,7 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 {
 	std::cout << "[DBG] BEGIN UNCOLLAPSING OF LABELING" << std::endl;
 	OPENGM_ASSERT(!rebuildNecessary_);
+	bool result = false;
 
 	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it) {
 		// TODO: Consider the following:
@@ -238,58 +236,11 @@ ModelBuilder<GM, ACC>::uncollapseLabeling
 		//
 		// *it = doFunkyStuff();
 		if (mappings_[i].isCollapsedAuxiliary(*it))
-			uncollapse(i);
+			result = result || uncollapse(i);
 	}
 	std::cout << "[DBG] END UNCOLLAPSING OF LABELING" << std::endl;
 
-	expand();
-}
-
-template<class GM, class ACC>
-template<class ITERATOR>
-void
-ModelBuilder<GM, ACC>::populateShape
-(
-	ITERATOR it
-)
-{
-	std::cout << "[DBG] BEGIN SHAPE POPULATION" << std::endl;
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
-		while (!mappings_[i].full() && numberOfLabels(i) < *it)
-			uncollapse(i);
-	std::cout << "[DBG] END SHAPE POPULATION" << std::endl;
-
-	expand();
-}
-
-template<class GM, class ACC>
-template<class ITERATOR>
-void
-ModelBuilder<GM, ACC>::populateLabeling
-(
-	ITERATOR it
-)
-{
-	std::cout << "[DBG] BEGIN LABEL POPULATION" << std::endl;
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++it)
-		while (!mappings_[i].full() && mappings_[i].isCollapsedOriginal(*it))
-			uncollapse(i);
-	std::cout << "[DBG] END LABEL POPULATION" << std::endl;
-
-	expand();
-}
-
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::increaseEpsilonTo
-(
-	ValueType epsilon
-)
-{
-	std::cout << "[DBG] old/new epsilon: " << epsilon_ << " / ";
-	if (ACC::ibop(epsilon, epsilon_))
-		epsilon_ = epsilon;
-	std::cout << epsilon_ << std::endl;
+	return result;
 }
 
 template<class GM, class ACC>
@@ -331,6 +282,40 @@ ModelBuilder<GM, ACC>::auxiliaryLabeling
 
 template<class GM, class ACC>
 template<class IN_ITER, class OUT_ITER>
+bool
+ModelBuilder<GM, ACC>::moveToAuxiliary
+(
+	IN_ITER in,
+	OUT_ITER out
+) const
+{
+	bool result = false;
+
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++in, ++out) {
+		if (mappings_[i].full()) {
+			*out = *in;
+		} else {
+			*out = mappings_[i].full() ? *in : 0;
+		}
+	}
+
+	return result;
+}
+
+template<class GM, class ACC>
+template<class OUT_ITER>
+void
+ModelBuilder<GM, ACC>::initialLabeling
+(
+	OUT_ITER out
+) const
+{
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++out)
+		*out = mappings_[i].full() ? 0 : 1;
+}
+
+template<class GM, class ACC>
+template<class IN_ITER, class OUT_ITER>
 void
 ModelBuilder<GM, ACC>::calculateDepth
 (
@@ -349,7 +334,17 @@ ModelBuilder<GM, ACC>::calculateDepth
 }
 
 template<class GM, class ACC>
-void
+bool
+ModelBuilder<GM, ACC>::isUncollapsable
+(
+	const IndexType idx
+)
+{
+	return !mappings_[idx].full();
+}
+
+template<class GM, class ACC>
+bool
 ModelBuilder<GM, ACC>::uncollapse
 (
 	const IndexType idx
@@ -357,44 +352,33 @@ ModelBuilder<GM, ACC>::uncollapse
 {
 	internalChecks();
 
-	std::cout << "[DBG] uncollapsing var " << idx << " from " << mappings_[idx].size();
+	if (!mappings_[idx].full()) {
+		OPENGM_ASSERT(collapsed_[idx].size() > 0);
 
-	OPENGM_ASSERT(collapsed_[idx].size() > 0);
-	OPENGM_ASSERT(!mappings_[idx].full());
-
-	LabelType label = collapsed_[idx].back();
-	collapsed_[idx].pop_back();
-	mappings_[idx].insert(label);
-
-	std::cout << " to " << mappings_[idx].size() << " labels" << std::endl;
-
-	// If there is just one collapsed label left, all the auxiliary unaries
-	// and binaries are equal to the original potentials. We can just
-	// uncollapse it.
-	//
-	// We just pop it here, because the Mapping class automatically handles
-	// this case. (Checked in debug mode.)
-	if (collapsed_[idx].size() == 1)
+		LabelType label = collapsed_[idx].back();
 		collapsed_[idx].pop_back();
+		mappings_[idx].insert(label);
 
-	internalChecks();
+		std::cout << "[DBG] uncollapsing var " << idx << " from "
+		          << mappings_[idx].size() << " to "
+		          << mappings_[idx].size() << " labels" << std::endl;
 
-	// Additional we remember the largest potential of the unary values (Theorem 2).
-	ValueType current = unaryValue(idx, label);
-	increaseEpsilonTo(current);
+		// If there is just one collapsed label left, all the auxiliary unaries
+		// and binaries are equal to the original potentials. We can just
+		// uncollapse it.
+		//
+		// We just pop it here, because the Mapping class automatically handles
+		// this case. (Checked in debug mode.)
+		if (collapsed_[idx].size() == 1)
+			collapsed_[idx].pop_back();
 
-	rebuildNecessary_ = true;
-}
+		internalChecks();
 
-template<class GM, class ACC>
-void
-ModelBuilder<GM, ACC>::expand()
-{
-	std::cout << "[DBG] BEGIN EXPANSION" << std::endl;
-	for (IndexType i = 0; i < original_->numberOfVariables(); ++i)
-		while (! mappings_[i].full() && unaryValue(i, collapsed_[i].back()) < epsilon_)
-			uncollapse(i);
-	std::cout << "[DBG] END EXPANSION" << std::endl;
+		rebuildNecessary_ = true;
+		return true;
+	}
+
+	return false;
 }
 
 template<class GM, class ACC>
@@ -415,25 +399,6 @@ ModelBuilder<GM, ACC>::internalChecks() const
 		}
 	}
 #endif
-}
-
-template<class GM, class ACC>
-typename ModelBuilder<GM, ACC>::ValueType
-ModelBuilder<GM, ACC>::unaryValue
-(
-	IndexType var,
-	LabelType lbl
-)
-{
-	marray::Vector<IndexType> factorIds;
-	size_t count = original_->numberOfNthOrderFactorsOfVariable(var, 1, factorIds);
-	OPENGM_ASSERT_OP(count, ==, 1);
-	OPENGM_ASSERT_OP((*original_)[factorIds[0]].variableIndex(0), ==, var);
-	const typename OriginalModelType::FactorType &factor = (*original_)[factorIds[0]];
-
-	opengm::FastSequence<LabelType> labeling(1);
-	labeling[0] = lbl;
-	return factor(labeling.begin());
 }
 
 } // namespace labelcollapse

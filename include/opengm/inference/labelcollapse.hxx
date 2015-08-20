@@ -47,6 +47,7 @@
 #include <opengm/graphicalmodel/space/discretespace.hxx>
 #include <opengm/inference/inference.hxx>
 #include <opengm/inference/visitors/visitors.hxx>
+#include <opengm/inference/auxiliary/fusion_move/fusion_mover.hxx>
 #include <opengm/utilities/metaprogramming.hxx>
 
 #include "labelcollapse/modelbuilder.hxx"
@@ -166,7 +167,7 @@ public:
 
 	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
 	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
-	void increaseEpsilonTo(ValueType value);
+	template<class INPUT_ITERATOR> void populateFusionMove(INPUT_ITERATOR);
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
@@ -253,8 +254,8 @@ LabelCollapse<GM, INF, KIND>::infer
 	visitor.begin(*this);
 	std::vector<LabelType> labeling;
 
-	bool exitInf = false;
-	while (!exitInf) {
+	bool again = true;
+	while (again) {
 		// Building the model is not really necessary (should be already done
 		// at this point).
 		builder_.buildAuxiliaryModel();
@@ -277,21 +278,19 @@ LabelCollapse<GM, INF, KIND>::infer
 		bound_ = inf.value();
 		inf.arg(labeling, 1); // FIXME: Check result value.
 
-		// If the labeling is valid, we are done.
-		if (builder_.isValidLabeling(labeling.begin())) {
-			exitInf = true;
+		// Update the model. This will try to make more labels available where
+		// the current labeling is invalid.
+		// If no update was necessary (i.e. the labeling is valid), we are done.
+		again = builder_.uncollapseLabeling(labeling.begin());
+
+		if (! again) {
 			termination_ = NORMAL;
 			value_ = inf.value();
-
 			builder_.originalLabeling(labeling.begin(), labeling_.begin());
 		} else {
-			// Update the model. This will try to make more labels available where
-			// the current labeling is invalid.
-			builder_.uncollapseLabeling(labeling.begin());
+			// In case user code looks at the model.
+			builder_.buildAuxiliaryModel();
 		}
-
-		// In case user code looks at the model.
-		builder_.buildAuxiliaryModel();
 
 		if (visitor(*this) != visitors::VisitorReturnFlag::ContinueInf) {
 			// Visitor could also return StopInfBoundReached. But that does not
@@ -307,35 +306,87 @@ LabelCollapse<GM, INF, KIND>::infer
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
-template<class INPUT_ITERATOR>
+template<class ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::populateShape
 (
-	INPUT_ITERATOR it
+	ITERATOR it
 )
 {
-	builder_.populateShape(it);
+	for (IndexType i = 0; i < gm_->numberOfVariables(); ++i, ++it)
+		while (builder_.isUncollapsable(i) && builder_.numberOfLabels(i) < *it)
+			builder_.uncollapse(i);
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
-template<class INPUT_ITERATOR>
+template<class ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::populateLabeling
 (
-	INPUT_ITERATOR it
+	ITERATOR it
 )
 {
-	builder_.populateLabeling(it);
+	std::vector<LabelType> auxiliaryLabeling;
+	builder_.auxiliaryLabeling(it, auxiliaryLabeling.begin());
+
+	// We have an auxiliary labeling, but we need a label shape (remember that
+	// there is the additional zeroth label which represents all collapsed
+	// labels).
+	std::transform(
+		auxiliaryLabeling.begin(), auxiliaryLabeling.end(),
+		auxiliaryLabeling.begin(),
+		std::bind2nd(std::plus<LabelType>(), 1)
+	);
+
+	populateShape(auxiliaryLabeling.begin());
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
+template<class ITERATOR>
 void
-LabelCollapse<GM, INF, KIND>::increaseEpsilonTo
+LabelCollapse<GM, INF, KIND>::populateFusionMove
 (
-	ValueType value
+	ITERATOR it
 )
 {
-	builder_.increaseEpsilonTo(value);
+	std::vector<LabelType> auxLabeling(gm_->numberOfVariables());
+	builder_.auxiliaryLabeling(it, auxLabeling.begin());
+
+	bool again = true;
+	while (again) {
+		builder_.buildAuxiliaryModel();
+		const AuxiliaryModelType &model = builder_.getAuxiliaryModel();
+
+		ValueType resultingEnergy;
+		std::vector<LabelType> resultingLabeling(gm_->numberOfVariables());
+		std::vector<LabelType> lowerBoundLabeling(gm_->numberOfVariables());
+
+		// If we can’t move any label to a auxiliary label (function returns
+		// false), both labelings are idential. It does not make any sense to
+		// run FusionMove.
+		if (builder_.moveToAuxiliary(auxLabeling.begin(), lowerBoundLabeling.begin())) {
+			// Default parameter of HlFusionMover uses QPBO if available and in
+			// all other cases LazyFlipper.
+			typedef HlFusionMover<AuxiliaryModelType, AccumulationType> FusionMover;
+			typename FusionMover::Parameter param;
+			FusionMover fusionMover(model, param);
+
+			// TODO: Why do we need to pass the values of the labelings separately?
+			bool success = fusionMover.fuse(
+				auxLabeling, lowerBoundLabeling, resultingLabeling,
+				model.evaluate(auxLabeling.begin()), model.evaluate(lowerBoundLabeling.begin()),
+				resultingEnergy
+			);
+
+			// Only false if both labelings are identical. Can’t be the case,
+			// see moveToAuxiliary above.
+			OPENGM_ASSERT(success);
+
+			again = builder_.uncollapseLabeling(resultingLabeling.begin());
+		} else {
+			again = false;
+		}
+	}
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
