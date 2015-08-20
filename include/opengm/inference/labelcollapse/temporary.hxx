@@ -40,7 +40,7 @@ temporaryTheorem2
 )
 {
 	std::cout << "[DBG] BEGIN THEOREM2" << std::endl;
-	std::vector<typename INF::LabelType> labeling = inf.reparameterizer().labeling();
+	std::vector<typename INF::LabelType> labeling = inf.reparametrizer().labeling();
 	if (out)
 		*out = labeling;
 

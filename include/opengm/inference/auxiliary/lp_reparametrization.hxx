@@ -319,7 +319,7 @@ public:
 	 * The last parameter - number of border p/w factors incident to varID for all variables
 	 */
 	static void getGMMaskBorder(const GM& gm,const MaskType& mask,std::vector<std::pair<IndexType,IndexType> >* pborderFactors ,std::vector<IndexType>* pborderFactorCounter);
-private:
+protected:
 	const GM& _gm;
 	RepaStorageType _repastorage;
 };

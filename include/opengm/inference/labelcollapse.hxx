@@ -50,7 +50,7 @@
 #include <opengm/utilities/metaprogramming.hxx>
 
 #include "labelcollapse/modelbuilder.hxx"
-#include "labelcollapse/reparameterization.hxx"
+#include "labelcollapse/reparametrization.hxx"
 #include "labelcollapse/utils.hxx"
 #include "labelcollapse/visitor.hxx"
 
@@ -61,7 +61,7 @@ namespace opengm {
 // used by the user.
 template<
 	class GM, class INF,
-	labelcollapse::ReparameterizationKind REPA = labelcollapse::ReparameterizationNone
+	labelcollapse::ReparametrizationKind REPA = labelcollapse::ReparametrizationNone
 > class LabelCollapse;
 
 // This is a type generator for generating the template parameter for
@@ -79,10 +79,8 @@ struct LabelCollapseAuxTypeGen;
 
 template<class GM, class ACC>
 struct LabelCollapseAuxTypeGen {
-	// HACK: We are only interested in the the type and so we pass an arbitrary
-	// ACC (AccumulationType).
-	typedef typename labelcollapse::Reparameterizer<GM, opengm::Minimizer>::ReparameterizedModelType ReparameterizedModelType;
-	typedef typename labelcollapse::ModelBuilderAuxTypeGen<ReparameterizedModelType, ACC>::GraphicalModelType GraphicalModelType;
+	typedef typename LPReparametrizer<GM, ACC>::ReparametrizedGMType ReparametrizedModelType;
+	typedef typename labelcollapse::ModelBuilderAuxTypeGen<ReparametrizedModelType, ACC>::GraphicalModelType GraphicalModelType;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -91,7 +89,7 @@ struct LabelCollapseAuxTypeGen {
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 class LabelCollapse : public opengm::Inference<GM, typename INF::AccumulationType>
 {
 public:
@@ -118,10 +116,10 @@ public:
 	typedef typename INF::AccumulationType AccumulationType;
 	typedef GM GraphicalModelType;
 	typedef LabelCollapseAuxTypeGen<GraphicalModelType, AccumulationType> AuxTypeGen;
-	typedef typename AuxTypeGen::ReparameterizedModelType ReparameterizedModelType;
+	typedef typename AuxTypeGen::ReparametrizedModelType ReparametrizedModelType;
 	typedef typename AuxTypeGen::GraphicalModelType AuxiliaryModelType;
-	typedef typename labelcollapse::Reparameterizer<GraphicalModelType, AccumulationType, KIND> ReparameterizerType;
-	typedef typename labelcollapse::ModelBuilder<ReparameterizedModelType, AccumulationType> ModelBuilderType;
+	typedef typename labelcollapse::ReparametrizerTypeGen<GraphicalModelType, AccumulationType, KIND>::Type ReparametrizerType;
+	typedef typename labelcollapse::ModelBuilder<ReparametrizedModelType, AccumulationType> ModelBuilderType;
 
 	OPENGM_GM_TYPE_TYPEDEFS;
 
@@ -155,9 +153,9 @@ public:
 	LabelCollapse(const GraphicalModelType&, const Parameter& = Parameter());
 	std::string name() const;
 	const GraphicalModelType& graphicalModel() const { return *gm_; }
-	const ReparameterizedModelType &reparameterizedModel() const { return repa_.reparameterizedModel(); }
+	const ReparametrizedModelType &reparametrizedModel() const { return repa_.reparametrizedModel(); }
 	const AuxiliaryModelType& currentAuxiliaryModel() const { return builder_.getAuxiliaryModel(); }
-	const ReparameterizerType& reparameterizer() const { return repa_; }
+	const ReparametrizerType& reparametrizer() const { return repa_; }
 
 	InferenceTermination infer();
 	template<class VISITOR> InferenceTermination infer(VISITOR&);
@@ -178,17 +176,17 @@ public:
 
 private:
 	const GraphicalModelType *gm_;
-	ReparameterizerType repa_;
+	ReparametrizedModelType rgm;
+	ReparametrizerType repa_;
 	mutable ModelBuilderType builder_; // This is a hack. Sry.
 	Parameter parameter_;
-
 	InferenceTermination termination_;
 	std::vector<LabelType> labeling_;
 	ValueType value_;
 	ValueType bound_;
 };
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 LabelCollapse<GM, INF, KIND>::LabelCollapse
 (
 	const GraphicalModelType &gm,
@@ -196,19 +194,20 @@ LabelCollapse<GM, INF, KIND>::LabelCollapse
 )
 : gm_(&gm)
 , repa_(gm)
-, builder_(repa_.reparameterizedModel())
+, builder_(ReparametrizedModelType())
 , parameter_(parameter)
 {
 	// FIXME: This is a bit clumsy. We first construct all the objects and
-	// afterwards need to instantiate a new builder. This should be fixed.
-	repa_.reparameterize();
-	builder_ = ModelBuilderType(repa_.reparameterizedModel());
+	// afterwards need to instantiate a *new* builder. This should be fixed.
+	repa_.reparametrize();
+	repa_.getReparametrizedModel(rgm);
+	builder_ = ModelBuilderType(rgm);
 
 	// Maybe user code wants to have a look at the model.
 	builder_.buildAuxiliaryModel();
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 std::string
 LabelCollapse<GM, INF, KIND>::name() const
 {
@@ -217,7 +216,7 @@ LabelCollapse<GM, INF, KIND>::name() const
 	return "LabelCollapse(" + inf.name() + ")";
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 InferenceTermination
 LabelCollapse<GM, INF, KIND>::infer()
 {
@@ -225,7 +224,7 @@ LabelCollapse<GM, INF, KIND>::infer()
 	return infer(visitor);
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class VISITOR>
 InferenceTermination
 LabelCollapse<GM, INF, KIND>::infer
@@ -237,7 +236,7 @@ LabelCollapse<GM, INF, KIND>::infer
 	return infer(visitor, proxy_visitor);
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class VISITOR, class PROXY_VISITOR>
 InferenceTermination
 LabelCollapse<GM, INF, KIND>::infer
@@ -307,7 +306,7 @@ LabelCollapse<GM, INF, KIND>::infer
 	return termination_;
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class INPUT_ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::populateShape
@@ -318,7 +317,7 @@ LabelCollapse<GM, INF, KIND>::populateShape
 	builder_.populateShape(it);
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class INPUT_ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::populateLabeling
@@ -329,7 +328,7 @@ LabelCollapse<GM, INF, KIND>::populateLabeling
 	builder_.populateLabeling(it);
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 void
 LabelCollapse<GM, INF, KIND>::increaseEpsilonTo
 (
@@ -339,7 +338,7 @@ LabelCollapse<GM, INF, KIND>::increaseEpsilonTo
 	builder_.increaseEpsilonTo(value);
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 InferenceTermination
 LabelCollapse<GM, INF, KIND>::arg
 (
@@ -355,7 +354,7 @@ LabelCollapse<GM, INF, KIND>::arg
 	}
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class OUTPUT_ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::originalNumberOfLabels
@@ -369,7 +368,7 @@ LabelCollapse<GM, INF, KIND>::originalNumberOfLabels
 	}
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class OUTPUT_ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::currentNumberOfLabels
@@ -383,7 +382,7 @@ LabelCollapse<GM, INF, KIND>::currentNumberOfLabels
 	}
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class IN_ITER, class OUT_ITER>
 void
 LabelCollapse<GM, INF, KIND>::auxiliaryLabeling
@@ -396,7 +395,7 @@ LabelCollapse<GM, INF, KIND>::auxiliaryLabeling
 	builder_.auxiliaryLabeling(original, auxiliary);
 }
 
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class OUTPUT_ITERATOR>
 void
 LabelCollapse<GM, INF, KIND>::depth
@@ -408,8 +407,7 @@ LabelCollapse<GM, INF, KIND>::depth
 	calculateDepth(labeling_.begin(), depth);
 }
 
-
-template<class GM, class INF, labelcollapse::ReparameterizationKind KIND>
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
 template<class IN_ITER, class OUT_ITER>
 void
 LabelCollapse<GM, INF, KIND>::calculateDepth

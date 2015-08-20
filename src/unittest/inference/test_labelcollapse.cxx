@@ -22,7 +22,7 @@ typedef opengm::BlackBoxTestFull<OriginalModelType> FullTest;
 typedef opengm::BlackBoxTestStar<OriginalModelType> StarTest;
 typedef opengm::InferenceBlackBoxTester<OriginalModelType> BlackBoxTester;
 
-template<opengm::labelcollapse::ReparameterizationKind REPA>
+template<opengm::labelcollapse::ReparametrizationKind REPA>
 void test(BlackBoxTester &tester)
 {
 	std::cout << " - Test Min-Sum with Bruteforce" << std::endl;
@@ -63,18 +63,18 @@ int main()
 	tester.addTest(new StarTest(5,      6, false,  true, StarTest::RANDOM, opengm::OPTIMAL, 20));
 
 	using namespace opengm::labelcollapse;
-	std::cout << "Test LabelCollapse (no reparameterization)" << std::endl;
-	test<ReparameterizationNone>(tester);
+	std::cout << "Test LabelCollapse (no reparametrization)" << std::endl;
+	test<ReparametrizationNone>(tester);
 
-	std::cout << "Test LabelCollapse (canonical chain reparameterization)" << std::endl;
-	test<ReparameterizationChainCanonical>(tester);
+	std::cout << "Test LabelCollapse (canonical chain reparametrization)" << std::endl;
+	test<ReparametrizationChainCanonical>(tester);
 
-	std::cout << "Test LabelCollapse (uniform chain reparameterization)" << std::endl;
-	test<ReparameterizationChainUniform>(tester);
+	std::cout << "Test LabelCollapse (uniform chain reparametrization)" << std::endl;
+	test<ReparametrizationChainUniform>(tester);
 
-	std::cout << "Test LabelCollapse (custom chain reparameterization)" << std::endl;
-	test<ReparameterizationChainCustom>(tester);
+	std::cout << "Test LabelCollapse (custom chain reparametrization)" << std::endl;
+	test<ReparametrizationChainCustom>(tester);
 
-	std::cout << "Test LabelCollapse (min max diffusion reparameterization)" << std::endl;
-	test<ReparameterizationDiffusion>(tester);
+	std::cout << "Test LabelCollapse (min max diffusion reparametrization)" << std::endl;
+	test<ReparametrizationDiffusion>(tester);
 }
