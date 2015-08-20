@@ -243,26 +243,39 @@ LabelCollapse<GM, INF, KIND>::infer
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &gm = builder_.getAuxiliaryModel();
 		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, gm_->numberOfVariables());
+		std::vector<LabelType> labeling;
 
-		// Run inference on auxiliary model and cache the results.
-		typename Proxy::Inference inf(gm, parameter_.proxy);
-		InferenceTermination result = inf.infer(proxy_visitor);
+		{
+			typedef TRWSi<AuxiliaryModelType, AccumulationType> InfType;
+			typename InfType::Parameter param;
+			param.setTreeAgreeMaxStableIter(100);
+			param.maxNumberOfIterations_= 500;
+			InfType inf(gm, param);
+			termination_ = inf.infer();
 
-		// If the proxy inference method returns an error, we pass it upwards.
-		if (result != NORMAL) {
-			termination_ = result;
-			break;
+			if (termination_ != NORMAL && termination_ != CONVERGENCE)
+				break;
+
+			inf.arg(labeling, 1);
 		}
 
-		bound_ = inf.value();
-		std::vector<LabelType> labeling;
-		inf.arg(labeling, 1); // FIXME: Check result value.
+		if (! builder_.isValidLabeling(labeling.begin())){
+			// Run inference on auxiliary model and cache the results.
+			typename Proxy::Inference inf(gm, parameter_.proxy);
+			termination_ = inf.infer(proxy_visitor);
+
+			if (termination_ != NORMAL && termination_ != CONVERGENCE)
+				break;
+
+			bound_ = inf.value();
+			inf.arg(labeling, 1);
+		}
 
 		// If the labeling is valid, we are done.
 		if (builder_.isValidLabeling(labeling.begin())) {
 			exitInf = true;
 			termination_ = NORMAL;
-			value_ = inf.value();
+			value_ = bound_;
 
 			builder_.originalLabeling(labeling.begin(), labeling_.begin());
 		} else {
