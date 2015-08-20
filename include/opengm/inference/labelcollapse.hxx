@@ -245,6 +245,7 @@ LabelCollapse<GM, INF, KIND>::infer
 		OPENGM_ASSERT_OP(gm.numberOfVariables(), ==, gm_->numberOfVariables());
 		std::vector<LabelType> labeling;
 
+		// Run approximate inference.
 		{
 			typedef TRWSi<AuxiliaryModelType, AccumulationType> InfType;
 			typename InfType::Parameter param;
@@ -259,8 +260,10 @@ LabelCollapse<GM, INF, KIND>::infer
 			inf.arg(labeling, 1);
 		}
 
-		if (! builder_.isValidLabeling(labeling.begin())){
-			// Run inference on auxiliary model and cache the results.
+		// If there were no auxiliary labels selected during the approximate
+		// inference, we check again with our “real” inference method.
+		// (Otherwise we just uncollapse the labels and retry.)
+		if (builder_.isValidLabeling(labeling.begin())){
 			typename Proxy::Inference inf(gm, parameter_.proxy);
 			termination_ = inf.infer(proxy_visitor);
 
