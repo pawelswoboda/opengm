@@ -524,11 +524,11 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 		std::cout << std::endl;
 		// END-HACK
 
-		Labeling subTrwsiLabeling;
+		//Labeling subTrwsiLabeling;
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
 		ilpSolver.populateShape(population.begin());
 		//labelcollapse::temporaryTheorem2(ilpSolver, &subTrwsiLabeling);
-		ilpSolver.calculateDepth(subTrwsiLabeling.begin(), subTrwsiLabeling.begin());
+		//ilpSolver.calculateDepth(subTrwsiLabeling.begin(), subTrwsiLabeling.begin());
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
@@ -551,7 +551,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 			targetShape[j] = population[subVar];
 			depth[j] = subDepth[subVar];
-			trwsiLabeling[j] = subTrwsiLabeling[subVar];
+			//trwsiLabeling[j] = subTrwsiLabeling[subVar];
 		}
 		// END-HACK
 	}
