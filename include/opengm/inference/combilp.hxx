@@ -482,14 +482,12 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 	for (size_t i = 0; i < manipulator.numberOfSubmodels(); ++i) {
 		const typename ManipulatorType::MGM &model = manipulator.getModifiedSubModel(i);
-		Labeling &labeling = labelings[i];
-
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
 
-		labeling.resize(model.numberOfVariables());
+		labelings[i].resize(model.numberOfVariables());
 		ilpSolver.arg(labelings[i]);
 	}
 
