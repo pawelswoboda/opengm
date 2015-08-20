@@ -35,6 +35,7 @@
 #include <opengm/graphicalmodel/space/discretespace.hxx>
 #include <opengm/inference/inference.hxx>
 #include <opengm/inference/visitors/visitors.hxx>
+#include <opengm/inference/auxiliary/fusion_move/fusion_mover.hxx>
 #include <opengm/utilities/metaprogramming.hxx>
 
 #include "labelcollapse/modelbuilder.hxx"
@@ -150,6 +151,7 @@ public:
 
 	template<class INPUT_ITERATOR> void populateShape(INPUT_ITERATOR);
 	template<class INPUT_ITERATOR> void populateLabeling(INPUT_ITERATOR);
+	template<class INPUT_ITERATOR> void populateFusionMove(INPUT_ITERATOR);
 
 	template<class OUTPUT_ITERATOR> void originalNumberOfLabels(OUTPUT_ITERATOR) const;
 	template<class OUTPUT_ITERATOR> void currentNumberOfLabels(OUTPUT_ITERATOR) const;
@@ -318,6 +320,54 @@ LabelCollapse<GM, INF, KIND>::populateLabeling
 	);
 
 	populateShape(auxiliaryLabeling.begin());
+}
+
+template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
+template<class ITERATOR>
+void
+LabelCollapse<GM, INF, KIND>::populateFusionMove
+(
+	ITERATOR it
+)
+{
+	std::vector<LabelType> auxLabeling(gm_->numberOfVariables());
+	builder_.auxiliaryLabeling(it, auxLabeling.begin());
+
+	bool again = true;
+	while (again) {
+		builder_.buildAuxiliaryModel();
+		const AuxiliaryModelType &model = builder_.getAuxiliaryModel();
+
+		ValueType resultingEnergy;
+		std::vector<LabelType> resultingLabeling(gm_->numberOfVariables());
+		std::vector<LabelType> lowerBoundLabeling(gm_->numberOfVariables());
+
+		// If we can’t move any label to a auxiliary label (function returns
+		// false), both labelings are idential. It does not make any sense to
+		// run FusionMove.
+		if (builder_.moveToAuxiliary(auxLabeling.begin(), lowerBoundLabeling.begin())) {
+			// Default parameter of HlFusionMover uses QPBO if available and in
+			// all other cases LazyFlipper.
+			typedef HlFusionMover<AuxiliaryModelType, AccumulationType> FusionMover;
+			typename FusionMover::Parameter param;
+			FusionMover fusionMover(model, param);
+
+			// TODO: Why do we need to pass the values of the labelings separately?
+			bool success = fusionMover.fuse(
+				auxLabeling, lowerBoundLabeling, resultingLabeling,
+				model.evaluate(auxLabeling.begin()), model.evaluate(lowerBoundLabeling.begin()),
+				resultingEnergy
+			);
+
+			// Only false if both labelings are identical. Can’t be the case,
+			// see moveToAuxiliary above.
+			OPENGM_ASSERT(success);
+
+			again = builder_.uncollapseLabeling(resultingLabeling.begin());
+		} else {
+			again = false;
+		}
+	}
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
