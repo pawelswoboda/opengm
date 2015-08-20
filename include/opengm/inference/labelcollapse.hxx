@@ -246,6 +246,8 @@ LabelCollapse<GM, INF, KIND>::infer
 	PROXY_VISITOR& proxy_visitor
 )
 {
+	size_t cntLP = 0, cntILP = 0;
+
 	termination_ = UNKNOWN;
 	labeling_.resize(gm_->numberOfVariables());
 	bound_ = AccumulationType::template neutral<ValueType>();
@@ -265,6 +267,7 @@ LabelCollapse<GM, INF, KIND>::infer
 
 		// Run approximate inference.
 		{
+			std::cout << "-> Running TRWS... ";
 			typedef TRWSi<AuxiliaryModelType, AccumulationType> InfType;
 			typename InfType::Parameter param;
 			param.setTreeAgreeMaxStableIter(100);
@@ -276,12 +279,16 @@ LabelCollapse<GM, INF, KIND>::infer
 				break;
 
 			inf.arg(labeling, 1);
+
+			++cntLP;
 		}
 
 		// If there were no auxiliary labels selected during the approximate
 		// inference, we check again with our “real” inference method.
 		// (Otherwise we just uncollapse the labels and retry.)
 		if (builder_.isValidLabeling(labeling.begin())){
+			std::cout << "Seems good, run ILP..." << std::endl;
+
 			// FIXME: Serious hack.
 			parameter_.proxy.mipStartLabeling_ = labeling;
 
@@ -293,6 +300,10 @@ LabelCollapse<GM, INF, KIND>::infer
 
 			bound_ = inf.value();
 			inf.arg(labeling, 1);
+
+			++cntILP;
+		} else {
+			std::cout << "Improvement possible" << std::endl;
 		}
 
 		// Update the model. This will try to make more labels available where
@@ -317,6 +328,8 @@ LabelCollapse<GM, INF, KIND>::infer
 			return termination_;
 		}
 	}
+
+	std::cout << "-> cntLP = " << cntLP << " | cntILP = " << cntILP << std::endl;
 
 	visitor.end(*this);
 	return termination_;
@@ -366,11 +379,15 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 	ITERATOR it
 )
 {
+	size_t cntMove = 0;
+
 	std::vector<LabelType> auxLabeling(gm_->numberOfVariables());
 	builder_.auxiliaryLabeling(it, auxLabeling.begin());
 
 	bool again = true;
 	while (again) {
+		++cntMove;
+		std::cout << "(FusionMove)" << std::endl;
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &model = builder_.getAuxiliaryModel();
 
@@ -404,6 +421,8 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 			again = false;
 		}
 	}
+
+	std::cout << "-> cntMove = " << cntMove << std::endl;
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
