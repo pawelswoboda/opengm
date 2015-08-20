@@ -102,6 +102,10 @@ public:
 	template<class IN_ITER> bool isValidLabeling(IN_ITER) const;
 	template<class IN_ITER, class OUT_ITER> void originalLabeling(IN_ITER, OUT_ITER) const;
 	template<class IN_ITER, class OUT_ITER> void auxiliaryLabeling(IN_ITER, OUT_ITER) const;
+
+	template<class IN_ITER, class OUT_ITER> bool moveToAuxiliary(IN_ITER, OUT_ITER) const;
+	template<class OUT_ITER> void initialLabeling(OUT_ITER) const;
+
 	template<class IN_ITER, class OUT_ITER> void calculateDepth(IN_ITER, OUT_ITER) const;
 	LabelType numberOfLabels(IndexType i) const { return mappings_[i].size(); }
 
@@ -260,6 +264,40 @@ ModelBuilder<GM, ACC>::auxiliaryLabeling
 	{
 		*auxiliary = mappings_[i].auxiliary(*original);
 	}
+}
+
+template<class GM, class ACC>
+template<class IN_ITER, class OUT_ITER>
+bool
+ModelBuilder<GM, ACC>::moveToAuxiliary
+(
+	IN_ITER in,
+	OUT_ITER out
+) const
+{
+	bool result = false;
+
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++in, ++out) {
+		if (mappings_[i].full()) {
+			*out = *in;
+		} else {
+			*out = mappings_[i].full() ? *in : 0;
+		}
+	}
+
+	return result;
+}
+
+template<class GM, class ACC>
+template<class OUT_ITER>
+void
+ModelBuilder<GM, ACC>::initialLabeling
+(
+	OUT_ITER out
+) const
+{
+	for (IndexType i = 0; i < original_->numberOfVariables(); ++i, ++out)
+		*out = mappings_[i].full() ? 0 : 1;
 }
 
 template<class GM, class ACC>
