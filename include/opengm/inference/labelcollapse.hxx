@@ -307,19 +307,11 @@ LabelCollapse<GM, INF, KIND>::populateLabeling
 	ITERATOR it
 )
 {
-	std::vector<LabelType> auxiliaryLabeling;
-	builder_.auxiliaryLabeling(it, auxiliaryLabeling.begin());
+	std::vector<LabelType> auxiliaryLabeling(gm_->numberOfVariables());
 
-	// We have an auxiliary labeling, but we need a label shape (remember that
-	// there is the additional zeroth label which represents all collapsed
-	// labels).
-	std::transform(
-		auxiliaryLabeling.begin(), auxiliaryLabeling.end(),
-		auxiliaryLabeling.begin(),
-		std::bind2nd(std::plus<LabelType>(), 1)
-	);
-
-	populateShape(auxiliaryLabeling.begin());
+	do {
+		builder_.auxiliaryLabeling(it, auxiliaryLabeling.begin());
+	} while (builder_.uncollapseLabeling(auxiliaryLabeling.begin()));
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
