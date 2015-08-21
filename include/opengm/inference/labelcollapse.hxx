@@ -356,19 +356,11 @@ LabelCollapse<GM, INF, KIND>::populateLabeling
 	ITERATOR it
 )
 {
-	std::vector<LabelType> auxiliaryLabeling;
-	builder_.auxiliaryLabeling(it, auxiliaryLabeling.begin());
+	std::vector<LabelType> auxiliaryLabeling(gm_->numberOfVariables());
 
-	// We have an auxiliary labeling, but we need a label shape (remember that
-	// there is the additional zeroth label which represents all collapsed
-	// labels).
-	std::transform(
-		auxiliaryLabeling.begin(), auxiliaryLabeling.end(),
-		auxiliaryLabeling.begin(),
-		std::bind2nd(std::plus<LabelType>(), 1)
-	);
-
-	populateShape(auxiliaryLabeling.begin());
+	do {
+		builder_.auxiliaryLabeling(it, auxiliaryLabeling.begin());
+	} while (builder_.uncollapseLabeling(auxiliaryLabeling.begin()));
 }
 
 template<class GM, class INF, labelcollapse::ReparametrizationKind KIND>
@@ -381,6 +373,11 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 {
 	size_t cntMove = 0;
 
+	// We need to populate the original labeling so that it is available in
+	// the model.
+	populateLabeling(it);
+
+	// This is our reference labeling model.
 	std::vector<LabelType> auxLabeling(gm_->numberOfVariables());
 	builder_.auxiliaryLabeling(it, auxLabeling.begin());
 
@@ -396,8 +393,8 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 		std::vector<LabelType> lowerBoundLabeling(gm_->numberOfVariables());
 
 		// If we can’t move any label to a auxiliary label (function returns
-		// false), both labelings are idential. It does not make any sense to
-		// run FusionMove.
+		// false), both labelings are identical. It does not make any sense to
+		// run FusionMove. (FusionMove would simply return false.)
 		if (builder_.moveToAuxiliary(auxLabeling.begin(), lowerBoundLabeling.begin())) {
 			// Default parameter of HlFusionMover uses QPBO if available and in
 			// all other cases LazyFlipper.
