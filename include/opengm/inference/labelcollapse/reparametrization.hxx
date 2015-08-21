@@ -418,7 +418,7 @@ public:
 
 	SequenceReparametrizerWrapper(const GraphicalModelType &gm);
 	virtual void reparametrize(const MaskType* = NULL);
-	void getApproximateLabeling(std::vector<LabelType> &labeling);
+	void getApproximateLabeling(std::vector<LabelType> &labeling) const;
 
 private:
 	static typename TRWSiType::Parameter trwsiParameter();
@@ -457,7 +457,7 @@ void
 SequenceReparametrizerWrapper<GM, ACC, SEQ_REPA>::getApproximateLabeling
 (
 	std::vector<LabelType> &labeling
-)
+) const
 {
 	trwsi_.arg(labeling);
 }

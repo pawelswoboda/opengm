@@ -527,6 +527,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 
 		//Labeling subTrwsiLabeling;
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
+		ilpSolver.reparametrizer().getApproximateLabeling(subTrwsiLabeling);
 		//ilpSolver.populateShape(population.begin());
 		ilpSolver.populateFusionMove(subTrwsiLabeling.begin());
 		ilpSolver.auxiliaryLabeling(subTrwsiLabeling.begin(), subTrwsiLabeling.begin());
