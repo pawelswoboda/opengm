@@ -322,6 +322,11 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 	ITERATOR it
 )
 {
+	// We need to populate the original labeling so that it is available in
+	// the model.
+	populateLabeling(it);
+
+	// This is our reference labeling model.
 	std::vector<LabelType> auxLabeling(gm_->numberOfVariables());
 	builder_.auxiliaryLabeling(it, auxLabeling.begin());
 
@@ -335,8 +340,8 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 		std::vector<LabelType> lowerBoundLabeling(gm_->numberOfVariables());
 
 		// If we can’t move any label to a auxiliary label (function returns
-		// false), both labelings are idential. It does not make any sense to
-		// run FusionMove.
+		// false), both labelings are identical. It does not make any sense to
+		// run FusionMove. (FusionMove would simply return false.)
 		if (builder_.moveToAuxiliary(auxLabeling.begin(), lowerBoundLabeling.begin())) {
 			// Default parameter of HlFusionMover uses QPBO if available and in
 			// all other cases LazyFlipper.
