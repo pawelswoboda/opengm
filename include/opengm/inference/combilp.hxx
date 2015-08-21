@@ -529,6 +529,7 @@ CombiLP<GM, ACC, LP, ILP>::inferenceOnSubmodels
 		ILPSolverType ilpSolver(model, parameter_.ilpsolverParameter_);
 		//ilpSolver.populateShape(population.begin());
 		ilpSolver.populateFusionMove(subTrwsiLabeling.begin());
+		ilpSolver.auxiliaryLabeling(subTrwsiLabeling.begin(), subTrwsiLabeling.begin());
 		InferenceTermination result = ilpSolver.infer();
 		if (result != NORMAL && result != CONVERGENCE)
 			return result;
