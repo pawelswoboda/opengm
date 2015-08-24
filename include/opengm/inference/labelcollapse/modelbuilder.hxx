@@ -281,7 +281,12 @@ ModelBuilder<GM, ACC>::moveToAuxiliary
 		if (mappings_[i].full()) {
 			*out = *in;
 		} else {
-			*out = mappings_[i].full() ? *in : 0;
+			*out = 0;
+
+			// Functions returns true if at least one label was moved from
+			// non-auxiliary to auxiliary label.
+			if (*in != 0)
+				result = true;
 		}
 	}
 
