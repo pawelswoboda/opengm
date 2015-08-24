@@ -383,7 +383,6 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 
 	bool again = true;
 	while (again) {
-		++cntMove;
 		std::cout << "(FusionMove)" << std::endl;
 		builder_.buildAuxiliaryModel();
 		const AuxiliaryModelType &model = builder_.getAuxiliaryModel();
@@ -414,6 +413,7 @@ LabelCollapse<GM, INF, KIND>::populateFusionMove
 			OPENGM_ASSERT(success);
 
 			again = builder_.uncollapseLabeling(resultingLabeling.begin());
+			++cntMove;
 		} else {
 			again = false;
 		}
