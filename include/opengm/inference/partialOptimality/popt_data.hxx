@@ -305,7 +305,9 @@ void POpt_Data<GM>::reducedGraphicalModel(ReducedGmType& reducedGm) const
             if(optimal_[gm_[f].variableIndex(v)]){
                shape[v] = labeling_[gm_[f].variableIndex(v)];
             }else{
-               shape[v] = 0;
+               LabelType label = 0;
+               while(partialOptimality_[gm_[f].variableIndex(v)][label] == opengm::Tribool::False) label++;
+               shape[v] = label;
             }
          }
          g(reducedShape) = gm_[f](shape);
